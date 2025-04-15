@@ -23,6 +23,7 @@ class AuthResponse {
   AuthResponse({this.user, this.error, this.errorMessage});
 
   bool get isSuccess => user != null && error == null;
+  // bool get isSuccess => error == null;
 }
 
 // Authentication service
@@ -110,10 +111,12 @@ class AuthService {
   Future<AuthResponse> sendPasswordResetEmail({required String email}) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
-      return AuthResponse();
+      return AuthResponse(error: null, errorMessage: null);
     } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Error: ${e.code} - ${e.message}');
       return AuthResponse(error: _getAuthError(e), errorMessage: e.message);
     } catch (e) {
+      print('Unexpected error: $e');
       return AuthResponse(
         error: AuthError.undefined,
         errorMessage: e.toString(),

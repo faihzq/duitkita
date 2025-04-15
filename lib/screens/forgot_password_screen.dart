@@ -58,7 +58,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       _isLoading = false;
     });
 
-    if (!response.isSuccess && mounted) {
+    if (response.error != null && mounted) {
       showSnackBar(
         context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
