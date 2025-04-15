@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "375006835997",
+    "project_id": "duitkita-8451b",
+    "storage_bucket": "duitkita-8451b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375006835997:android:97e20488a25fa9cbbcddf4",
+        "android_client_info": {
+          "package_name": "com.example.duit_kita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuYIG_mehkLuSgB94t3tTAfkYCF8BVuKI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375006835997:android:59729b01273585c4bcddf4",
+        "android_client_info": {
+          "package_name": "com.example.duitkita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuYIG_mehkLuSgB94t3tTAfkYCF8BVuKI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
