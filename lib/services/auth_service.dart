@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:duitkita/models/user_profile.dart';
+import 'package:duitkita/services/profile_service.dart';
 
 // Authentication service errors
 enum AuthError {
@@ -85,12 +87,27 @@ class AuthService {
   Future<AuthResponse> signUpWithEmailAndPassword({
     required String email,
     required String password,
+    String? name,
+    String? phoneNumber,
   }) async {
     try {
       final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      // If we have a user, create a profile
+      if (userCredential.user != null) {
+        final profileService = ProfileService();
+        final userProfile = UserProfile(
+          uid: userCredential.user!.uid,
+          name: name,
+          phoneNumber: phoneNumber,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await profileService.createUserProfile(userProfile);
+      }
       return AuthResponse(user: userCredential.user);
     } on FirebaseAuthException catch (e) {
       return AuthResponse(error: _getAuthError(e), errorMessage: e.message);

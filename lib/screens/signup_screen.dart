@@ -16,6 +16,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -29,6 +31,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -97,6 +101,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         .signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          name: _nameController.text.trim(),
+          phoneNumber: _phoneController.text.trim(),
         );
 
     setState(() {
@@ -151,6 +157,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         _emailError = null;
                       });
                     }
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nameController,
+                  labelText: 'Full Name',
+                  onChanged: (_) {
+                    // Handle changes if needed
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _phoneController,
+                  labelText: 'Phone Number',
+                  keyboardType: TextInputType.phone,
+                  onChanged: (_) {
+                    // Handle changes if needed
                   },
                 ),
                 const SizedBox(height: 16),

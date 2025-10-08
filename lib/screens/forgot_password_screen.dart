@@ -5,7 +5,7 @@ import 'package:duitkita/widgets/custom_text_field.dart';
 import 'package:duitkita/utils/utils.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
-  const ForgotPasswordScreen({Key? key}) : super(key: key);
+  const ForgotPasswordScreen({super.key});
 
   @override
   ConsumerState<ForgotPasswordScreen> createState() =>

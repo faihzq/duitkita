@@ -5,7 +5,7 @@ import '../screens/login_screen.dart';
 import '../screens/home_screen.dart';
 
 class AuthWrapper extends ConsumerWidget {
-  const AuthWrapper({Key? key}) : super(key: key);
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

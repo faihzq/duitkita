@@ -42,12 +42,16 @@ class AuthController extends StateNotifier<AuthState> {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? name,
+    String? phoneNumber,
   }) async {
     state = AuthState.loading;
 
     final response = await _authService.signUpWithEmailAndPassword(
       email: email,
       password: password,
+      name: name,
+      phoneNumber: phoneNumber,
     );
 
     state = response.isSuccess ? AuthState.authenticated : AuthState.error;
