@@ -19,6 +19,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
   bool _isEditing = false;
+  bool _hasLoadedInitialData = false;
 
   @override
   void dispose() {
@@ -32,25 +33,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _isEditing = !_isEditing;
       if (!_isEditing) {
         // Reset controllers when canceling edit
-        _loadProfileData();
-      }
-    });
-  }
-
-  void _loadProfileData() {
-    final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
-    if (userId != null) {
-      final profileAsync = ref.watch(userProfileStreamProvider(userId));
-
-      profileAsync.whenData((profile) {
-        if (profile != null && mounted) {
-          setState(() {
-            _nameController.text = profile.name ?? '';
-            _phoneController.text = profile.phoneNumber ?? '';
+        final userId =
+            ref.read(authControllerProvider.notifier).currentUser?.uid;
+        if (userId != null) {
+          final profileAsync = ref.read(userProfileStreamProvider(userId));
+          profileAsync.whenData((profile) {
+            if (profile != null && mounted) {
+              _nameController.text = profile.name ?? '';
+              _phoneController.text = profile.phoneNumber ?? '';
+            }
           });
         }
-      });
-    }
+      }
+    });
   }
 
   Future<void> _updateProfile() async {
@@ -98,12 +93,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _loadProfileData();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
     final userEmail =
@@ -119,6 +108,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final profileAsync = ref.watch(userProfileStreamProvider(userId));
+
+    // Load initial data into controllers when profile data is available
+    profileAsync.whenData((profile) {
+      if (profile != null && !_hasLoadedInitialData && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _nameController.text = profile.name ?? '';
+              _phoneController.text = profile.phoneNumber ?? '';
+              _hasLoadedInitialData = true;
+            });
+          }
+        });
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -163,8 +167,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error:
-            (error, stack) =>
-                Center(child: Text('Error loading profile: $error')),
+            (error, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Error loading profile: $error'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _hasLoadedInitialData = false;
+                      });
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
       ),
     );
   }
@@ -225,28 +244,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _updateProfile,
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _updateProfile,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ),
-          child:
-              _isLoading
-                  ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+            child:
+                _isLoading
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Text(
+                      'Save Changes',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  )
-                  : const Text(
-                    'Save Changes',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+          ),
         ),
       ],
     );
