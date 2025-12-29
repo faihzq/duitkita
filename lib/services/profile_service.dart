@@ -33,7 +33,12 @@ class ProfileService {
 
   // Create a new user profile
   Future<void> createUserProfile(UserProfile profile) async {
-    await _users.doc(profile.uid).set(profile.toMap());
+    try {
+      await _users.doc(profile.uid).set(profile.toMap());
+    } catch (e) {
+      // Add error handling
+      throw Exception('Failed to create profile: $e');
+    }
   }
 
   // Update user profile

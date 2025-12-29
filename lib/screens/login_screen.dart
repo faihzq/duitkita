@@ -7,7 +7,7 @@ import 'package:duitkita/screens/signup_screen.dart';
 import 'package:duitkita/screens/forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();

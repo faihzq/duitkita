@@ -5,7 +5,7 @@ import 'package:duitkita/widgets/custom_text_field.dart';
 import 'package:duitkita/utils/utils.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   ConsumerState<SignupScreen> createState() => _SignupScreenState();
