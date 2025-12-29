@@ -24,6 +24,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String? _emailError;
   String? _passwordError;
   String? _confirmPasswordError;
+  String? _nameError;
+  String? _phoneError;
   bool _isLoading = false;
 
   @override
@@ -59,6 +61,38 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     } else {
       setState(() {
         _emailError = null;
+      });
+    }
+
+    if (_nameController.text.trim().isEmpty) {
+      setState(() {
+        _nameError = 'Full name is required';
+      });
+      isValid = false;
+    } else if (_nameController.text.trim().length < 2) {
+      setState(() {
+        _nameError = 'Name must be at least 2 characters';
+      });
+      isValid = false;
+    } else {
+      setState(() {
+        _nameError = null;
+      });
+    }
+
+    if (_phoneController.text.trim().isEmpty) {
+      setState(() {
+        _phoneError = 'Phone number is required';
+      });
+      isValid = false;
+    } else if (_phoneController.text.trim().length < 10) {
+      setState(() {
+        _phoneError = 'Please enter a valid phone number';
+      });
+      isValid = false;
+    } else {
+      setState(() {
+        _phoneError = null;
       });
     }
 
@@ -163,17 +197,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 CustomTextField(
                   controller: _nameController,
                   labelText: 'Full Name',
+                  errorText: _nameError,
                   onChanged: (_) {
-                    // Handle changes if needed
+                    if (_nameError != null) {
+                      setState(() {
+                        _nameError = null;
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _phoneController,
                   labelText: 'Phone Number',
+                  errorText: _phoneError,
                   keyboardType: TextInputType.phone,
                   onChanged: (_) {
-                    // Handle changes if needed
+                    if (_phoneError != null) {
+                      setState(() {
+                        _phoneError = null;
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 16),
