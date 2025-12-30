@@ -6,6 +6,7 @@ import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/screens/add_payment_screen.dart';
 import 'package:duitkita/screens/payment_history_screen.dart';
+import 'package:duitkita/screens/manage_members_screen.dart';
 import 'package:duitkita/utils/utils.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -50,6 +51,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       appBar: AppBar(
         title: const Text('Group Details'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () {
+              final group = groupAsync.value;
+              if (group != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => ManageMembersScreen(
+                          groupId: widget.groupId,
+                          groupName: group.name,
+                        ),
+                  ),
+                );
+              }
+            },
+            tooltip: 'Manage Members',
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {

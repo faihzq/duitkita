@@ -31,6 +31,21 @@ class ProfileService {
     return null;
   }
 
+  // Get user ID by email
+  Future<String?> getUserIdByEmail(String email) async {
+    try {
+      final querySnapshot =
+          await _users.where('email', isEqualTo: email).limit(1).get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        return querySnapshot.docs.first.id;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Create a new user profile
   Future<void> createUserProfile(UserProfile profile) async {
     try {

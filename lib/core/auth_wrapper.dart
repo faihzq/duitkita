@@ -10,9 +10,15 @@ class AuthWrapper extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
+    final currentUser = ref.watch(authControllerProvider.notifier).currentUser;
 
-    return authState == AuthState.authenticated
-        ? const HomeScreen()
-        : const LoginScreen();
+    // Use unique key based on user ID to force rebuild
+    return KeyedSubtree(
+      key: ValueKey(currentUser?.uid ?? 'logged_out'),
+      child:
+          authState == AuthState.authenticated
+              ? const HomeScreen()
+              : const LoginScreen(),
+    );
   }
 }

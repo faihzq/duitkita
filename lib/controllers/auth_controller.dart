@@ -61,9 +61,10 @@ class AuthController extends StateNotifier<AuthState> {
 
   // Sign out
   Future<void> signOut() async {
-    state = AuthState.loading;
     await _authService.signOut();
-    state = AuthState.unauthenticated;
+    if (mounted) {
+      state = AuthState.unauthenticated;
+    }
   }
 
   // Forgot password

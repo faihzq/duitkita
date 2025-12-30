@@ -100,6 +100,7 @@ class AuthService {
         final userProfile = UserProfile(
           uid: userCredential.user!.uid,
           name: name,
+          email: email, // Store email in profile
           phoneNumber: phoneNumber,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
