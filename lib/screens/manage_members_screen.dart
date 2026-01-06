@@ -12,10 +12,10 @@ class ManageMembersScreen extends ConsumerStatefulWidget {
   final String groupName;
 
   const ManageMembersScreen({
-    Key? key,
+    super.key,
     required this.groupId,
     required this.groupName,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ManageMembersScreen> createState() =>

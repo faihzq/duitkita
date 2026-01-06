@@ -228,6 +228,51 @@ class GroupService {
       throw Exception('Failed to update member stats: $e');
     }
   }
+
+  // Transfer admin rights to another member
+  Future<void> transferAdmin({
+    required String groupId,
+    required String currentAdminId,
+    required String newAdminId,
+  }) async {
+    try {
+      final groupDoc = _groups.doc(groupId);
+
+      // Verify current user is admin
+      final currentAdminDoc = await groupDoc.collection('members').doc(currentAdminId).get();
+      if (!currentAdminDoc.exists || !(currentAdminDoc.data()?['isAdmin'] ?? false)) {
+        throw Exception('You are not authorized to transfer admin rights');
+      }
+
+      // Verify new admin is a member
+      final newAdminDoc = await groupDoc.collection('members').doc(newAdminId).get();
+      if (!newAdminDoc.exists) {
+        throw Exception('Selected user is not a member of this group');
+      }
+
+      // Use batch to update both members atomically
+      final batch = _firestore.batch();
+
+      // Remove admin from current admin
+      batch.update(groupDoc.collection('members').doc(currentAdminId), {
+        'isAdmin': false,
+      });
+
+      // Add admin to new admin
+      batch.update(groupDoc.collection('members').doc(newAdminId), {
+        'isAdmin': true,
+      });
+
+      // Update group's updatedAt timestamp
+      batch.update(groupDoc, {
+        'updatedAt': DateTime.now(),
+      });
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to transfer admin rights: $e');
+    }
+  }
 }
 
 // Provider for group service

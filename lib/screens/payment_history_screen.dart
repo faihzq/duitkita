@@ -131,9 +131,36 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                             color: Colors.green.shade700,
                           ),
                         ),
-                        title: Text(
-                          payment.userName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                payment.userName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (payment.receiptUrl != null)
+                              GestureDetector(
+                                onTap: () => _showReceiptImage(
+                                  context,
+                                  payment.receiptUrl!,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Icon(
+                                    Icons.receipt,
+                                    size: 18,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,6 +221,74 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                 ],
               ),
             ),
+      ),
+    );
+  }
+
+  void _showReceiptImage(BuildContext context, String receiptUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              title: const Text('Receipt'),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              automaticallyImplyLeading: false,
+            ),
+            Flexible(
+              child: InteractiveViewer(
+                child: Image.network(
+                  receiptUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(50.0),
+                        child: CircularProgressIndicator(
+                          value:
+                              loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(50.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red.shade300,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Failed to load receipt',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

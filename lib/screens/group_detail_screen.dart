@@ -7,12 +7,14 @@ import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/screens/add_payment_screen.dart';
 import 'package:duitkita/screens/payment_history_screen.dart';
 import 'package:duitkita/screens/manage_members_screen.dart';
+import 'package:duitkita/screens/group_settings_screen.dart';
+import 'package:duitkita/screens/group_analytics_screen.dart';
 import 'package:duitkita/utils/utils.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
 
-  const GroupDetailScreen({Key? key, required this.groupId}) : super(key: key);
+  const GroupDetailScreen({super.key, required this.groupId});
 
   @override
   ConsumerState<GroupDetailScreen> createState() => _GroupDetailScreenState();
@@ -81,6 +83,42 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               );
             },
             tooltip: 'Payment History',
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () {
+              final group = groupAsync.value;
+              if (group != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => GroupAnalyticsScreen(
+                          groupId: widget.groupId,
+                          groupName: group.name,
+                        ),
+                  ),
+                );
+              }
+            },
+            tooltip: 'Analytics',
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              final group = groupAsync.value;
+              if (group != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) => GroupSettingsScreen(
+                          groupId: widget.groupId,
+                          groupName: group.name,
+                        ),
+                  ),
+                );
+              }
+            },
+            tooltip: 'Group Settings',
           ),
         ],
       ),

@@ -16,6 +16,7 @@ class PaymentService {
     required double amount,
     required DateTime paymentDate,
     String? notes,
+    String? receiptUrl,
   }) async {
     try {
       final paymentData = {
@@ -27,6 +28,7 @@ class PaymentService {
         'month': paymentDate.month,
         'year': paymentDate.year,
         'notes': notes,
+        'receiptUrl': receiptUrl,
         'createdAt': DateTime.now(),
       };
 

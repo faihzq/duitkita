@@ -10,6 +10,7 @@ class PaymentModel {
   final int month;
   final int year;
   final String? notes;
+  final String? receiptUrl;
   final DateTime createdAt;
 
   PaymentModel({
@@ -22,6 +23,7 @@ class PaymentModel {
     required this.month,
     required this.year,
     this.notes,
+    this.receiptUrl,
     required this.createdAt,
   });
 
@@ -39,6 +41,7 @@ class PaymentModel {
       month: data['month'] ?? DateTime.now().month,
       year: data['year'] ?? DateTime.now().year,
       notes: data['notes'],
+      receiptUrl: data['receiptUrl'],
       createdAt:
           data['createdAt'] != null
               ? (data['createdAt'] as Timestamp).toDate()
@@ -56,6 +59,7 @@ class PaymentModel {
       'month': month,
       'year': year,
       'notes': notes,
+      'receiptUrl': receiptUrl,
       'createdAt': createdAt,
     };
   }
