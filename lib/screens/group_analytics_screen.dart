@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:duitkita/services/analytics_service.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/models/group_analytics.dart';
+import 'package:duitkita/models/group_member.dart';
 
 class GroupAnalyticsScreen extends ConsumerWidget {
   final String groupId;
@@ -21,9 +22,7 @@ class GroupAnalyticsScreen extends ConsumerWidget {
     final membersAsync = ref.watch(groupMembersStreamProvider(groupId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Group Analytics'),
-      ),
+      appBar: AppBar(title: const Text('Group Analytics')),
       body: analyticsAsync.when(
         data: (analytics) {
           return membersAsync.when(
@@ -94,18 +93,19 @@ class GroupAnalyticsScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => Center(
-              child: Text('Error loading members: $error'),
-            ),
+            error:
+                (error, stack) =>
+                    Center(child: Text('Error loading members: $error')),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text('Error loading analytics: $error'),
-          ),
-        ),
+        error:
+            (error, stack) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Error loading analytics: $error'),
+              ),
+            ),
       ),
     );
   }
@@ -113,10 +113,7 @@ class GroupAnalyticsScreen extends ConsumerWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-      ),
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
     );
   }
 
@@ -170,7 +167,12 @@ class GroupAnalyticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -194,10 +196,7 @@ class GroupAnalyticsScreen extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade700,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
           ),
         ],
       ),
@@ -206,9 +205,10 @@ class GroupAnalyticsScreen extends ConsumerWidget {
 
   Widget _buildCollectionRateCard(GroupAnalytics analytics) {
     final rate = analytics.collectionRate.clamp(0.0, 100.0);
-    final color = rate >= 75
-        ? Colors.green
-        : rate >= 50
+    final color =
+        rate >= 75
+            ? Colors.green
+            : rate >= 50
             ? Colors.orange
             : Colors.red;
 
@@ -263,17 +263,11 @@ class GroupAnalyticsScreen extends ConsumerWidget {
             children: [
               Text(
                 'Collected: RM${analytics.totalCollected.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               Text(
                 'Expected: RM${analytics.expectedTotal.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -283,13 +277,15 @@ class GroupAnalyticsScreen extends ConsumerWidget {
   }
 
   Widget _buildMonthlyChart(GroupAnalytics analytics) {
-    final sortedEntries = analytics.monthlyCollections.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
+    final sortedEntries =
+        analytics.monthlyCollections.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
 
     // Limit to last 6 months for better visualization
-    final recentEntries = sortedEntries.length > 6
-        ? sortedEntries.sublist(sortedEntries.length - 6)
-        : sortedEntries;
+    final recentEntries =
+        sortedEntries.length > 6
+            ? sortedEntries.sublist(sortedEntries.length - 6)
+            : sortedEntries;
 
     if (recentEntries.isEmpty) {
       return Container(
@@ -348,10 +344,7 @@ class GroupAnalyticsScreen extends ConsumerWidget {
                   final month = parts.length > 1 ? parts[1] : '';
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      month,
-                      style: const TextStyle(fontSize: 10),
-                    ),
+                    child: Text(month, style: const TextStyle(fontSize: 10)),
                   );
                 },
                 reservedSize: 30,
@@ -399,15 +392,17 @@ class GroupAnalyticsScreen extends ConsumerWidget {
 
   Widget _buildMemberContributionsChart(
     GroupAnalytics analytics,
-    List<dynamic> members,
+    List<GroupMember> members, // CHANGED: Properly typed as List<GroupMember>
   ) {
-    final sortedContributions = analytics.memberContributions.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sortedContributions =
+        analytics.memberContributions.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
     // Limit to top 5 contributors for better visualization
-    final topContributions = sortedContributions.length > 5
-        ? sortedContributions.sublist(0, 5)
-        : sortedContributions;
+    final topContributions =
+        sortedContributions.length > 5
+            ? sortedContributions.sublist(0, 5)
+            : sortedContributions;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -417,67 +412,82 @@ class GroupAnalyticsScreen extends ConsumerWidget {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
-        children: topContributions.map((entry) {
-          final member = members.firstWhere(
-            (m) => m.userId == entry.key,
-            orElse: () => null,
-          );
-          final userName = member?.userName ?? 'Unknown';
-          final percentage = (entry.value / analytics.totalCollected) * 100;
-          final color = _getColorForIndex(topContributions.indexOf(entry));
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        userName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+        children:
+            topContributions.map((entry) {
+              // FIXED: Return GroupMember instead of null
+              final member = members.firstWhere(
+                (m) => m.userId == entry.key,
+                orElse:
+                    () => GroupMember(
+                      userId: entry.key,
+                      userName: 'Unknown',
+                      isAdmin: false,
+                      joinedAt: DateTime.now(),
+                      totalPaid: 0.0,
+                      paymentCount: 0,
                     ),
-                    Text(
-                      'RM${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
+              );
+              final userName = member.userName;
+              final percentage = (entry.value / analytics.totalCollected) * 100;
+              final color = _getColorForIndex(topContributions.indexOf(entry));
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            userName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          'RM${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percentage / 100,
+                        backgroundColor: Colors.grey.shade200,
+                        color: color,
+                        minHeight: 8,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: percentage / 100,
-                    backgroundColor: Colors.grey.shade200,
-                    color: color,
-                    minHeight: 8,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
 
-  Widget _buildTopContributors(GroupAnalytics analytics, List<dynamic> members) {
-    final sortedContributions = analytics.memberContributions.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+  Widget _buildTopContributors(
+    GroupAnalytics analytics,
+    List<GroupMember> members, // CHANGED: Properly typed as List<GroupMember>
+  ) {
+    final sortedContributions =
+        analytics.memberContributions.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
-    final topThree = sortedContributions.length > 3
-        ? sortedContributions.sublist(0, 3)
-        : sortedContributions;
+    final topThree =
+        sortedContributions.length > 3
+            ? sortedContributions.sublist(0, 3)
+            : sortedContributions;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -487,53 +497,61 @@ class GroupAnalyticsScreen extends ConsumerWidget {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
-        children: topThree.asMap().entries.map((entry) {
-          final index = entry.key;
-          final contribution = entry.value;
-          final member = members.firstWhere(
-            (m) => m.userId == contribution.key,
-            orElse: () => null,
-          );
-          final userName = member?.userName ?? 'Unknown';
-          final paymentCount = analytics.memberPaymentCounts[contribution.key] ?? 0;
+        children:
+            topThree.asMap().entries.map((entry) {
+              final index = entry.key;
+              final contribution = entry.value;
+              // FIXED: Return GroupMember instead of null
+              final member = members.firstWhere(
+                (m) => m.userId == contribution.key,
+                orElse:
+                    () => GroupMember(
+                      userId: contribution.key,
+                      userName: 'Unknown',
+                      isAdmin: false,
+                      joinedAt: DateTime.now(),
+                      totalPaid: 0.0,
+                      paymentCount: 0,
+                    ),
+              );
+              final userName = member.userName;
+              final paymentCount =
+                  analytics.memberPaymentCounts[contribution.key] ?? 0;
 
-          final medal = index == 0
-              ? '🥇'
-              : index == 1
-                  ? '🥈'
-                  : '🥉';
+              final medal =
+                  index == 0
+                      ? '🥇'
+                      : index == 1
+                      ? '🥈'
+                      : '🥉';
 
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: Text(
-                medal,
-                style: const TextStyle(fontSize: 24),
-              ),
-              title: Text(
-                userName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text('$paymentCount payments'),
-              trailing: Text(
-                'RM${contribution.value.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: Text(medal, style: const TextStyle(fontSize: 24)),
+                  title: Text(
+                    userName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('$paymentCount payments'),
+                  trailing: Text(
+                    'RM${contribution.value.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
 
   Widget _buildActivityStats(GroupAnalytics analytics, int totalMembers) {
     final inactiveMembers = totalMembers - analytics.activeMembers;
-    final activityRate = totalMembers > 0
-        ? (analytics.activeMembers / totalMembers) * 100
-        : 0.0;
+    final activityRate =
+        totalMembers > 0 ? (analytics.activeMembers / totalMembers) * 100 : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -574,10 +592,7 @@ class GroupAnalyticsScreen extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
           ),
           Text(
             value,

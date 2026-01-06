@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/models/payment_model.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class PaymentHistoryScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -15,6 +19,14 @@ class PaymentHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
+  // Helper method to check if URL is a PDF
+  bool _isPdfUrl(String url) {
+    final lowerUrl = url.toLowerCase();
+    return lowerUrl.contains('.pdf') ||
+        lowerUrl.contains('application/pdf') ||
+        lowerUrl.contains('%2Fpdf');
+  }
+
   @override
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(
@@ -119,6 +131,10 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
 
                     // Payment items
                     ...monthPayments.map((payment) {
+                      final isPdf =
+                          payment.receiptUrl != null &&
+                          _isPdfUrl(payment.receiptUrl!);
+
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -143,10 +159,19 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                             ),
                             if (payment.receiptUrl != null)
                               GestureDetector(
-                                onTap: () => _showReceiptImage(
-                                  context,
-                                  payment.receiptUrl!,
-                                ),
+                                onTap: () {
+                                  if (isPdf) {
+                                    _openPdfReceipt(
+                                      context,
+                                      payment.receiptUrl!,
+                                    );
+                                  } else {
+                                    _showReceiptImage(
+                                      context,
+                                      payment.receiptUrl!,
+                                    );
+                                  }
+                                },
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
@@ -154,9 +179,14 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Icon(
-                                    Icons.receipt,
+                                    isPdf
+                                        ? Icons.picture_as_pdf
+                                        : Icons.receipt,
                                     size: 18,
-                                    color: Colors.blue.shade700,
+                                    color:
+                                        isPdf
+                                            ? Colors.red.shade700
+                                            : Colors.blue.shade700,
                                   ),
                                 ),
                               ),
@@ -225,71 +255,155 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
     );
   }
 
-  void _showReceiptImage(BuildContext context, String receiptUrl) {
+  // Open PDF receipt - downloads and opens with system handler
+  Future<void> _openPdfReceipt(BuildContext context, String pdfUrl) async {
+    // Show loading dialog
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppBar(
-              title: const Text('Receipt'),
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              automaticallyImplyLeading: false,
-            ),
-            Flexible(
-              child: InteractiveViewer(
-                child: Image.network(
-                  receiptUrl,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(50.0),
-                        child: CircularProgressIndicator(
-                          value:
-                              loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(50.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.red.shade300,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Failed to load receipt',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+      barrierDismissible: false,
+      builder:
+          (context) => const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Downloading receipt...'),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+    );
+
+    try {
+      // Download the PDF
+      final response = await http.get(Uri.parse(pdfUrl));
+
+      if (response.statusCode == 200) {
+        // Get temporary directory
+        final dir = await getTemporaryDirectory();
+
+        // Create a unique filename
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final file = File('${dir.path}/receipt_$timestamp.pdf');
+
+        // Write the PDF to file
+        await file.writeAsBytes(response.bodyBytes);
+
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        // Open the PDF with system handler - this will show "Open with" dialog
+        final result = await OpenFilex.open(file.path);
+
+        // Check result
+        if (result.type != ResultType.done) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open PDF: ${result.message}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } else {
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to download receipt'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening receipt: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Show image receipt (existing method, unchanged)
+  void _showReceiptImage(BuildContext context, String receiptUrl) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppBar(
+                  title: const Text('Receipt'),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  automaticallyImplyLeading: false,
+                ),
+                Flexible(
+                  child: InteractiveViewer(
+                    child: Image.network(
+                      receiptUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(50.0),
+                            child: CircularProgressIndicator(
+                              value:
+                                  loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(50.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: Colors.red.shade300,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Failed to load receipt',
+                                  style: TextStyle(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
     );
   }
 

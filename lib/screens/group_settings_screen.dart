@@ -27,17 +27,22 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) return;
 
-    final membersAsync = ref.read(groupMembersStreamProvider(widget.groupId));
-    final members = await membersAsync.first;
+    final members = await ref.read(
+      groupMembersStreamProvider(widget.groupId).future,
+    );
 
     // Filter out current user and get only non-admin members
-    final eligibleMembers = members
-        .where((member) => member.userId != userId && !member.isAdmin)
-        .toList();
+    final eligibleMembers =
+        members
+            .where((member) => member.userId != userId && !member.isAdmin)
+            .toList();
 
     if (eligibleMembers.isEmpty) {
       if (!mounted) return;
-      showSnackBar(context, 'No other members available to transfer admin rights');
+      showSnackBar(
+        context,
+        'No other members available to transfer admin rights',
+      );
       return;
     }
 
@@ -45,34 +50,35 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
     final selectedMember = await showDialog<GroupMember>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Transfer Admin Rights'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select a member to become the new admin:',
-              style: TextStyle(fontSize: 14),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Transfer Admin Rights'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select a member to become the new admin:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                ...eligibleMembers.map((member) {
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(member.userName),
+                    subtitle: Text(member.userEmail ?? 'No email'),
+                    onTap: () => Navigator.of(context).pop(member),
+                  );
+                }),
+              ],
             ),
-            const SizedBox(height: 16),
-            ...eligibleMembers.map((member) {
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(member.userName),
-                subtitle: Text(member.userEmail ?? 'No email'),
-                onTap: () => Navigator.of(context).pop(member),
-              );
-            }),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (selectedMember != null) {
@@ -88,23 +94,24 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Transfer'),
-        content: Text(
-          'Are you sure you want to transfer admin rights to ${newAdmin.userName}? You will no longer be the admin of this group.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Transfer'),
+            content: Text(
+              'Are you sure you want to transfer admin rights to ${newAdmin.userName}? You will no longer be the admin of this group.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Transfer'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Transfer'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -143,21 +150,20 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final membersAsync = ref.watch(groupMembersStreamProvider(widget.groupId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Group Settings'),
-      ),
+      appBar: AppBar(title: const Text('Group Settings')),
       body: membersAsync.when(
         data: (members) {
           final currentUserMember = members.firstWhere(
             (m) => m.userId == userId,
-            orElse: () => GroupMember(
-              userId: '',
-              userName: '',
-              isAdmin: false,
-              joinedAt: DateTime.now(),
-              totalPaid: 0.0,
-              paymentCount: 0,
-            ),
+            orElse:
+                () => GroupMember(
+                  userId: '',
+                  userName: '',
+                  isAdmin: false,
+                  joinedAt: DateTime.now(),
+                  totalPaid: 0.0,
+                  paymentCount: 0,
+                ),
           );
 
           final isCurrentUserAdmin = currentUserMember.isAdmin;
@@ -181,7 +187,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                     ListTile(
                       leading: const Icon(Icons.admin_panel_settings),
                       title: const Text('Transfer Admin Rights'),
-                      subtitle: const Text('Transfer admin rights to another member'),
+                      subtitle: const Text(
+                        'Transfer admin rights to another member',
+                      ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _isLoading ? null : _showTransferAdminDialog,
                     ),
@@ -197,17 +205,15 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               if (_isLoading)
                 Container(
                   color: Colors.black26,
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Error loading settings: $error'),
-        ),
+        error:
+            (error, stack) =>
+                Center(child: Text('Error loading settings: $error')),
       ),
     );
   }

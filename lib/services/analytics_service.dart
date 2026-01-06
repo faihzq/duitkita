@@ -4,6 +4,7 @@ import 'package:duitkita/models/group_analytics.dart';
 import 'package:duitkita/models/payment_model.dart';
 import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
+import 'package:duitkita/services/group_service.dart';
 
 class AnalyticsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -16,14 +17,16 @@ class AnalyticsService {
   }) async {
     try {
       // Get all payments for this group
-      final paymentsSnapshot = await _firestore
-          .collection('payments')
-          .where('groupId', isEqualTo: groupId)
-          .get();
+      final paymentsSnapshot =
+          await _firestore
+              .collection('payments')
+              .where('groupId', isEqualTo: groupId)
+              .get();
 
-      final payments = paymentsSnapshot.docs
-          .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
-          .toList();
+      final payments =
+          paymentsSnapshot.docs
+              .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
+              .toList();
 
       if (payments.isEmpty) {
         return GroupAnalytics.empty();
@@ -63,31 +66,38 @@ class AnalyticsService {
       // Get top contributor name
       final topContributorMember = members.firstWhere(
         (m) => m.userId == topContributor,
-        orElse: () => GroupMember(
-          userId: '',
-          userName: 'Unknown',
-          isAdmin: false,
-          joinedAt: DateTime.now(),
-          totalPaid: 0.0,
-          paymentCount: 0,
-        ),
+        orElse:
+            () => GroupMember(
+              userId: '',
+              userName: 'Unknown',
+              isAdmin: false,
+              joinedAt: DateTime.now(),
+              totalPaid: 0.0,
+              paymentCount: 0,
+            ),
       );
 
       // Calculate monthly collections
       final Map<String, double> monthlyCollections = {};
       for (var payment in payments) {
-        final monthYear = '${payment.year}-${payment.month.toString().padLeft(2, '0')}';
+        final monthYear =
+            '${payment.year}-${payment.month.toString().padLeft(2, '0')}';
         monthlyCollections[monthYear] =
             (monthlyCollections[monthYear] ?? 0.0) + payment.amount;
       }
 
       // Calculate expected total based on group age and member count
       final now = DateTime.now();
-      final monthsSinceCreation = _calculateMonthsDifference(group.createdAt, now);
-      final expectedTotal = monthsSinceCreation * group.monthlyAmount * members.length;
+      final monthsSinceCreation = _calculateMonthsDifference(
+        group.createdAt,
+        now,
+      );
+      final expectedTotal =
+          monthsSinceCreation * group.monthlyAmount * members.length;
 
       // Calculate collection rate
-      final collectionRate = expectedTotal > 0 ? (totalCollected / expectedTotal) * 100 : 0.0;
+      final collectionRate =
+          expectedTotal > 0 ? (totalCollected / expectedTotal) * 100 : 0.0;
 
       // Count active members (members who have made at least one payment)
       final activeMembers = memberContributions.length;
@@ -116,20 +126,23 @@ class AnalyticsService {
     int? limitMonths,
   }) async {
     try {
-      final paymentsSnapshot = await _firestore
-          .collection('payments')
-          .where('groupId', isEqualTo: groupId)
-          .orderBy('paymentDate', descending: true)
-          .get();
+      final paymentsSnapshot =
+          await _firestore
+              .collection('payments')
+              .where('groupId', isEqualTo: groupId)
+              .orderBy('paymentDate', descending: true)
+              .get();
 
-      final payments = paymentsSnapshot.docs
-          .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
-          .toList();
+      final payments =
+          paymentsSnapshot.docs
+              .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
+              .toList();
 
       // Group payments by month
       final Map<String, List<PaymentModel>> paymentsByMonth = {};
       for (var payment in payments) {
-        final monthYear = '${payment.year}-${payment.month.toString().padLeft(2, '0')}';
+        final monthYear =
+            '${payment.year}-${payment.month.toString().padLeft(2, '0')}';
         if (!paymentsByMonth.containsKey(monthYear)) {
           paymentsByMonth[monthYear] = [];
         }
@@ -141,9 +154,10 @@ class AnalyticsService {
       final sortedMonths = paymentsByMonth.keys.toList()..sort();
 
       // Limit to recent months if specified
-      final monthsToShow = limitMonths != null && sortedMonths.length > limitMonths
-          ? sortedMonths.sublist(sortedMonths.length - limitMonths)
-          : sortedMonths;
+      final monthsToShow =
+          limitMonths != null && sortedMonths.length > limitMonths
+              ? sortedMonths.sublist(sortedMonths.length - limitMonths)
+              : sortedMonths;
 
       for (var monthYear in monthsToShow) {
         final monthPayments = paymentsByMonth[monthYear]!;
@@ -153,13 +167,16 @@ class AnalyticsService {
         );
         final uniqueUsers = monthPayments.map((p) => p.userId).toSet();
 
-        monthlyStats.add(MonthlyStats(
-          monthYear: monthYear,
-          totalAmount: totalAmount,
-          paymentCount: monthPayments.length,
-          paidMembers: uniqueUsers.length,
-          totalMembers: 0, // This would need to be calculated based on group members at that time
-        ));
+        monthlyStats.add(
+          MonthlyStats(
+            monthYear: monthYear,
+            totalAmount: totalAmount,
+            paymentCount: monthPayments.length,
+            paidMembers: uniqueUsers.length,
+            totalMembers:
+                0, // This would need to be calculated based on group members at that time
+          ),
+        );
       }
 
       return monthlyStats;
@@ -171,7 +188,10 @@ class AnalyticsService {
   // Get payment trends (last 6 months)
   Future<Map<String, double>> getPaymentTrends(String groupId) async {
     try {
-      final monthlyStats = await getMonthlyStats(groupId: groupId, limitMonths: 6);
+      final monthlyStats = await getMonthlyStats(
+        groupId: groupId,
+        limitMonths: 6,
+      );
       final Map<String, double> trends = {};
 
       for (var stat in monthlyStats) {
@@ -219,11 +239,10 @@ final groupAnalyticsProvider = FutureProvider.family<GroupAnalytics, String>((
   final analyticsService = ref.watch(analyticsServiceProvider);
 
   // Get group and members data
-  final groupStream = ref.watch(groupStreamProvider(groupId));
-  final membersStream = ref.watch(groupMembersStreamProvider(groupId));
-
-  final group = await groupStream.first;
-  final members = await membersStream.first;
+  final groupStream = ref.read(groupStreamProvider(groupId).future);
+  final membersStream = ref.read(groupMembersStreamProvider(groupId).future);
+  final group = await groupStream;
+  final members = await membersStream;
 
   if (group == null) {
     return GroupAnalytics.empty();
