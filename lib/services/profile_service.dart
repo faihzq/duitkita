@@ -1,5 +1,6 @@
 // lib/services/profile_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/models/user_profile.dart';
 
@@ -42,6 +43,7 @@ class ProfileService {
       }
       return null;
     } catch (e) {
+      debugPrint('Error getting user ID by email: $e');
       return null;
     }
   }
@@ -58,7 +60,11 @@ class ProfileService {
 
   // Update user profile
   Future<void> updateUserProfile(UserProfile profile) async {
-    await _users.doc(profile.uid).update(profile.toMap());
+    try {
+      await _users.doc(profile.uid).update(profile.toMap());
+    } catch (e) {
+      throw Exception('Failed to update profile: $e');
+    }
   }
 }
 

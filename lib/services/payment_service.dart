@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/models/payment_model.dart';
 import 'package:duitkita/services/group_service.dart';
@@ -124,6 +125,7 @@ class PaymentService {
 
       return snapshot.docs.isNotEmpty;
     } catch (e) {
+      debugPrint('Error checking user payment status: $e');
       return false;
     }
   }
@@ -148,6 +150,7 @@ class PaymentService {
 
       return total;
     } catch (e) {
+      debugPrint('Error getting user total in group: $e');
       return 0.0;
     }
   }
@@ -166,6 +169,7 @@ class PaymentService {
 
       return total;
     } catch (e) {
+      debugPrint('Error getting group total collected: $e');
       return 0.0;
     }
   }
@@ -205,6 +209,7 @@ class PaymentService {
         'monthlyPayments': monthlyPayments,
       };
     } catch (e) {
+      debugPrint('Error getting group payment stats: $e');
       return {'totalCollected': 0.0, 'totalPayments': 0, 'monthlyPayments': {}};
     }
   }

@@ -285,7 +285,9 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                         leading: CircleAvatar(
                           backgroundColor: Colors.blue.shade100,
                           child: Text(
-                            member.userName[0].toUpperCase(),
+                            member.userName.isNotEmpty
+                                ? member.userName[0].toUpperCase()
+                                : '?',
                             style: TextStyle(
                               color: Colors.blue.shade700,
                               fontWeight: FontWeight.bold,

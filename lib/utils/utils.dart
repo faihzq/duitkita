@@ -46,7 +46,13 @@ String getAuthErrorMessage(AuthError? error) {
 
 // Email validation
 bool isValidEmail(String email) {
-  final emailRegExp = RegExp(r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+');
+  // More comprehensive email regex that handles:
+  // - Multiple dots before @
+  // - Special characters like + and _
+  // - Multiple domain segments (e.g., .co.uk)
+  final emailRegExp = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
   return emailRegExp.hasMatch(email);
 }
 

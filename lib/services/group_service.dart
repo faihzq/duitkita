@@ -18,6 +18,14 @@ class GroupService {
     required String? creatorEmail,
     double monthlyAmount = 30.0,
   }) async {
+    // Input validation
+    if (name.trim().isEmpty) {
+      throw Exception('Group name cannot be empty');
+    }
+    if (monthlyAmount < 0) {
+      throw Exception('Monthly amount cannot be negative');
+    }
+
     try {
       final now = DateTime.now();
       final groupData = {
