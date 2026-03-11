@@ -30,7 +30,7 @@ class GroupMember {
               ? (data['joinedAt'] as Timestamp).toDate()
               : DateTime.now(),
       totalPaid: (data['totalPaid'] ?? 0.0).toDouble(),
-      paymentCount: data['paymentCount'] ?? 0,
+      paymentCount: (data['paymentCount'] as int?) ?? 0,
     );
   }
 

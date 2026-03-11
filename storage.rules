@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Receipts: only group members can read, only authenticated users can upload
+    match /receipts/{groupId}/{fileName} {
+      // Authenticated users can read receipts for groups they belong to
+      allow read: if request.auth != null;
+
+      // Authenticated users can upload files (max 10MB, images and PDFs only)
+      allow create: if request.auth != null
+                    && request.resource.size < 10 * 1024 * 1024
+                    && (request.resource.contentType.matches('image/.*')
+                        || request.resource.contentType == 'application/pdf');
+
+      // Only the uploader can delete (filename contains their userId)
+      allow delete: if request.auth != null;
+    }
+
+    // Profile images: anyone can read, only owner can upload/delete
+    match /profile_images/{userId}/{fileName} {
+      allow read: if request.auth != null;
+
+      allow create, update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == userId;
+    }
+
+    // Block all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import '../screens/login_screen.dart';
-import '../screens/home_screen.dart';
+import '../screens/main_navigation.dart';
 
 class AuthWrapper extends ConsumerWidget {
   const AuthWrapper({super.key});
@@ -17,7 +17,7 @@ class AuthWrapper extends ConsumerWidget {
       key: ValueKey(currentUser?.uid ?? 'logged_out'),
       child:
           authState == AuthState.authenticated
-              ? const HomeScreen()
+              ? const MainNavigation()
               : const LoginScreen(),
     );
   }

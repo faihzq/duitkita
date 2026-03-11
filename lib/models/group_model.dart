@@ -10,6 +10,12 @@ class GroupModel {
   final DateTime updatedAt;
   final List<String> memberIds;
   final int memberCount;
+  final int reminderDay; // Day of month for payment reminder (1-28)
+  final String? bankName; // Bank name (e.g., Maybank, CIMB)
+  final String? accountNumber; // Bank account number
+  final String? accountHolderName; // Name on the bank account
+  final bool autoApprovePayments; // Auto-approve payments without admin review
+  final bool autoApproveExpenses; // Auto-approve expenses without admin review
 
   GroupModel({
     required this.id,
@@ -21,6 +27,12 @@ class GroupModel {
     required this.updatedAt,
     required this.memberIds,
     required this.memberCount,
+    this.reminderDay = 28,
+    this.bankName,
+    this.accountNumber,
+    this.accountHolderName,
+    this.autoApprovePayments = false,
+    this.autoApproveExpenses = false,
   });
 
   factory GroupModel.fromMap(Map<String, dynamic> data, String id) {
@@ -39,7 +51,13 @@ class GroupModel {
               ? (data['updatedAt'] as Timestamp).toDate()
               : DateTime.now(),
       memberIds: List<String>.from(data['memberIds'] ?? []),
-      memberCount: data['memberCount'] ?? 0,
+      memberCount: (data['memberCount'] as int?) ?? 0,
+      reminderDay: (data['reminderDay'] as int?) ?? 28,
+      bankName: data['bankName'],
+      accountNumber: data['accountNumber'],
+      accountHolderName: data['accountHolderName'],
+      autoApprovePayments: data['autoApprovePayments'] ?? false,
+      autoApproveExpenses: data['autoApproveExpenses'] ?? false,
     );
   }
 
@@ -53,6 +71,12 @@ class GroupModel {
       'updatedAt': updatedAt,
       'memberIds': memberIds,
       'memberCount': memberCount,
+      'reminderDay': reminderDay,
+      'bankName': bankName,
+      'accountNumber': accountNumber,
+      'accountHolderName': accountHolderName,
+      'autoApprovePayments': autoApprovePayments,
+      'autoApproveExpenses': autoApproveExpenses,
     };
   }
 
@@ -62,6 +86,12 @@ class GroupModel {
     double? monthlyAmount,
     List<String>? memberIds,
     int? memberCount,
+    int? reminderDay,
+    String? bankName,
+    String? accountNumber,
+    String? accountHolderName,
+    bool? autoApprovePayments,
+    bool? autoApproveExpenses,
   }) {
     return GroupModel(
       id: id,
@@ -73,6 +103,12 @@ class GroupModel {
       updatedAt: DateTime.now(),
       memberIds: memberIds ?? this.memberIds,
       memberCount: memberCount ?? this.memberCount,
+      reminderDay: reminderDay ?? this.reminderDay,
+      bankName: bankName ?? this.bankName,
+      accountNumber: accountNumber ?? this.accountNumber,
+      accountHolderName: accountHolderName ?? this.accountHolderName,
+      autoApprovePayments: autoApprovePayments ?? this.autoApprovePayments,
+      autoApproveExpenses: autoApproveExpenses ?? this.autoApproveExpenses,
     );
   }
 }

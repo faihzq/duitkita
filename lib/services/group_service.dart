@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
-import 'package:duitkita/models/user_profile.dart';
 
 class GroupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -62,7 +61,7 @@ class GroupService {
   Stream<List<GroupModel>> getUserGroupsStream(String userId) {
     return _groups
         .where('memberIds', arrayContains: userId)
-        .orderBy('createdAt', descending: true)
+        .orderBy('updatedAt', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
@@ -102,7 +101,7 @@ class GroupService {
               snapshot.docs
                   .map(
                     (doc) =>
-                        GroupMember.fromMap(doc.data() as Map<String, dynamic>),
+                        GroupMember.fromMap(doc.data()),
                   )
                   .toList(),
         );
@@ -175,6 +174,12 @@ class GroupService {
     String? name,
     String? description,
     double? monthlyAmount,
+    int? reminderDay,
+    String? bankName,
+    String? accountNumber,
+    String? accountHolderName,
+    bool? autoApprovePayments,
+    bool? autoApproveExpenses,
   }) async {
     try {
       final updateData = <String, dynamic>{'updatedAt': DateTime.now()};
@@ -182,6 +187,12 @@ class GroupService {
       if (name != null) updateData['name'] = name;
       if (description != null) updateData['description'] = description;
       if (monthlyAmount != null) updateData['monthlyAmount'] = monthlyAmount;
+      if (reminderDay != null) updateData['reminderDay'] = reminderDay;
+      if (bankName != null) updateData['bankName'] = bankName;
+      if (accountNumber != null) updateData['accountNumber'] = accountNumber;
+      if (accountHolderName != null) updateData['accountHolderName'] = accountHolderName;
+      if (autoApprovePayments != null) updateData['autoApprovePayments'] = autoApprovePayments;
+      if (autoApproveExpenses != null) updateData['autoApproveExpenses'] = autoApproveExpenses;
 
       await _groups.doc(groupId).update(updateData);
     } catch (e) {

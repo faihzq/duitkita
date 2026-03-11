@@ -42,11 +42,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyATHrHfqEVSzssb4kjZrX95LvouskHfQ4E',
-    appId: '1:375006835997:web:651040e66e099ecabcddf4',
+    appId: '1:375006835997:web:19b32aab461f0574bcddf4',
     messagingSenderId: '375006835997',
     projectId: 'duitkita-8451b',
     authDomain: 'duitkita-8451b.firebaseapp.com',
     storageBucket: 'duitkita-8451b.firebasestorage.app',
+    measurementId: 'G-B154WDW562',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -82,5 +83,7 @@ class DefaultFirebaseOptions {
     projectId: 'duitkita-8451b',
     authDomain: 'duitkita-8451b.firebaseapp.com',
     storageBucket: 'duitkita-8451b.firebasestorage.app',
+    measurementId: 'G-B154WDW562',
   );
+
 }

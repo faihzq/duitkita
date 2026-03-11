@@ -12,6 +12,14 @@ class PaymentModel {
   final String? notes;
   final String? receiptUrl;
   final DateTime createdAt;
+  final String paymentMethod; // 'cash', 'duitnow', 'online_banking'
+  final String paymentStatus; // 'pending', 'confirmed', 'rejected'
+  final String? recipientPhone; // For DuitNow payments
+  final String? transactionReference; // Reference number
+  final String? verifiedBy; // Admin userId who verified
+  final String? verifiedByName; // Admin name
+  final DateTime? verifiedAt; // When verified
+  final String? rejectionReason; // Reason for rejection
 
   PaymentModel({
     required this.id,
@@ -25,6 +33,14 @@ class PaymentModel {
     this.notes,
     this.receiptUrl,
     required this.createdAt,
+    this.paymentMethod = 'cash',
+    this.paymentStatus = 'pending',
+    this.recipientPhone,
+    this.transactionReference,
+    this.verifiedBy,
+    this.verifiedByName,
+    this.verifiedAt,
+    this.rejectionReason,
   });
 
   factory PaymentModel.fromMap(Map<String, dynamic> data, String id) {
@@ -38,14 +54,24 @@ class PaymentModel {
           data['paymentDate'] != null
               ? (data['paymentDate'] as Timestamp).toDate()
               : DateTime.now(),
-      month: data['month'] ?? DateTime.now().month,
-      year: data['year'] ?? DateTime.now().year,
+      month: (data['month'] as int?) ?? DateTime.now().month,
+      year: (data['year'] as int?) ?? DateTime.now().year,
       notes: data['notes'],
       receiptUrl: data['receiptUrl'],
       createdAt:
           data['createdAt'] != null
               ? (data['createdAt'] as Timestamp).toDate()
               : DateTime.now(),
+      paymentMethod: data['paymentMethod'] ?? 'cash',
+      paymentStatus: data['paymentStatus'] ?? 'pending',
+      recipientPhone: data['recipientPhone'],
+      transactionReference: data['transactionReference'],
+      verifiedBy: data['verifiedBy'],
+      verifiedByName: data['verifiedByName'],
+      verifiedAt: data['verifiedAt'] != null
+          ? (data['verifiedAt'] as Timestamp).toDate()
+          : null,
+      rejectionReason: data['rejectionReason'],
     );
   }
 
@@ -61,6 +87,14 @@ class PaymentModel {
       'notes': notes,
       'receiptUrl': receiptUrl,
       'createdAt': createdAt,
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'recipientPhone': recipientPhone,
+      'transactionReference': transactionReference,
+      'verifiedBy': verifiedBy,
+      'verifiedByName': verifiedByName,
+      'verifiedAt': verifiedAt,
+      'rejectionReason': rejectionReason,
     };
   }
 

@@ -5,6 +5,7 @@ import 'package:duitkita/models/payment_model.dart';
 import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/services/group_service.dart';
+import 'package:duitkita/services/expense_service.dart';
 
 class AnalyticsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -102,6 +103,72 @@ class AnalyticsService {
       // Count active members (members who have made at least one payment)
       final activeMembers = memberContributions.length;
 
+      // Calculate all expenses (all statuses for breakdown)
+      final allExpensesSnapshot =
+          await _firestore
+              .collection('expenses')
+              .where('groupId', isEqualTo: groupId)
+              .get();
+
+      final allExpenseDocs = allExpensesSnapshot.docs;
+
+      // Status counts
+      int pendingExpenseCount = 0;
+      int approvedExpenseCount = 0;
+      int rejectedExpenseCount = 0;
+      double pendingExpenseAmount = 0.0;
+      double totalExpenses = 0.0;
+      final Map<String, double> expenseByRequester = {};
+      final Map<String, double> monthlyExpenses = {};
+      final List<ExpenseItem> recentExpenses = [];
+
+      for (final doc in allExpenseDocs) {
+        final data = doc.data();
+        final status = data['status'] as String? ?? 'pending';
+        final amount = ((data['amount'] ?? 0.0) as num).toDouble();
+        final requesterName = data['requestedByName'] as String? ?? 'Unknown';
+        final title = data['title'] as String? ?? '';
+        final createdAt = data['createdAt'] != null
+            ? (data['createdAt'] as Timestamp).toDate()
+            : DateTime.now();
+
+        if (status == 'pending') {
+          pendingExpenseCount++;
+          pendingExpenseAmount += amount;
+        } else if (status == 'approved') {
+          approvedExpenseCount++;
+          totalExpenses += amount;
+
+          // Track by requester (approved only)
+          expenseByRequester[requesterName] =
+              (expenseByRequester[requesterName] ?? 0.0) + amount;
+
+          // Track monthly expenses (approved only)
+          final monthYear =
+              '${createdAt.year}-${createdAt.month.toString().padLeft(2, '0')}';
+          monthlyExpenses[monthYear] =
+              (monthlyExpenses[monthYear] ?? 0.0) + amount;
+
+          // Collect for recent list
+          recentExpenses.add(ExpenseItem(
+            title: title,
+            amount: amount,
+            requestedByName: requesterName,
+            status: status,
+            date: createdAt,
+          ));
+        } else if (status == 'rejected') {
+          rejectedExpenseCount++;
+        }
+      }
+
+      // Sort recent expenses by date descending, take top 5
+      recentExpenses.sort((a, b) => b.date.compareTo(a.date));
+      final recentExpensesList = recentExpenses.take(5).toList();
+
+      final totalExpenseCount = allExpenseDocs.length;
+      final netBalance = totalCollected - totalExpenses;
+
       return GroupAnalytics(
         totalCollected: totalCollected,
         averagePaymentAmount: averagePaymentAmount,
@@ -114,6 +181,16 @@ class AnalyticsService {
         topContributor: topContributorMember.userName,
         topContributorAmount: topContributorAmount,
         activeMembers: activeMembers,
+        totalExpenses: totalExpenses,
+        totalExpenseCount: totalExpenseCount,
+        netBalance: netBalance,
+        pendingExpenseCount: pendingExpenseCount,
+        approvedExpenseCount: approvedExpenseCount,
+        rejectedExpenseCount: rejectedExpenseCount,
+        pendingExpenseAmount: pendingExpenseAmount,
+        expenseByRequester: expenseByRequester,
+        monthlyExpenses: monthlyExpenses,
+        recentExpenses: recentExpensesList,
       );
     } catch (e) {
       throw Exception('Failed to generate analytics: $e');
@@ -238,11 +315,12 @@ final groupAnalyticsProvider = FutureProvider.family<GroupAnalytics, String>((
 ) async {
   final analyticsService = ref.watch(analyticsServiceProvider);
 
+  // Watch expenses stream to auto-refresh when expenses change
+  ref.watch(groupExpensesStreamProvider(groupId));
+
   // Get group and members data
-  final groupStream = ref.read(groupStreamProvider(groupId).future);
-  final membersStream = ref.read(groupMembersStreamProvider(groupId).future);
-  final group = await groupStream;
-  final members = await membersStream;
+  final group = await ref.watch(groupStreamProvider(groupId).future);
+  final members = await ref.watch(groupMembersStreamProvider(groupId).future);
 
   if (group == null) {
     return GroupAnalytics.empty();

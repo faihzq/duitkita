@@ -43,3 +43,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets and environment files
+.env
+.env.*
+*.env
+secrets/
+
+# API config with keys
+lib/config/api_config.dart
+
+# Claude Code
+.claude/

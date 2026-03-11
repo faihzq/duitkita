@@ -6,6 +6,7 @@ class UserProfile {
   final String? email;
   final String? phoneNumber;
   final String? profileImageUrl;
+  final bool showJdtMatches;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -15,6 +16,7 @@ class UserProfile {
     this.email,
     this.phoneNumber,
     this.profileImageUrl,
+    this.showJdtMatches = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -27,6 +29,7 @@ class UserProfile {
       email: data['email'],
       phoneNumber: data['phoneNumber'],
       profileImageUrl: data['profileImageUrl'],
+      showJdtMatches: data['showJdtMatches'] ?? false,
       createdAt:
           data['createdAt'] != null
               ? (data['createdAt'] as Timestamp).toDate()
@@ -45,6 +48,7 @@ class UserProfile {
       'email': email,
       'phoneNumber': phoneNumber,
       'profileImageUrl': profileImageUrl,
+      'showJdtMatches': showJdtMatches,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -56,6 +60,7 @@ class UserProfile {
     String? email,
     String? phoneNumber,
     String? profileImageUrl,
+    bool? showJdtMatches,
   }) {
     return UserProfile(
       uid: uid,
@@ -63,6 +68,7 @@ class UserProfile {
       email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      showJdtMatches: showJdtMatches ?? this.showJdtMatches,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
     );
