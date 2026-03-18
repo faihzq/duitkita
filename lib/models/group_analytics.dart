@@ -22,6 +22,8 @@ class GroupAnalytics {
   final Map<String, double> expenseByRequester; // userName -> amount
   final Map<String, double> monthlyExpenses; // month-year: amount
   final List<ExpenseItem> recentExpenses; // last 5 approved expenses
+  final Map<int, double> yearlyCollections; // year -> amount
+  final Map<int, double> yearlyExpenses; // year -> amount
 
   GroupAnalytics({
     required this.totalCollected,
@@ -45,6 +47,8 @@ class GroupAnalytics {
     this.expenseByRequester = const {},
     this.monthlyExpenses = const {},
     this.recentExpenses = const [],
+    this.yearlyCollections = const {},
+    this.yearlyExpenses = const {},
   });
 
   factory GroupAnalytics.empty() {

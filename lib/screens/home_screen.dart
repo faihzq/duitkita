@@ -214,8 +214,10 @@ class HomeScreen extends ConsumerWidget {
 
     return groupsAsync.when(
       data: (groups) {
-        // Filter groups where current user is creator (admin)
-        final adminGroups = groups.where((g) => g.createdBy == userId).toList();
+        // Filter groups where current user is admin
+        final adminGroupIdsAsync = ref.watch(adminGroupIdsStreamProvider(userId));
+        final adminGroupIdSet = adminGroupIdsAsync.valueOrNull ?? {};
+        final adminGroups = groups.where((g) => adminGroupIdSet.contains(g.id)).toList();
         if (adminGroups.isEmpty) return const SizedBox.shrink();
 
         final adminGroupIds = adminGroups.map((g) => g.id).toList();
@@ -652,6 +654,8 @@ class HomeScreen extends ConsumerWidget {
                 // Breakdown rows
                 if (groups.isNotEmpty)
                   _buildCommitmentBreakdownCard(
+                    ref: ref,
+                    userId: userId,
                     icon: Icons.groups_outlined,
                     iconColor: const Color(0xFF7B1FA2),
                     bgColor: const Color(0xFF7B1FA2).withValues(alpha: 0.08),
@@ -659,12 +663,14 @@ class HomeScreen extends ConsumerWidget {
                     amount: groupMonthly,
                     subtitle: '${groups.length} group${groups.length > 1 ? 's' : ''}',
                     onTap: () => Navigator.of(context).push(AppTheme.slideRoute(const GroupsListScreen())),
-                    items: groups.map((g) => _CommitmentItem(g.name, g.monthlyAmount)).toList(),
+                    items: groups.map((g) => _CommitmentItem(g.name, g.monthlyAmount, id: g.id, type: 'group')).toList(),
                   ),
                 if (groups.isNotEmpty) const SizedBox(height: 8),
 
                 if (activeDebts.isNotEmpty)
                   _buildCommitmentBreakdownCard(
+                    ref: ref,
+                    userId: userId,
                     icon: Icons.account_balance_outlined,
                     iconColor: const Color(0xFF1565C0),
                     bgColor: const Color(0xFF1565C0).withValues(alpha: 0.08),
@@ -672,12 +678,14 @@ class HomeScreen extends ConsumerWidget {
                     amount: debtMonthly,
                     subtitle: '${activeDebts.length} debt${activeDebts.length > 1 ? 's' : ''}',
                     onTap: () => Navigator.of(context).push(AppTheme.slideRoute(const DebtsListScreen())),
-                    items: activeDebts.map((d) => _CommitmentItem(d.title, d.monthlyPayment)).toList(),
+                    items: activeDebts.map((d) => _CommitmentItem(d.title, d.monthlyPayment, id: d.id, type: 'debt')).toList(),
                   ),
                 if (activeDebts.isNotEmpty) const SizedBox(height: 8),
 
                 if (activeBills.isNotEmpty)
                   _buildCommitmentBreakdownCard(
+                    ref: ref,
+                    userId: userId,
                     icon: Icons.receipt_outlined,
                     iconColor: const Color(0xFFE65100),
                     bgColor: const Color(0xFFE65100).withValues(alpha: 0.08),
@@ -685,7 +693,7 @@ class HomeScreen extends ConsumerWidget {
                     amount: billMonthly,
                     subtitle: '${activeBills.length} bill${activeBills.length > 1 ? 's' : ''}',
                     onTap: () => Navigator.of(context).push(AppTheme.slideRoute(const DebtsListScreen())),
-                    items: activeBills.map((d) => _CommitmentItem(d.title, d.monthlyPayment)).toList(),
+                    items: activeBills.map((d) => _CommitmentItem(d.title, d.monthlyPayment, id: d.id, type: 'bill')).toList(),
                   ),
                 if (activeBills.isNotEmpty) const SizedBox(height: 8),
 
@@ -703,6 +711,8 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildCommitmentBreakdownCard({
+    required WidgetRef ref,
+    required String userId,
     required IconData icon,
     required Color iconColor,
     required Color bgColor,
@@ -770,10 +780,7 @@ class HomeScreen extends ConsumerWidget {
                         padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
                         child: Row(
                           children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.5), shape: BoxShape.circle),
-                            ),
+                            _buildItemStatusDot(ref, userId, item),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -808,6 +815,49 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildItemStatusDot(WidgetRef ref, String userId, _CommitmentItem item) {
+    if (item.id == null) {
+      return Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.textHint, shape: BoxShape.circle));
+    }
+
+    if (item.type == 'group') {
+      final statusAsync = ref.watch(
+        groupMonthPaymentStatusProvider((groupId: item.id!, userId: userId)),
+      );
+      return statusAsync.when(
+        data: (status) {
+          final color = switch (status) {
+            'confirmed' => AppTheme.success,
+            'pending' => AppTheme.warning,
+            'rejected' => AppTheme.error,
+            _ => AppTheme.textHint,
+          };
+          final icon = switch (status) {
+            'confirmed' => Icons.check_circle,
+            'pending' => Icons.schedule,
+            'rejected' => Icons.cancel,
+            _ => Icons.radio_button_unchecked,
+          };
+          return Icon(icon, size: 14, color: color);
+        },
+        loading: () => Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.textHint.withValues(alpha: 0.3), shape: BoxShape.circle)),
+        error: (_, __) => Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.textHint, shape: BoxShape.circle)),
+      );
+    } else {
+      // debt or bill
+      final paidAsync = ref.watch(debtMonthPaidProvider(item.id!));
+      return paidAsync.when(
+        data: (paid) => Icon(
+          paid ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 14,
+          color: paid ? AppTheme.success : AppTheme.textHint,
+        ),
+        loading: () => Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.textHint.withValues(alpha: 0.3), shape: BoxShape.circle)),
+        error: (_, __) => Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppTheme.textHint, shape: BoxShape.circle)),
+      );
+    }
+  }
+
   static String _formatAmount(double amount) {
     if (amount >= 1000) {
       return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1)}k';
@@ -819,5 +869,7 @@ class HomeScreen extends ConsumerWidget {
 class _CommitmentItem {
   final String name;
   final double amount;
-  const _CommitmentItem(this.name, this.amount);
+  final String? id;
+  final String type; // 'group', 'debt', 'bill'
+  const _CommitmentItem(this.name, this.amount, {this.id, this.type = 'group'});
 }

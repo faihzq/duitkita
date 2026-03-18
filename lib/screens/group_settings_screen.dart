@@ -10,6 +10,8 @@ import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/screens/pending_payments_review_screen.dart';
+import 'package:duitkita/screens/pending_expenses_review_screen.dart';
 
 class GroupSettingsScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -683,91 +685,34 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   }
 
   // ============================================================
-  // Transfer Admin
+  // Manage Admins
   // ============================================================
 
-  Future<void> _showTransferAdminDialog() async {
+  Future<void> _showManageAdminsDialog() async {
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) return;
 
-    final members = await ref.read(
-      groupMembersStreamProvider(widget.groupId).future,
-    );
-
-    final eligibleMembers =
-        members.where((m) => m.userId != userId && !m.isAdmin).toList();
-
-    if (eligibleMembers.isEmpty) {
-      if (!mounted) return;
-      showSnackBar(context, 'No other members available to transfer admin rights');
-      return;
-    }
-
     if (!mounted) return;
 
-    final selectedMember = await showDialog<GroupMember>(
+    await showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Transfer Admin Rights'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select a member to become the new admin:', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 16),
-            ...eligibleMembers.map((member) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(member.userName),
-              subtitle: Text(member.userEmail ?? 'No email'),
-              onTap: () => Navigator.of(context).pop(member),
-            )),
-          ],
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (ctx, scrollController) => _ManageAdminsSheet(
+          groupId: widget.groupId,
+          currentUserId: userId,
+          scrollController: scrollController,
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        ],
       ),
     );
-
-    if (selectedMember == null || !mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Transfer'),
-        content: Text(
-          'Are you sure you want to transfer admin rights to ${selectedMember.userName}? You will no longer be the admin.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
-            child: const Text('Transfer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final groupService = ref.read(groupServiceProvider);
-      await groupService.transferAdmin(
-        groupId: widget.groupId,
-        currentAdminId: userId,
-        newAdminId: selectedMember.userId,
-      );
-      if (!mounted) return;
-      showSnackBar(context, 'Admin rights transferred successfully');
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      showSnackBar(context, 'Error: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   // ============================================================
@@ -1091,9 +1036,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                     _settingsTile(
                       icon: Icons.admin_panel_settings_outlined,
                       iconColor: AppTheme.warning,
-                      title: 'Transfer Admin Rights',
-                      subtitle: 'Transfer admin role to another member',
-                      onTap: _isLoading ? null : _showTransferAdminDialog,
+                      title: 'Manage Admins',
+                      subtitle: 'Promote or demote group admins',
+                      onTap: _isLoading ? null : _showManageAdminsDialog,
                     ),
 
                     const SizedBox(height: 28),
@@ -1160,28 +1105,104 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           onChanged: _isLoading ? null : (value) async {
             // Show confirmation dialog when enabling
             if (value) {
-              final confirmed = await showDialog<bool>(
+              // 'approve_all' = auto-approve all pending, 'review' = go to review screen, null = cancel
+              final result = await showDialog<String>(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Enable Auto-Approve Payments?'),
-                  content: const Text(
-                    'All existing pending payments will be confirmed automatically. '
-                    'New payments will also be approved without admin review.\n\n'
-                    'Are you sure you want to continue?',
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00897B).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.verified_outlined, color: Color(0xFF00897B), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Enable Auto-Approve?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All existing pending payments will be confirmed automatically and new payments will also be approved without admin review.',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF455A64), height: 1.4),
+                      ),
+                      SizedBox(height: 14),
+                      Text(
+                        'You can also review pending payments first to choose which ones to approve or reject.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF78909C), height: 1.4),
+                      ),
+                    ],
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(ctx),
                       child: const Text('Cancel'),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Enable'),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, 'review'),
+                      icon: const Icon(Icons.checklist_outlined, size: 18),
+                      label: const Text('Review First', style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF00897B),
+                        side: const BorderSide(color: Color(0xFF00897B)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.pop(ctx, 'approve_all'),
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text('Approve All', style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF00897B),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
                   ],
                 ),
               );
-              if (confirmed != true) return;
+
+              if (result == null) return;
+
+              if (result == 'review') {
+                if (!mounted) return;
+                // Navigate to review screen, then enable auto-approve after
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PendingPaymentsReviewScreen(
+                      groupId: widget.groupId,
+                      groupName: widget.groupName,
+                    ),
+                  ),
+                ).then((_) async {
+                  // After review, enable auto-approve for future payments
+                  if (!mounted) return;
+                  setState(() => _isLoading = true);
+                  try {
+                    final groupService = ref.read(groupServiceProvider);
+                    await groupService.updateGroup(
+                      groupId: widget.groupId,
+                      autoApprovePayments: true,
+                    );
+                    if (!mounted) return;
+                    showSnackBar(context, 'Auto-approve enabled for future payments');
+                  } catch (e) {
+                    if (!mounted) return;
+                    showSnackBar(context, 'Error: $e');
+                  } finally {
+                    if (mounted) setState(() => _isLoading = false);
+                  }
+                });
+                return;
+              }
             }
 
             setState(() => _isLoading = true);
@@ -1206,7 +1227,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                   );
                   if (!mounted) return;
                   if (count > 0) {
-                    showSnackBar(context, 'Payments auto-approved. $count pending payment${count > 1 ? 's' : ''} confirmed.');
+                    showSnackBar(context, '$count pending payment${count > 1 ? 's' : ''} confirmed');
                   } else {
                     showSnackBar(context, 'Payments will be auto-approved');
                   }
@@ -1259,28 +1280,101 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           onChanged: _isLoading ? null : (value) async {
             // Show confirmation dialog when enabling
             if (value) {
-              final confirmed = await showDialog<bool>(
+              final result = await showDialog<String>(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Enable Auto-Approve Expenses?'),
-                  content: const Text(
-                    'All existing pending expenses will be approved automatically. '
-                    'New expenses will also be approved without admin review.\n\n'
-                    'Are you sure you want to continue?',
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0277BD).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.receipt_long_outlined, color: Color(0xFF0277BD), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Enable Auto-Approve?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All existing pending expenses will be approved automatically and new expenses will also be approved without admin review.',
+                        style: TextStyle(fontSize: 14, color: Color(0xFF455A64), height: 1.4),
+                      ),
+                      SizedBox(height: 14),
+                      Text(
+                        'You can also review pending expenses first to choose which ones to approve or reject.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF78909C), height: 1.4),
+                      ),
+                    ],
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(ctx),
                       child: const Text('Cancel'),
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Enable'),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, 'review'),
+                      icon: const Icon(Icons.checklist_outlined, size: 18),
+                      label: const Text('Review First', style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0277BD),
+                        side: const BorderSide(color: Color(0xFF0277BD)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.pop(ctx, 'approve_all'),
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text('Approve All', style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0277BD),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
                   ],
                 ),
               );
-              if (confirmed != true) return;
+
+              if (result == null) return;
+
+              if (result == 'review') {
+                if (!mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PendingExpensesReviewScreen(
+                      groupId: widget.groupId,
+                      groupName: widget.groupName,
+                    ),
+                  ),
+                ).then((_) async {
+                  if (!mounted) return;
+                  setState(() => _isLoading = true);
+                  try {
+                    final groupService = ref.read(groupServiceProvider);
+                    await groupService.updateGroup(
+                      groupId: widget.groupId,
+                      autoApproveExpenses: true,
+                    );
+                    if (!mounted) return;
+                    showSnackBar(context, 'Auto-approve enabled for future expenses');
+                  } catch (e) {
+                    if (!mounted) return;
+                    showSnackBar(context, 'Error: $e');
+                  } finally {
+                    if (mounted) setState(() => _isLoading = false);
+                  }
+                });
+                return;
+              }
             }
 
             setState(() => _isLoading = true);
@@ -1305,7 +1399,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                   );
                   if (!mounted) return;
                   if (count > 0) {
-                    showSnackBar(context, 'Expenses auto-approved. $count pending expense${count > 1 ? 's' : ''} approved.');
+                    showSnackBar(context, '$count pending expense${count > 1 ? 's' : ''} approved');
                   } else {
                     showSnackBar(context, 'Expenses will be auto-approved');
                   }
@@ -1374,6 +1468,263 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textHint)),
         trailing: const Icon(Icons.chevron_right, color: AppTheme.textHint),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+// ============================================================
+// Manage Admins Bottom Sheet
+// ============================================================
+
+class _ManageAdminsSheet extends ConsumerStatefulWidget {
+  final String groupId;
+  final String currentUserId;
+  final ScrollController scrollController;
+
+  const _ManageAdminsSheet({
+    required this.groupId,
+    required this.currentUserId,
+    required this.scrollController,
+  });
+
+  @override
+  ConsumerState<_ManageAdminsSheet> createState() => _ManageAdminsSheetState();
+}
+
+class _ManageAdminsSheetState extends ConsumerState<_ManageAdminsSheet> {
+  bool _isProcessing = false;
+
+  Future<void> _promoteToAdmin(GroupMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Promote to Admin'),
+        content: Text('Make ${member.userName} an admin? They will be able to manage group settings, approve payments, and manage members.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primary),
+            child: const Text('Promote'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isProcessing = true);
+    try {
+      final groupService = ref.read(groupServiceProvider);
+      await groupService.promoteToAdmin(
+        groupId: widget.groupId,
+        requestingUserId: widget.currentUserId,
+        targetUserId: member.userId,
+      );
+      if (!mounted) return;
+      showSnackBar(context, '${member.userName} is now an admin');
+    } catch (e) {
+      if (!mounted) return;
+      showSnackBar(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _demoteAdmin(GroupMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Admin'),
+        content: Text('Remove admin rights from ${member.userName}? They will become a regular member.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Remove Admin'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isProcessing = true);
+    try {
+      final groupService = ref.read(groupServiceProvider);
+      await groupService.demoteAdmin(
+        groupId: widget.groupId,
+        requestingUserId: widget.currentUserId,
+        targetUserId: member.userId,
+      );
+      if (!mounted) return;
+      showSnackBar(context, '${member.userName} is no longer an admin');
+    } catch (e) {
+      if (!mounted) return;
+      showSnackBar(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final membersAsync = ref.watch(groupMembersStreamProvider(widget.groupId));
+
+    return membersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (members) {
+        final admins = members.where((m) => m.isAdmin).toList();
+        final nonAdmins = members.where((m) => !m.isAdmin).toList();
+
+        return Column(
+          children: [
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.admin_panel_settings_outlined, color: AppTheme.warning, size: 24),
+                  SizedBox(width: 10),
+                  Text('Manage Admins', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+            if (_isProcessing)
+              const LinearProgressIndicator(color: AppTheme.primary, minHeight: 2),
+            Expanded(
+              child: ListView(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  // Current admins section
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(8, 12, 8, 8),
+                    child: Text('Admins', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                  ),
+                  ...admins.map((member) => _memberTile(
+                    member: member,
+                    isAdmin: true,
+                    isCurrentUser: member.userId == widget.currentUserId,
+                    adminCount: admins.length,
+                  )),
+
+                  // Non-admins section
+                  if (nonAdmins.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(8, 20, 8, 8),
+                      child: Text('Members', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+                    ),
+                    ...nonAdmins.map((member) => _memberTile(
+                      member: member,
+                      isAdmin: false,
+                      isCurrentUser: member.userId == widget.currentUserId,
+                      adminCount: admins.length,
+                    )),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _memberTile({
+    required GroupMember member,
+    required bool isAdmin,
+    required bool isCurrentUser,
+    required int adminCount,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isAdmin ? AppTheme.primary.withValues(alpha: 0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: isAdmin ? Border.all(color: AppTheme.primary.withValues(alpha: 0.15)) : null,
+        boxShadow: isAdmin ? null : AppTheme.cardShadow,
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            gradient: isAdmin ? AppTheme.cardGradient : AppTheme.successGradient,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              member.userName.isNotEmpty ? member.userName[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(member.userName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            ),
+            if (isAdmin)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text('Admin', style: TextStyle(fontSize: 10, color: AppTheme.primary, fontWeight: FontWeight.w700)),
+              ),
+            if (isCurrentUser) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.success.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text('You', style: TextStyle(fontSize: 10, color: AppTheme.success, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ],
+        ),
+        subtitle: Text(
+          member.userEmail ?? 'No email',
+          style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
+        ),
+        trailing: _isProcessing
+            ? null
+            : isAdmin
+                ? (adminCount > 1
+                    ? IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: AppTheme.error, size: 22),
+                        tooltip: 'Remove admin',
+                        onPressed: () => _demoteAdmin(member),
+                      )
+                    : const Tooltip(
+                        message: 'Last admin cannot be removed',
+                        child: Icon(Icons.lock_outline, color: AppTheme.textHint, size: 20),
+                      ))
+                : IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary, size: 22),
+                    tooltip: 'Make admin',
+                    onPressed: () => _promoteToAdmin(member),
+                  ),
       ),
     );
   }

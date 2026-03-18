@@ -445,6 +445,10 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> with SingleTi
                                 _buildInfoTag(Icons.autorenew_outlined, 'Recurring')
                               else
                                 _buildInfoTag(Icons.timer_outlined, '${debt.monthsRemaining} months left'),
+                              if (!completed) ...[
+                                const SizedBox(width: 8),
+                                _buildDebtMonthStatusBadge(debt.id),
+                              ],
                             ],
                           ),
                         ],
@@ -527,6 +531,36 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> with SingleTi
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+
+  Widget _buildDebtMonthStatusBadge(String debtId) {
+    final paidAsync = ref.watch(debtMonthPaidProvider(debtId));
+
+    return paidAsync.when(
+      data: (paid) {
+        final color = paid ? AppTheme.success : AppTheme.textHint;
+        final icon = paid ? Icons.check_circle : Icons.radio_button_unchecked;
+        final label = paid ? 'Paid' : 'Not paid';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(width: 12, height: 12),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

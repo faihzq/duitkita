@@ -444,23 +444,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primary)),
         error: (error, stack) => Center(child: Text('Error loading group: $error')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final group = groupAsync.value;
-          if (group != null) {
-            Navigator.of(context).push(
-              AppTheme.slideRoute(AddPaymentScreen(
-                groupId: widget.groupId,
-                monthlyAmount: group.monthlyAmount,
-                selectedMonth: _selectedMonth,
-                selectedYear: _selectedYear,
-              )),
-            );
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Payment', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
     );
   }
 

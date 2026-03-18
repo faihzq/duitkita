@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/services/group_service.dart';
+import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/screens/create_group_screen.dart';
 import 'package:duitkita/screens/group_detail_screen.dart';
 import 'package:duitkita/config/app_theme.dart';
@@ -138,10 +139,12 @@ class GroupsListScreen extends ConsumerWidget {
           groupsAsync.when(
             data: (unsortedGroups) {
               // Sort: admin groups first, then by most recently updated
+              final adminGroupIdsAsync = ref.watch(adminGroupIdsStreamProvider(userId));
+              final adminGroupIdSet = adminGroupIdsAsync.valueOrNull ?? {};
               final groups = List.of(unsortedGroups)
                 ..sort((a, b) {
-                  final aIsAdmin = a.createdBy == userId;
-                  final bIsAdmin = b.createdBy == userId;
+                  final aIsAdmin = adminGroupIdSet.contains(a.id);
+                  final bIsAdmin = adminGroupIdSet.contains(b.id);
                   if (aIsAdmin != bIsAdmin) return aIsAdmin ? -1 : 1;
                   return b.updatedAt.compareTo(a.updatedAt);
                 });
@@ -198,7 +201,7 @@ class GroupsListScreen extends ConsumerWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final group = groups[index];
-                      return _buildGroupCard(context, group, index);
+                      return _buildGroupCard(context, ref, userId, group, index);
                     },
                     childCount: groups.length,
                   ),
@@ -239,7 +242,7 @@ class GroupsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGroupCard(BuildContext context, dynamic group, int index) {
+  Widget _buildGroupCard(BuildContext context, WidgetRef ref, String userId, dynamic group, int index) {
     // Alternating accent colors for group avatars
     final avatarColors = [
       [const Color(0xFF7B1FA2), const Color(0xFF9C4DCC)],
@@ -326,6 +329,8 @@ class GroupsListScreen extends ConsumerWidget {
                           _buildInfoTag(Icons.people_outline, '${group.memberCount} members'),
                           const SizedBox(width: 8),
                           _buildInfoTag(Icons.payments_outlined, 'RM${group.monthlyAmount.toStringAsFixed(0)}/mo'),
+                          const SizedBox(width: 8),
+                          _buildMonthStatusBadge(ref, group.id, userId),
                         ],
                       ),
                     ],
@@ -383,6 +388,57 @@ class GroupsListScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMonthStatusBadge(WidgetRef ref, String groupId, String userId) {
+    final statusAsync = ref.watch(
+      groupMonthPaymentStatusProvider((groupId: groupId, userId: userId)),
+    );
+
+    return statusAsync.when(
+      data: (status) {
+        final Color color;
+        final IconData icon;
+        final String label;
+
+        switch (status) {
+          case 'confirmed':
+            color = AppTheme.success;
+            icon = Icons.check_circle;
+            label = 'Paid';
+          case 'pending':
+            color = AppTheme.warning;
+            icon = Icons.schedule;
+            label = 'Pending';
+          case 'rejected':
+            color = AppTheme.error;
+            icon = Icons.cancel;
+            label = 'Rejected';
+          default:
+            color = AppTheme.textHint;
+            icon = Icons.radio_button_unchecked;
+            label = 'Not paid';
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 4),
+              Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox(width: 12, height: 12),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

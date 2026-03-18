@@ -98,5 +98,4 @@ class PaymentModel {
     };
   }
 
-  String get monthYearKey => '$year-${month.toString().padLeft(2, '0')}';
 }

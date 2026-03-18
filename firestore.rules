@@ -1,0 +1,145 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the document owner
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Helper to check if user is a group admin
+    function isGroupAdmin(groupId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Helper to check if user is a group member
+    function isGroupMember(groupId) {
+      return isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Groups collection
+    match /groups/{groupId} {
+      allow read: if isSignedIn() &&
+                     request.auth.uid in resource.data.memberIds;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.createdBy;
+
+      // Admin or creator can update group
+      allow update: if isSignedIn() &&
+                       (request.auth.uid == resource.data.createdBy ||
+                        isGroupAdmin(groupId));
+
+      allow delete: if isSignedIn() &&
+                       request.auth.uid == resource.data.createdBy;
+
+      // Members subcollection
+      match /members/{memberId} {
+        allow read: if isSignedIn() &&
+                       request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+
+        allow create, delete: if isSignedIn() &&
+                        (isGroupAdmin(groupId) ||
+                         request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy);
+
+        // Admin/creator can update any member; members can update their own stats
+        allow update: if isSignedIn() &&
+                        (isGroupAdmin(groupId) ||
+                         request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy ||
+                         (request.auth.uid == memberId &&
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPaid', 'paymentCount'])));
+      }
+    }
+
+    // Payments collection
+    match /payments/{paymentId} {
+      // Members can read payments in their groups
+      allow read: if isSignedIn() &&
+                     isGroupMember(resource.data.groupId);
+
+      // Members can create payments for themselves,
+      // OR admins can create payments for any member (bulk import)
+      allow create: if isSignedIn() &&
+                       isGroupMember(request.resource.data.groupId) &&
+                       (request.auth.uid == request.resource.data.userId ||
+                        isGroupAdmin(request.resource.data.groupId));
+
+      // Only group admin can verify/reject payments
+      allow update: if isSignedIn() &&
+                       isGroupAdmin(resource.data.groupId);
+
+      // Only the payment creator or admin can delete
+      allow delete: if isSignedIn() &&
+                       (request.auth.uid == resource.data.userId ||
+                        isGroupAdmin(resource.data.groupId));
+    }
+
+    // Expenses collection
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn() &&
+                     isGroupMember(resource.data.groupId);
+
+      // Members can create expense requests for themselves
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.requestedBy &&
+                       isGroupMember(request.resource.data.groupId);
+
+      // Only group admin can approve/reject expenses
+      allow update: if isSignedIn() &&
+                       isGroupAdmin(resource.data.groupId);
+
+      // Requester or admin can delete
+      allow delete: if isSignedIn() &&
+                       (request.auth.uid == resource.data.requestedBy ||
+                        isGroupAdmin(resource.data.groupId));
+    }
+
+    // App config (version check, feature flags)
+    // Read: any authenticated user
+    // Write: only via Firebase Console (no client writes)
+    match /app_config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Matches collection (JDT matches - manual entries)
+    // Read: any authenticated user
+    // Write: only admins of any group (app-level feature, not group-specific)
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Debts collection (personal debt tracking)
+    match /debts/{debtId} {
+      allow read: if isSignedIn() &&
+                     request.auth.uid == resource.data.userId;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.userId;
+
+      allow update, delete: if isSignedIn() &&
+                               request.auth.uid == resource.data.userId;
+
+      // Debt payments subcollection
+      match /payments/{paymentId} {
+        allow read, create, delete: if isSignedIn() &&
+                                       request.auth.uid == get(/databases/$(database)/documents/debts/$(debtId)).data.userId;
+      }
+    }
+  }
+}

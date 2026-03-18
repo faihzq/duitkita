@@ -26,6 +26,7 @@ class ExpenseListScreen extends ConsumerStatefulWidget {
 
 class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
   ExpenseStatus? _selectedFilter;
+  int? _selectedYear; // null = All years
   bool _selectionMode = false;
   final Set<String> _selectedIds = {};
   bool _isProcessing = false;
@@ -209,15 +210,21 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
               gradient: _selectionMode ? null : AppTheme.primaryGradient,
               color: _selectionMode ? AppTheme.textPrimary : null,
             ),
-            child: Row(
+            child: Column(
               children: [
-                _buildFilterChip('All', null),
-                const SizedBox(width: 8),
-                _buildFilterChip('Pending', ExpenseStatus.pending),
-                const SizedBox(width: 8),
-                _buildFilterChip('Approved', ExpenseStatus.approved),
-                const SizedBox(width: 8),
-                _buildFilterChip('Rejected', ExpenseStatus.rejected),
+                Row(
+                  children: [
+                    _buildFilterChip('All', null),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Pending', ExpenseStatus.pending),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Approved', ExpenseStatus.approved),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Rejected', ExpenseStatus.rejected),
+                    const Spacer(),
+                    _buildYearSelector(expensesAsync),
+                  ],
+                ),
               ],
             ),
           ),
@@ -226,9 +233,13 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
           Expanded(
             child: expensesAsync.when(
               data: (expenses) {
-                final filtered = _selectedFilter == null
-                    ? expenses
+                var filtered = _selectedFilter == null
+                    ? expenses.toList()
                     : expenses.where((e) => e.status == _selectedFilter).toList();
+
+                if (_selectedYear != null) {
+                  filtered = filtered.where((e) => e.createdAt.year == _selectedYear).toList();
+                }
 
                 // Clean up selections for items no longer in the list
                 _selectedIds.removeWhere((id) => !expenses.any((e) => e.id == id));
@@ -259,9 +270,12 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
+                  itemCount: filtered.length + 1, // +1 for summary card
                   itemBuilder: (context, index) {
-                    final expense = filtered[index];
+                    if (index == 0) {
+                      return _buildYearlySummaryCard(filtered);
+                    }
+                    final expense = filtered[index - 1];
                     final isPending = expense.status == ExpenseStatus.pending;
                     final isSelected = _selectedIds.contains(expense.id);
 
@@ -384,6 +398,165 @@ class _ExpenseListScreenState extends ConsumerState<ExpenseListScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildYearSelector(AsyncValue<List<ExpenseModel>> expensesAsync) {
+    return expensesAsync.when(
+      data: (expenses) {
+        final years = expenses.map((e) => e.createdAt.year).toSet().toList()..sort((a, b) => b.compareTo(a));
+        if (years.isEmpty) return const SizedBox.shrink();
+
+        return PopupMenuButton<int?>(
+          onSelected: (year) {
+            setState(() {
+              _selectedYear = year;
+              if (_selectionMode) {
+                _selectionMode = false;
+                _selectedIds.clear();
+              }
+            });
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<int?>(
+              value: null,
+              child: Text('All Years',
+                style: TextStyle(
+                  fontWeight: _selectedYear == null ? FontWeight.w700 : FontWeight.w500,
+                  color: _selectedYear == null ? AppTheme.primary : AppTheme.textPrimary,
+                )),
+            ),
+            ...years.map((y) => PopupMenuItem<int?>(
+              value: y,
+              child: Text('$y',
+                style: TextStyle(
+                  fontWeight: _selectedYear == y ? FontWeight.w700 : FontWeight.w500,
+                  color: _selectedYear == y ? AppTheme.primary : AppTheme.textPrimary,
+                )),
+            )),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: _selectedYear != null ? 1.0 : 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _selectedYear?.toString() ?? 'Year',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _selectedYear != null ? AppTheme.primary : Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_drop_down, size: 18,
+                  color: _selectedYear != null ? AppTheme.primary : Colors.white.withValues(alpha: 0.85)),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildYearlySummaryCard(List<ExpenseModel> expenses) {
+    double totalApproved = 0;
+    double totalPending = 0;
+    double totalRejected = 0;
+    int approvedCount = 0;
+    int pendingCount = 0;
+    int rejectedCount = 0;
+
+    for (final e in expenses) {
+      switch (e.status) {
+        case ExpenseStatus.approved:
+          totalApproved += e.amount;
+          approvedCount++;
+        case ExpenseStatus.pending:
+          totalPending += e.amount;
+          pendingCount++;
+        case ExpenseStatus.rejected:
+          totalRejected += e.amount;
+          rejectedCount++;
+      }
+    }
+
+    final total = totalApproved + totalPending + totalRejected;
+    final yearLabel = _selectedYear?.toString() ?? 'All Time';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: const Icon(Icons.summarize_outlined, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Text('Summary \u2022 $yearLabel',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              const Spacer(),
+              Text('${expenses.length} items',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textHint, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Total
+          Row(
+            children: [
+              const Text('Total', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+              const Spacer(),
+              Text('RM${total.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          // Breakdown row
+          Row(
+            children: [
+              Expanded(child: _summaryItem('Approved', approvedCount, totalApproved, AppTheme.success)),
+              Container(width: 1, height: 36, color: AppTheme.cardBg),
+              Expanded(child: _summaryItem('Pending', pendingCount, totalPending, AppTheme.warning)),
+              Container(width: 1, height: 36, color: AppTheme.cardBg),
+              Expanded(child: _summaryItem('Rejected', rejectedCount, totalRejected, AppTheme.error)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryItem(String label, int count, double amount, Color color) {
+    return Column(
+      children: [
+        Text('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+        const SizedBox(height: 2),
+        Text('RM${amount.toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 10, color: AppTheme.textHint, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 

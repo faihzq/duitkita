@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:duitkita/controllers/auth_controller.dart';
+import 'package:duitkita/services/auth_service.dart';
+import 'package:duitkita/config/app_theme.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_navigation.dart';
 
@@ -9,16 +10,22 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authControllerProvider);
-    final currentUser = ref.watch(authControllerProvider.notifier).currentUser;
+    // Watch the Firebase auth stream directly for reliable session tracking
+    final authStream = ref.watch(authStateProvider);
 
-    // Use unique key based on user ID to force rebuild
-    return KeyedSubtree(
-      key: ValueKey(currentUser?.uid ?? 'logged_out'),
-      child:
-          authState == AuthState.authenticated
-              ? const MainNavigation()
-              : const LoginScreen(),
+    return authStream.when(
+      data: (user) {
+        return KeyedSubtree(
+          key: ValueKey(user?.uid ?? 'logged_out'),
+          child: user != null ? const MainNavigation() : const LoginScreen(),
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primary),
+        ),
+      ),
+      error: (_, __) => const LoginScreen(),
     );
   }
 }

@@ -101,13 +101,6 @@ class DebtModel {
       findCategory(type, category) ??
       DebtCategory(value: 'other', label: 'Other', icon: Icons.receipt_long_outlined, color: const Color(0xFF546E7A));
 
-  static String categoryLabel(String category) {
-    for (final cat in [...debtCategories, ...billCategories]) {
-      if (cat.value == category) return cat.label;
-    }
-    return 'Other';
-  }
-
   factory DebtModel.fromMap(Map<String, dynamic> data, String id) {
     return DebtModel(
       id: id,

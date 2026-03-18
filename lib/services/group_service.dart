@@ -248,49 +248,98 @@ class GroupService {
     }
   }
 
-  // Transfer admin rights to another member
-  Future<void> transferAdmin({
+  // Promote a member to admin
+  Future<void> promoteToAdmin({
     required String groupId,
-    required String currentAdminId,
-    required String newAdminId,
+    required String requestingUserId,
+    required String targetUserId,
   }) async {
     try {
       final groupDoc = _groups.doc(groupId);
 
-      // Verify current user is admin
-      final currentAdminDoc = await groupDoc.collection('members').doc(currentAdminId).get();
-      if (!currentAdminDoc.exists || !(currentAdminDoc.data()?['isAdmin'] ?? false)) {
-        throw Exception('You are not authorized to transfer admin rights');
+      // Verify requesting user is admin
+      final requestingDoc = await groupDoc.collection('members').doc(requestingUserId).get();
+      if (!requestingDoc.exists || !(requestingDoc.data()?['isAdmin'] ?? false)) {
+        throw Exception('You are not authorized to manage admin rights');
       }
 
-      // Verify new admin is a member
-      final newAdminDoc = await groupDoc.collection('members').doc(newAdminId).get();
-      if (!newAdminDoc.exists) {
+      // Verify target is a member
+      final targetDoc = await groupDoc.collection('members').doc(targetUserId).get();
+      if (!targetDoc.exists) {
         throw Exception('Selected user is not a member of this group');
       }
 
-      // Use batch to update both members atomically
+      if (targetDoc.data()?['isAdmin'] == true) {
+        throw Exception('User is already an admin');
+      }
+
       final batch = _firestore.batch();
-
-      // Remove admin from current admin
-      batch.update(groupDoc.collection('members').doc(currentAdminId), {
-        'isAdmin': false,
-      });
-
-      // Add admin to new admin
-      batch.update(groupDoc.collection('members').doc(newAdminId), {
+      batch.update(groupDoc.collection('members').doc(targetUserId), {
         'isAdmin': true,
       });
-
-      // Update group's updatedAt timestamp
       batch.update(groupDoc, {
         'updatedAt': DateTime.now(),
       });
-
       await batch.commit();
     } catch (e) {
-      throw Exception('Failed to transfer admin rights: $e');
+      throw Exception('Failed to promote member: $e');
     }
+  }
+
+  // Demote an admin to regular member
+  Future<void> demoteAdmin({
+    required String groupId,
+    required String requestingUserId,
+    required String targetUserId,
+  }) async {
+    try {
+      final groupDoc = _groups.doc(groupId);
+
+      // Verify requesting user is admin
+      final requestingDoc = await groupDoc.collection('members').doc(requestingUserId).get();
+      if (!requestingDoc.exists || !(requestingDoc.data()?['isAdmin'] ?? false)) {
+        throw Exception('You are not authorized to manage admin rights');
+      }
+
+      // Prevent demoting yourself if you're the last admin
+      final membersSnapshot = await groupDoc.collection('members')
+          .where('isAdmin', isEqualTo: true)
+          .get();
+      final adminCount = membersSnapshot.docs.length;
+
+      if (targetUserId == requestingUserId && adminCount <= 1) {
+        throw Exception('Cannot remove the last admin. Promote another member first.');
+      }
+
+      if (adminCount <= 1 && membersSnapshot.docs.first.id == targetUserId) {
+        throw Exception('Cannot remove the last admin. Promote another member first.');
+      }
+
+      final batch = _firestore.batch();
+      batch.update(groupDoc.collection('members').doc(targetUserId), {
+        'isAdmin': false,
+      });
+      batch.update(groupDoc, {
+        'updatedAt': DateTime.now(),
+      });
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to demote admin: $e');
+    }
+  }
+  // Get group IDs where user is admin (uses collection group query)
+  Stream<Set<String>> getAdminGroupIdsStream(String userId) {
+    return _firestore
+        .collectionGroup('members')
+        .where('userId', isEqualTo: userId)
+        .where('isAdmin', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            // Path is: groups/{groupId}/members/{userId}
+            return doc.reference.parent.parent!.id;
+          }).toSet();
+        });
   }
 }
 
@@ -320,4 +369,11 @@ final groupMembersStreamProvider =
     StreamProvider.family<List<GroupMember>, String>((ref, groupId) {
       final groupService = ref.watch(groupServiceProvider);
       return groupService.getGroupMembersStream(groupId);
+    });
+
+// Stream provider for group IDs where user is admin
+final adminGroupIdsStreamProvider =
+    StreamProvider.family<Set<String>, String>((ref, userId) {
+      final groupService = ref.watch(groupServiceProvider);
+      return groupService.getAdminGroupIdsStream(userId);
     });

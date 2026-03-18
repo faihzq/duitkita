@@ -536,7 +536,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                           ],
                         ),
                         trailing:
-                            _isAdmin && !isCurrentUser
+                            _isAdmin && !isCurrentUser && !member.isAdmin
                                 ? IconButton(
                                   icon: const Icon(
                                     Icons.remove_circle_outline,

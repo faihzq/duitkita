@@ -145,6 +145,14 @@ class _OverviewTab extends StatelessWidget {
           const SizedBox(height: 20),
         ],
 
+        // Yearly Summary
+        if (analytics.yearlyCollections.isNotEmpty) ...[
+          _SectionHeader(title: 'Yearly Summary', icon: Icons.calendar_today_rounded),
+          const SizedBox(height: 12),
+          _YearlySummaryCard(analytics: analytics),
+          const SizedBox(height: 20),
+        ],
+
         // Activity Stats
         _SectionHeader(title: 'Activity', icon: Icons.timeline),
         const SizedBox(height: 12),
@@ -992,6 +1000,86 @@ class _ActivityCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary, fontWeight: FontWeight.w500))),
         Text(value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color)),
+      ],
+    );
+  }
+}
+
+class _YearlySummaryCard extends StatelessWidget {
+  final GroupAnalytics analytics;
+
+  const _YearlySummaryCard({required this.analytics});
+
+  @override
+  Widget build(BuildContext context) {
+    final years = <int>{...analytics.yearlyCollections.keys, ...analytics.yearlyExpenses.keys}.toList()..sort((a, b) => b.compareTo(a));
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        children: years.map((year) {
+          final collected = analytics.yearlyCollections[year] ?? 0.0;
+          final expenses = analytics.yearlyExpenses[year] ?? 0.0;
+          final net = collected - expenses;
+
+          return Padding(
+            padding: EdgeInsets.only(bottom: year != years.last ? 16 : 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (year != years.first)
+                  Divider(color: AppTheme.cardBg, height: 24),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$year',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
+                    const Spacer(),
+                    Text(
+                      net >= 0 ? '+RM${net.toStringAsFixed(2)}' : '-RM${net.abs().toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: net >= 0 ? AppTheme.success : AppTheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _yearStat('Collected', collected, AppTheme.success)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _yearStat('Expenses', expenses, AppTheme.error)),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _yearStat(String label, double amount, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textHint, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text('RM${amount.toStringAsFixed(2)}',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color)),
       ],
     );
   }

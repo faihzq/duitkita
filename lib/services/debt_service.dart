@@ -148,6 +148,26 @@ class DebtService {
             .toList());
   }
 
+  // Check if payment exists for a specific month/year
+  Future<bool> hasDebtPaidForMonth({
+    required String debtId,
+    required int month,
+    required int year,
+  }) async {
+    try {
+      final snapshot = await _debts
+          .doc(debtId)
+          .collection('payments')
+          .where('month', isEqualTo: month)
+          .where('year', isEqualTo: year)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // Delete a payment
   Future<void> deleteDebtPayment({
     required String debtId,
@@ -181,4 +201,15 @@ final debtStreamProvider = StreamProvider.family<DebtModel?, String>((ref, debtI
 
 final debtPaymentsStreamProvider = StreamProvider.family<List<DebtPaymentModel>, String>((ref, debtId) {
   return ref.watch(debtServiceProvider).getDebtPaymentsStream(debtId);
+});
+
+// Provider for current month payment status of a debt/bill
+final debtMonthPaidProvider = FutureProvider.family<bool, String>((ref, debtId) async {
+  final debtService = ref.read(debtServiceProvider);
+  final now = DateTime.now();
+  return debtService.hasDebtPaidForMonth(
+    debtId: debtId,
+    month: now.month,
+    year: now.year,
+  );
 });

@@ -56,7 +56,15 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
       filtered = filtered.where((p) => !p.paymentDate.isAfter(end)).toList();
     }
 
+    // Sort by paymentDate descending (latest first)
+    filtered.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+
     return filtered;
+  }
+
+  /// Returns a 'YYYY-MM' key based on the actual payment date (when paid)
+  String _getPaymentDateKey(PaymentModel payment) {
+    return '${payment.paymentDate.year}-${payment.paymentDate.month.toString().padLeft(2, '0')}';
   }
 
   void _clearFilters() {
@@ -329,9 +337,10 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
               final isFirst = index == 0;
               final isLast = index == payments.length - 1;
 
-              // Check if this is the first payment of a new month
+              // Check if this is the first payment of a new month (grouped by actual payment date)
+              final paymentDateKey = _getPaymentDateKey(payment);
               final isNewMonth = index == 0 ||
-                  payment.monthYearKey != payments[index - 1].monthYearKey;
+                  paymentDateKey != _getPaymentDateKey(payments[index - 1]);
 
               return Column(
                 children: [
@@ -351,7 +360,7 @@ class _PaymentHistoryScreenState extends ConsumerState<PaymentHistoryScreen> {
                           const Icon(Icons.calendar_today, size: 14, color: Colors.white),
                           const SizedBox(width: 8),
                           Text(
-                            _getMonthYearLabel(payment.monthYearKey),
+                            _getMonthYearLabel(paymentDateKey),
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,

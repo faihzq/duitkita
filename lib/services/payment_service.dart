@@ -218,50 +218,6 @@ class PaymentService {
     }
   }
 
-  // Get total paid by user in group
-  Future<double> getUserTotalInGroup({
-    required String groupId,
-    required String userId,
-  }) async {
-    try {
-      final snapshot =
-          await _payments
-              .where('groupId', isEqualTo: groupId)
-              .where('userId', isEqualTo: userId)
-              .get();
-
-      double total = 0.0;
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        total += (data['amount'] ?? 0.0).toDouble();
-      }
-
-      return total;
-    } catch (e) {
-      debugPrint('Error getting user total in group: $e');
-      return 0.0;
-    }
-  }
-
-  // Get group total collected
-  Future<double> getGroupTotalCollected(String groupId) async {
-    try {
-      final snapshot =
-          await _payments.where('groupId', isEqualTo: groupId).get();
-
-      double total = 0.0;
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        total += (data['amount'] ?? 0.0).toDouble();
-      }
-
-      return total;
-    } catch (e) {
-      debugPrint('Error getting group total collected: $e');
-      return 0.0;
-    }
-  }
-
   // Bulk import payments (for backfilling historical data)
   // Returns the number of payments actually added (skips duplicates)
   Future<int> addBulkPayments({
@@ -460,37 +416,6 @@ class PaymentService {
     }
   }
 
-  // Get payment statistics for group
-  Future<Map<String, dynamic>> getGroupPaymentStats(String groupId) async {
-    try {
-      final snapshot =
-          await _payments.where('groupId', isEqualTo: groupId).get();
-
-      double totalCollected = 0.0;
-      int totalPayments = snapshot.docs.length;
-      Map<String, int> monthlyPayments = {};
-
-      for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        totalCollected += (data['amount'] ?? 0.0).toDouble();
-
-        final month = data['month'] ?? 0;
-        final year = data['year'] ?? 0;
-        final key = '$year-${month.toString().padLeft(2, '0')}';
-        monthlyPayments[key] = (monthlyPayments[key] ?? 0) + 1;
-      }
-
-      return {
-        'totalCollected': totalCollected,
-        'totalPayments': totalPayments,
-        'monthlyPayments': monthlyPayments,
-      };
-    } catch (e) {
-      debugPrint('Error getting group payment stats: $e');
-      return {'totalCollected': 0.0, 'totalPayments': 0, 'monthlyPayments': {}};
-    }
-  }
-
   // Get pending payments for multiple groups (admin review)
   Stream<List<PaymentModel>> getPendingPaymentsForGroupsStream(List<String> groupIds) {
     if (groupIds.isEmpty) return Stream.value([]);
@@ -552,3 +477,17 @@ final pendingPaymentsStreamProvider =
       final paymentService = ref.watch(paymentServiceProvider);
       return paymentService.getPendingPaymentsStream(groupId);
     });
+
+// Provider for current month payment status (returns 'confirmed', 'pending', 'rejected', or 'unpaid')
+final groupMonthPaymentStatusProvider = FutureProvider.family<String, ({String groupId, String userId})>((ref, params) async {
+  final paymentService = ref.read(paymentServiceProvider);
+  final now = DateTime.now();
+  final payments = await paymentService.getUserMonthPayments(
+    groupId: params.groupId,
+    userId: params.userId,
+    month: now.month,
+    year: now.year,
+  );
+  if (payments.isEmpty) return 'unpaid';
+  return payments.first.paymentStatus;
+});

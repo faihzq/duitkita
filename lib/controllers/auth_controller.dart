@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/services/auth_service.dart';
@@ -8,14 +9,21 @@ enum AuthState { initial, loading, authenticated, unauthenticated, error }
 // Authentication state notifier
 class AuthController extends StateNotifier<AuthState> {
   final AuthService _authService;
+  late final StreamSubscription<User?> _authSubscription;
 
   AuthController(this._authService) : super(AuthState.initial) {
-    // Check initial auth state
-    if (_authService.currentUser != null) {
-      state = AuthState.authenticated;
-    } else {
-      state = AuthState.unauthenticated;
-    }
+    // Listen to Firebase auth state changes to stay in sync
+    _authSubscription = _authService.authStateChanges.listen((user) {
+      // Don't override loading state (sign-in/sign-up in progress)
+      if (state == AuthState.loading) return;
+      state = user != null ? AuthState.authenticated : AuthState.unauthenticated;
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   // Get current user

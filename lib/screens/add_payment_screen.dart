@@ -44,14 +44,25 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
 
   bool _isLoading = false;
 
+  // Multi-month selection
+  final Set<(int year, int month)> _selectedMonths = {};
+  late int _pickerYear;
+
   static const _monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
+  static const _monthShort = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
   @override
   void initState() {
     super.initState();
+    _selectedMonths.add((widget.selectedYear, widget.selectedMonth));
+    _pickerYear = widget.selectedYear;
     _amountController = TextEditingController(
       text: widget.monthlyAmount.toStringAsFixed(2),
     );
@@ -71,8 +82,24 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     return _formKey.currentState?.saveAndValidate() ?? false;
   }
 
+  void _toggleMonth(int year, int month) {
+    setState(() {
+      final key = (year, month);
+      if (_selectedMonths.contains(key)) {
+        if (_selectedMonths.length > 1) {
+          _selectedMonths.remove(key);
+        }
+      } else {
+        _selectedMonths.add(key);
+      }
+      // Update amount based on selected months
+      _amountController.text = (widget.monthlyAmount * _selectedMonths.length).toStringAsFixed(2);
+    });
+  }
+
   Future<void> _addPayment() async {
     if (!_validateInputs()) return;
+    if (_selectedMonths.isEmpty) return;
 
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) {
@@ -99,25 +126,44 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
       final autoApprove = group?.autoApprovePayments ?? false;
 
       final paymentService = ref.read(paymentServiceProvider);
-      await paymentService.addPayment(
-        groupId: widget.groupId,
-        userId: userId,
-        userName: profile?.name ?? 'Unknown',
-        amount: double.parse(_amountController.text.trim()),
-        paymentDate: _selectedDate,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-        receiptUrl: receiptUrl,
-        autoApprove: autoApprove,
-      );
+      final perMonthAmount = widget.monthlyAmount;
+      final notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
 
+      // Create a payment for each selected month
+      final sortedMonths = _selectedMonths.toList()..sort((a, b) {
+        final cmp = a.$1.compareTo(b.$1);
+        return cmp != 0 ? cmp : a.$2.compareTo(b.$2);
+      });
+
+      for (final (year, month) in sortedMonths) {
+        final paymentDate = DateTime(year, month, _selectedDate.day.clamp(1, 28));
+        await paymentService.addPayment(
+          groupId: widget.groupId,
+          userId: userId,
+          userName: profile?.name ?? 'Unknown',
+          amount: perMonthAmount,
+          paymentDate: paymentDate,
+          notes: _selectedMonths.length > 1
+              ? '${notes != null ? '$notes | ' : ''}${_monthNames[month - 1]} $year'
+              : notes,
+          receiptUrl: receiptUrl,
+          autoApprove: autoApprove,
+        );
+      }
+
+      final totalAmount = perMonthAmount * _selectedMonths.length;
       final groupService = ref.read(groupServiceProvider);
       await groupService.updateMemberStats(
         groupId: widget.groupId, userId: userId,
-        amount: double.parse(_amountController.text.trim()),
+        amount: totalAmount,
       );
 
       if (mounted) {
-        showSnackBar(context, autoApprove ? 'Payment confirmed automatically!' : 'Payment submitted for review!');
+        final monthCount = _selectedMonths.length;
+        final msg = monthCount > 1
+            ? '$monthCount months ${autoApprove ? 'confirmed' : 'submitted for review'}!'
+            : autoApprove ? 'Payment confirmed automatically!' : 'Payment submitted for review!';
+        showSnackBar(context, msg);
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -125,6 +171,118 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildMonthPicker() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Year navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Select Months',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _pickerYear--),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.chevron_left, size: 18, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('$_pickerYear',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _pickerYear++),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.chevron_right, size: 18, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Month grid (4 columns x 3 rows)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 2.2,
+            ),
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final month = index + 1;
+              final isSelected = _selectedMonths.contains((_pickerYear, month));
+
+              return GestureDetector(
+                onTap: () => _toggleMonth(_pickerYear, month),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    gradient: isSelected ? AppTheme.primaryGradient : null,
+                    color: isSelected ? null : AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _monthShort[index],
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? Colors.white : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Selected months summary
+          if (_selectedMonths.length > 1) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_selectedMonths.length} months \u00d7 RM${widget.monthlyAmount.toStringAsFixed(2)} = RM${(widget.monthlyAmount * _selectedMonths.length).toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primary),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   InputDecoration _styledInputDecoration({
@@ -275,12 +433,18 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_monthNames[widget.selectedMonth - 1]} ${widget.selectedYear}',
+                  _selectedMonths.length == 1
+                      ? '${_monthNames[_selectedMonths.first.$2 - 1]} ${_selectedMonths.first.$1}'
+                      : '${_selectedMonths.length} months selected',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
                 ),
                 const SizedBox(height: 4),
-                Text('Record your monthly contribution',
-                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7))),
+                Text(
+                  _selectedMonths.length > 1
+                      ? 'RM${widget.monthlyAmount.toStringAsFixed(0)} x ${_selectedMonths.length} months'
+                      : 'Record your monthly contribution',
+                  style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7)),
+                ),
               ],
             ),
           ),
@@ -300,6 +464,10 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                       _buildBankInfoCard(groupAsync.valueOrNull!),
                       const SizedBox(height: 20),
                     ],
+
+                    // Month Picker
+                    _buildMonthPicker(),
+                    const SizedBox(height: 16),
 
                     // Amount
                     FormBuilderTextField(

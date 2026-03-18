@@ -24,25 +24,32 @@ class AnalyticsService {
               .where('groupId', isEqualTo: groupId)
               .get();
 
-      final payments =
+      final allPayments =
           paymentsSnapshot.docs
               .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
               .toList();
 
-      if (payments.isEmpty) {
+      // Only count confirmed payments for analytics
+      final payments = allPayments
+          .where((p) => p.paymentStatus == 'confirmed')
+          .toList();
+
+      if (allPayments.isEmpty) {
         return GroupAnalytics.empty();
       }
 
-      // Calculate total collected
+      // Calculate total collected (confirmed only)
       final totalCollected = payments.fold<double>(
         0.0,
         (sum, payment) => sum + payment.amount,
       );
 
       // Calculate average payment amount
-      final averagePaymentAmount = totalCollected / payments.length;
+      final averagePaymentAmount = payments.isNotEmpty
+          ? totalCollected / payments.length
+          : 0.0;
 
-      // Calculate member contributions
+      // Calculate member contributions (confirmed only)
       final Map<String, double> memberContributions = {};
       final Map<String, int> memberPaymentCounts = {};
 
@@ -78,7 +85,7 @@ class AnalyticsService {
             ),
       );
 
-      // Calculate monthly collections
+      // Calculate monthly collections (confirmed only)
       final Map<String, double> monthlyCollections = {};
       for (var payment in payments) {
         final monthYear =
@@ -87,20 +94,20 @@ class AnalyticsService {
             (monthlyCollections[monthYear] ?? 0.0) + payment.amount;
       }
 
-      // Calculate expected total based on group age and member count
+      // Calculate expected total based on each member's join date
       final now = DateTime.now();
-      final monthsSinceCreation = _calculateMonthsDifference(
-        group.createdAt,
-        now,
-      );
-      final expectedTotal =
-          monthsSinceCreation * group.monthlyAmount * members.length;
+      double expectedTotal = 0.0;
+      for (final member in members) {
+        // Months from member's join date to now (inclusive of both months)
+        final memberMonths = _calculateMonthsDifference(member.joinedAt, now) + 1;
+        expectedTotal += memberMonths * group.monthlyAmount;
+      }
 
       // Calculate collection rate
       final collectionRate =
           expectedTotal > 0 ? (totalCollected / expectedTotal) * 100 : 0.0;
 
-      // Count active members (members who have made at least one payment)
+      // Count active members (members who have made at least one confirmed payment)
       final activeMembers = memberContributions.length;
 
       // Calculate all expenses (all statuses for breakdown)
@@ -169,6 +176,20 @@ class AnalyticsService {
       final totalExpenseCount = allExpenseDocs.length;
       final netBalance = totalCollected - totalExpenses;
 
+      // Aggregate yearly collections from monthly data
+      final Map<int, double> yearlyCollections = {};
+      for (final entry in monthlyCollections.entries) {
+        final year = int.parse(entry.key.split('-')[0]);
+        yearlyCollections[year] = (yearlyCollections[year] ?? 0.0) + entry.value;
+      }
+
+      // Aggregate yearly expenses from monthly data
+      final Map<int, double> yearlyExpenses = {};
+      for (final entry in monthlyExpenses.entries) {
+        final year = int.parse(entry.key.split('-')[0]);
+        yearlyExpenses[year] = (yearlyExpenses[year] ?? 0.0) + entry.value;
+      }
+
       return GroupAnalytics(
         totalCollected: totalCollected,
         averagePaymentAmount: averagePaymentAmount,
@@ -191,6 +212,8 @@ class AnalyticsService {
         expenseByRequester: expenseByRequester,
         monthlyExpenses: monthlyExpenses,
         recentExpenses: recentExpensesList,
+        yearlyCollections: yearlyCollections,
+        yearlyExpenses: yearlyExpenses,
       );
     } catch (e) {
       throw Exception('Failed to generate analytics: $e');
@@ -213,6 +236,7 @@ class AnalyticsService {
       final payments =
           paymentsSnapshot.docs
               .map((doc) => PaymentModel.fromMap(doc.data(), doc.id))
+              .where((p) => p.paymentStatus == 'confirmed')
               .toList();
 
       // Group payments by month
@@ -262,45 +286,11 @@ class AnalyticsService {
     }
   }
 
-  // Get payment trends (last 6 months)
-  Future<Map<String, double>> getPaymentTrends(String groupId) async {
-    try {
-      final monthlyStats = await getMonthlyStats(
-        groupId: groupId,
-        limitMonths: 6,
-      );
-      final Map<String, double> trends = {};
-
-      for (var stat in monthlyStats) {
-        trends[stat.monthYear] = stat.totalAmount;
-      }
-
-      return trends;
-    } catch (e) {
-      throw Exception('Failed to get payment trends: $e');
-    }
-  }
-
   // Helper function to calculate months difference
   int _calculateMonthsDifference(DateTime start, DateTime end) {
     return (end.year - start.year) * 12 + end.month - start.month;
   }
 
-  // Get member contribution percentages
-  Map<String, double> getMemberContributionPercentages(
-    Map<String, double> memberContributions,
-    double totalCollected,
-  ) {
-    final Map<String, double> percentages = {};
-
-    if (totalCollected == 0) return percentages;
-
-    memberContributions.forEach((userId, amount) {
-      percentages[userId] = (amount / totalCollected) * 100;
-    });
-
-    return percentages;
-  }
 }
 
 // Provider for analytics service
