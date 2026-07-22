@@ -6,6 +6,7 @@ class GroupModel {
   final String description;
   final String createdBy;
   final double monthlyAmount;
+  final double initialBalance; // Starting money in the group (e.g. existing savings)
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> memberIds;
@@ -23,6 +24,7 @@ class GroupModel {
     required this.description,
     required this.createdBy,
     required this.monthlyAmount,
+    this.initialBalance = 0.0,
     required this.createdAt,
     required this.updatedAt,
     required this.memberIds,
@@ -42,6 +44,7 @@ class GroupModel {
       description: data['description'] ?? '',
       createdBy: data['createdBy'] ?? '',
       monthlyAmount: (data['monthlyAmount'] ?? 30.0).toDouble(),
+      initialBalance: (data['initialBalance'] ?? 0.0).toDouble(),
       createdAt:
           data['createdAt'] != null
               ? (data['createdAt'] as Timestamp).toDate()
@@ -67,6 +70,7 @@ class GroupModel {
       'description': description,
       'createdBy': createdBy,
       'monthlyAmount': monthlyAmount,
+      'initialBalance': initialBalance,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'memberIds': memberIds,
@@ -84,6 +88,7 @@ class GroupModel {
     String? name,
     String? description,
     double? monthlyAmount,
+    double? initialBalance,
     List<String>? memberIds,
     int? memberCount,
     int? reminderDay,
@@ -99,6 +104,7 @@ class GroupModel {
       description: description ?? this.description,
       createdBy: createdBy,
       monthlyAmount: monthlyAmount ?? this.monthlyAmount,
+      initialBalance: initialBalance ?? this.initialBalance,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
       memberIds: memberIds ?? this.memberIds,

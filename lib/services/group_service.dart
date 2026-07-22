@@ -16,6 +16,7 @@ class GroupService {
     required String creatorName,
     required String? creatorEmail,
     double monthlyAmount = 30.0,
+    double initialBalance = 0.0,
   }) async {
     // Input validation
     if (name.trim().isEmpty) {
@@ -32,6 +33,7 @@ class GroupService {
         'description': description,
         'createdBy': createdBy,
         'monthlyAmount': monthlyAmount,
+        'initialBalance': initialBalance,
         'createdAt': now,
         'updatedAt': now,
         'memberIds': [createdBy],
@@ -174,6 +176,7 @@ class GroupService {
     String? name,
     String? description,
     double? monthlyAmount,
+    double? initialBalance,
     int? reminderDay,
     String? bankName,
     String? accountNumber,
@@ -187,6 +190,7 @@ class GroupService {
       if (name != null) updateData['name'] = name;
       if (description != null) updateData['description'] = description;
       if (monthlyAmount != null) updateData['monthlyAmount'] = monthlyAmount;
+      if (initialBalance != null) updateData['initialBalance'] = initialBalance;
       if (reminderDay != null) updateData['reminderDay'] = reminderDay;
       if (bankName != null) updateData['bankName'] = bankName;
       if (accountNumber != null) updateData['accountNumber'] = accountNumber;
@@ -237,11 +241,12 @@ class GroupService {
     required String groupId,
     required String userId,
     required double amount,
+    int count = 1,
   }) async {
     try {
       await _groups.doc(groupId).collection('members').doc(userId).update({
         'totalPaid': FieldValue.increment(amount),
-        'paymentCount': FieldValue.increment(1),
+        'paymentCount': FieldValue.increment(count),
       });
     } catch (e) {
       throw Exception('Failed to update member stats: $e');

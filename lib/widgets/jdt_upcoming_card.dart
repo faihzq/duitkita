@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/models/match_model.dart';
 import 'package:duitkita/services/match_service.dart';
-import 'package:duitkita/screens/jdt_matches_screen.dart';
+import 'package:duitkita/features/jdt/jdt_matches_screen.dart';
 import 'package:duitkita/config/app_theme.dart';
 
 class JdtUpcomingCard extends ConsumerWidget {

@@ -33,7 +33,7 @@ class NotificationService {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Kuala_Lumpur'));
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@drawable/ic_notification');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notifications.initialize(initSettings);
@@ -126,7 +126,7 @@ class NotificationService {
           channelDescription: _pushChannelDesc,
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
     );
@@ -189,7 +189,7 @@ class NotificationService {
               channelDescription: _channelDesc,
               importance: Importance.high,
               priority: Priority.high,
-              icon: '@mipmap/ic_launcher',
+              icon: '@drawable/ic_notification',
             ),
           ),
           uiLocalNotificationDateInterpretation:
@@ -271,7 +271,7 @@ class NotificationService {
             channelDescription: _channelDesc,
             importance: Importance.high,
             priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
+            icon: '@drawable/ic_notification',
           ),
         ),
       );
@@ -279,6 +279,160 @@ class NotificationService {
       debugPrint('Showed unpaid notification for: $groupList');
     } catch (e) {
       debugPrint('Error checking unpaid status: $e');
+    }
+  }
+
+  /// Schedule reminders for user's debts and bills based on each item's dueDay
+  static Future<void> scheduleDebtAndBillReminders() async {
+    if (!_initialized) await init();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Get all active debts/bills for this user
+      final debtsSnapshot = await firestore
+          .collection('debts')
+          .where('userId', isEqualTo: user.uid)
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      if (debtsSnapshot.docs.isEmpty) return;
+
+      final myt = tz.getLocation('Asia/Kuala_Lumpur');
+      final now = tz.TZDateTime.now(myt);
+
+      for (int i = 0; i < debtsSnapshot.docs.length; i++) {
+        final doc = debtsSnapshot.docs[i];
+        final data = doc.data();
+        final title = data['title'] ?? 'Payment';
+        final type = data['type'] ?? 'debt';
+        final dueDay = (data['dueDay'] as int?) ?? 1;
+        final amount = (data['monthlyPayment'] ?? 0).toDouble();
+
+        // Schedule 1 day before due date as reminder
+        var reminderDay = dueDay - 1;
+        if (reminderDay < 1) reminderDay = 28; // wrap to previous month end
+
+        var scheduled = tz.TZDateTime(myt, now.year, now.month, reminderDay, 9, 0);
+
+        // If this month's reminder already passed, schedule for next month
+        if (scheduled.isBefore(now)) {
+          if (now.month == 12) {
+            scheduled = tz.TZDateTime(myt, now.year + 1, 1, reminderDay, 9, 0);
+          } else {
+            scheduled = tz.TZDateTime(myt, now.year, now.month + 1, reminderDay, 9, 0);
+          }
+        }
+
+        // Use unique notification ID (offset by 500 to avoid clash with group reminders)
+        final notifId = 500 + i;
+        final isBill = type == 'bill';
+        final label = isBill ? 'Bill' : 'Debt';
+        final emoji = isBill ? '📋' : '💳';
+
+        await _notifications.zonedSchedule(
+          notifId,
+          '$label Reminder - $title $emoji',
+          'Bayaran ${isBill ? 'bil' : 'hutang'} "$title" RM${amount.toStringAsFixed(2)} due esok (day $dueDay)!',
+          scheduled,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              channelDescription: _channelDesc,
+              importance: Importance.high,
+              priority: Priority.high,
+              icon: '@drawable/ic_notification',
+            ),
+          ),
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+        );
+
+        debugPrint('Scheduled $label reminder for "$title" on day $reminderDay at 9:00 AM MYT');
+      }
+    } catch (e) {
+      debugPrint('Error scheduling debt/bill reminders: $e');
+    }
+  }
+
+  /// Check unpaid debts/bills for current month and show immediate notification
+  static Future<void> checkAndNotifyUnpaidDebts() async {
+    if (!_initialized) await init();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      final debtsSnapshot = await firestore
+          .collection('debts')
+          .where('userId', isEqualTo: user.uid)
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      if (debtsSnapshot.docs.isEmpty) return;
+
+      final now = DateTime.now();
+      List<String> overdueItems = [];
+
+      for (final doc in debtsSnapshot.docs) {
+        final data = doc.data();
+        final title = data['title'] ?? 'Unknown';
+        final dueDay = (data['dueDay'] as int?) ?? 1;
+        final type = data['type'] ?? 'debt';
+
+        // Only check if due day has passed this month
+        if (now.day < dueDay) continue;
+
+        // Check if payment exists for current month
+        final paymentSnapshot = await firestore
+            .collection('debts')
+            .doc(doc.id)
+            .collection('payments')
+            .where('month', isEqualTo: now.month)
+            .where('year', isEqualTo: now.year)
+            .limit(1)
+            .get();
+
+        if (paymentSnapshot.docs.isEmpty) {
+          final label = type == 'bill' ? 'Bil' : 'Hutang';
+          overdueItems.add('$label: $title');
+        }
+      }
+
+      if (overdueItems.isEmpty) return;
+
+      final message = overdueItems.length == 1
+          ? 'Belum bayar ${overdueItems.first} bulan ni'
+          : 'Belum bayar ${overdueItems.length} item bulan ni:\n${overdueItems.join('\n')}';
+
+      await _notifications.show(
+        3, // unique ID for debt/bill unpaid notification
+        'Bayaran Tertunggak 🔔',
+        message,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(message),
+          ),
+        ),
+      );
+
+      debugPrint('Showed overdue debt/bill notification for: ${overdueItems.join(', ')}');
+    } catch (e) {
+      debugPrint('Error checking unpaid debts/bills: $e');
     }
   }
 
@@ -340,7 +494,7 @@ class NotificationService {
                 channelDescription: _channelDesc,
                 importance: Importance.high,
                 priority: Priority.high,
-                icon: '@mipmap/ic_launcher',
+                icon: '@drawable/ic_notification',
               ),
             ),
           );
@@ -428,15 +582,15 @@ class NotificationService {
         2,
         'Payment Received!',
         message,
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
             _channelName,
             channelDescription: _channelDesc,
             importance: Importance.high,
             priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-            styleInformation: BigTextStyleInformation(''),
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(message),
           ),
         ),
       );

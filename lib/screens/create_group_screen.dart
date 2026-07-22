@@ -17,6 +17,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _amountController = TextEditingController(text: '30.00');
+  final _initialBalanceController = TextEditingController(text: '0.00');
   bool _isLoading = false;
 
   @override
@@ -24,6 +25,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     _nameController.dispose();
     _descController.dispose();
     _amountController.dispose();
+    _initialBalanceController.dispose();
     super.dispose();
   }
 
@@ -46,12 +48,22 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
     return null;
   }
 
+  String? _validateInitialBalance(String? value) {
+    // Optional — empty means 0
+    if (value == null || value.trim().isEmpty) return null;
+    final num = double.tryParse(value.trim());
+    if (num == null) return 'Enter a valid number';
+    if (num < 0) return 'Cannot be negative';
+    return null;
+  }
+
   Future<void> _createGroup() async {
     final nameError = _validateName(_nameController.text);
     final descError = _validateDescription(_descController.text);
     final amountError = _validateAmount(_amountController.text);
+    final initialBalanceError = _validateInitialBalance(_initialBalanceController.text);
 
-    if (nameError != null || descError != null || amountError != null) {
+    if (nameError != null || descError != null || amountError != null || initialBalanceError != null) {
       // Trigger rebuild to show errors
       setState(() {});
       return;
@@ -79,6 +91,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         creatorName: profile?.name ?? 'Unknown',
         creatorEmail: userEmail,
         monthlyAmount: double.parse(_amountController.text.trim()),
+        initialBalance: double.tryParse(_initialBalanceController.text.trim()) ?? 0.0,
       );
 
       if (mounted) {
@@ -188,6 +201,24 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   ),
                   const SizedBox(height: 6),
                   const Text('Amount each member pays monthly',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                  const SizedBox(height: 16),
+
+                  // Initial Balance
+                  TextFormField(
+                    controller: _initialBalanceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    validator: _validateInitialBalance,
+                    decoration: AppTheme.styledInput(
+                      label: 'Starting Balance',
+                      prefixIcon: Icons.savings_outlined,
+                      prefixText: 'RM ',
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text('Money already in this group (e.g. existing savings). Leave 0 if none.',
                     style: TextStyle(fontSize: 12, color: AppTheme.textHint)),
                   const SizedBox(height: 36),
 

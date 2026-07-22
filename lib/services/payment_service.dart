@@ -146,6 +146,19 @@ class PaymentService {
         );
   }
 
+  // Get all payments for a user across all groups (for notifications)
+  Stream<List<PaymentModel>> getAllUserPaymentsStream(String userId) {
+    return _payments
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => PaymentModel.fromMap(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ))
+            .toList());
+  }
+
   // Get payments for a specific user in a group
   Stream<List<PaymentModel>> getUserPaymentsInGroupStream({
     required String groupId,
@@ -478,16 +491,52 @@ final pendingPaymentsStreamProvider =
       return paymentService.getPendingPaymentsStream(groupId);
     });
 
-// Provider for current month payment status (returns 'confirmed', 'pending', 'rejected', or 'unpaid')
-final groupMonthPaymentStatusProvider = FutureProvider.family<String, ({String groupId, String userId})>((ref, params) async {
-  final paymentService = ref.read(paymentServiceProvider);
+// Stream provider for current month payment status (returns 'confirmed', 'pending', 'rejected', or 'unpaid')
+// Uses a stream so the UI updates in real-time when payments are added/changed.
+final groupMonthPaymentStatusProvider = StreamProvider.family<String, ({String groupId, String userId})>((ref, params) {
+  final paymentService = ref.watch(paymentServiceProvider);
   final now = DateTime.now();
-  final payments = await paymentService.getUserMonthPayments(
+  return paymentService.getUserPaymentsInGroupStream(
     groupId: params.groupId,
     userId: params.userId,
-    month: now.month,
-    year: now.year,
-  );
-  if (payments.isEmpty) return 'unpaid';
-  return payments.first.paymentStatus;
+  ).map((payments) {
+    final monthPayments = payments.where(
+      (p) => p.month == now.month && p.year == now.year,
+    ).toList();
+    if (monthPayments.isEmpty) return 'unpaid';
+    return monthPayments.first.paymentStatus;
+  });
+});
+
+// Count of confirmed payments for the current month in a group (for progress bar)
+final groupMonthPaidCountProvider = StreamProvider.family<int, String>((ref, groupId) {
+  final now = DateTime.now();
+  return FirebaseFirestore.instance
+      .collection('groups')
+      .doc(groupId)
+      .collection('payments')
+      .where('month', isEqualTo: now.month)
+      .where('year', isEqualTo: now.year)
+      .where('paymentStatus', isEqualTo: 'confirmed')
+      .snapshots()
+      .map((s) => s.docs.length);
+});
+
+// Provider for user payment notifications (recently confirmed/rejected within 7 days)
+final userPaymentNotificationsProvider =
+    StreamProvider.family<List<PaymentModel>, String>((ref, userId) {
+  final paymentService = ref.watch(paymentServiceProvider);
+  return paymentService.getAllUserPaymentsStream(userId).map((payments) {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final notifs = payments
+        .where((p) =>
+            (p.paymentStatus == 'confirmed' ||
+                p.paymentStatus == 'rejected') &&
+            p.verifiedAt != null &&
+            p.verifiedAt!.isAfter(cutoff))
+        .toList();
+    notifs.sort((a, b) => (b.verifiedAt ?? b.createdAt)
+        .compareTo(a.verifiedAt ?? a.createdAt));
+    return notifs;
+  });
 });

@@ -203,13 +203,12 @@ final debtPaymentsStreamProvider = StreamProvider.family<List<DebtPaymentModel>,
   return ref.watch(debtServiceProvider).getDebtPaymentsStream(debtId);
 });
 
-// Provider for current month payment status of a debt/bill
-final debtMonthPaidProvider = FutureProvider.family<bool, String>((ref, debtId) async {
-  final debtService = ref.read(debtServiceProvider);
+// Stream provider for current month payment status of a debt/bill
+// Uses a stream so the UI updates in real-time when payments are added/deleted.
+final debtMonthPaidProvider = StreamProvider.family<bool, String>((ref, debtId) {
+  final debtService = ref.watch(debtServiceProvider);
   final now = DateTime.now();
-  return debtService.hasDebtPaidForMonth(
-    debtId: debtId,
-    month: now.month,
-    year: now.year,
-  );
+  return debtService.getDebtPaymentsStream(debtId).map((payments) {
+    return payments.any((p) => p.month == now.month && p.year == now.year);
+  });
 });

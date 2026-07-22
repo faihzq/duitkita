@@ -63,29 +63,54 @@ service cloud.firestore {
                          (request.auth.uid == memberId &&
                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPaid', 'paymentCount'])));
       }
+
+      // Payments subcollection
+      match /payments/{paymentId} {
+        // Group members can read payments in their group
+        allow read: if isSignedIn() && isGroupMember(groupId);
+
+        // Members can submit their own payment; admins can submit for anyone (bulk import)
+        allow create: if isSignedIn() &&
+                         isGroupMember(groupId) &&
+                         (request.auth.uid == request.resource.data.userId ||
+                          isGroupAdmin(groupId));
+
+        // Only group admin can verify/reject payments
+        allow update: if isSignedIn() && isGroupAdmin(groupId);
+
+        // Payment owner or admin can delete
+        allow delete: if isSignedIn() &&
+                         (request.auth.uid == resource.data.userId ||
+                          isGroupAdmin(groupId));
+      }
     }
 
-    // Payments collection
+    // Payments collection (stored top-level, not as a subcollection)
     match /payments/{paymentId} {
-      // Members can read payments in their groups
-      allow read: if isSignedIn() &&
-                     isGroupMember(resource.data.groupId);
-
-      // Members can create payments for themselves,
-      // OR admins can create payments for any member (bulk import)
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isGroupMember(resource.data.groupId)
+      );
       allow create: if isSignedIn() &&
-                       isGroupMember(request.resource.data.groupId) &&
-                       (request.auth.uid == request.resource.data.userId ||
-                        isGroupAdmin(request.resource.data.groupId));
+                       request.auth.uid == request.resource.data.userId &&
+                       isGroupMember(request.resource.data.groupId);
+      allow update: if isSignedIn() && isGroupAdmin(resource.data.groupId);
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isGroupAdmin(resource.data.groupId)
+      );
+    }
 
-      // Only group admin can verify/reject payments
-      allow update: if isSignedIn() &&
-                       isGroupAdmin(resource.data.groupId);
+    // Collection-group wildcard: lets users query their own payments across all groups
+    // (used by payment history screen and home screen summaries)
+    match /{path=**}/payments/{paymentId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
 
-      // Only the payment creator or admin can delete
-      allow delete: if isSignedIn() &&
-                       (request.auth.uid == resource.data.userId ||
-                        isGroupAdmin(resource.data.groupId));
+    // Collection-group wildcard: lets users query their own member docs across all groups
+    // (used by getAdminGroupIdsStream to find groups where user is admin)
+    match /{path=**}/members/{memberId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
 
     // Expenses collection

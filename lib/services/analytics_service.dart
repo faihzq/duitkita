@@ -35,7 +35,8 @@ class AnalyticsService {
           .toList();
 
       if (allPayments.isEmpty) {
-        return GroupAnalytics.empty();
+        // No payments yet, but the group may still hold a starting balance.
+        return GroupAnalytics.empty().copyWithBalance(group.initialBalance);
       }
 
       // Calculate total collected (confirmed only)
@@ -174,7 +175,7 @@ class AnalyticsService {
       final recentExpensesList = recentExpenses.take(5).toList();
 
       final totalExpenseCount = allExpenseDocs.length;
-      final netBalance = totalCollected - totalExpenses;
+      final netBalance = group.initialBalance + totalCollected - totalExpenses;
 
       // Aggregate yearly collections from monthly data
       final Map<int, double> yearlyCollections = {};
@@ -204,6 +205,7 @@ class AnalyticsService {
         activeMembers: activeMembers,
         totalExpenses: totalExpenses,
         totalExpenseCount: totalExpenseCount,
+        initialBalance: group.initialBalance,
         netBalance: netBalance,
         pendingExpenseCount: pendingExpenseCount,
         approvedExpenseCount: approvedExpenseCount,

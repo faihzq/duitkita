@@ -1,55 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Primary gradient colors (matching app icon purple-violet)
-  static const Color primaryDark = Color(0xFF4A148C);   // Deep purple
-  static const Color primary = Color(0xFF6A1B9A);        // Purple
-  static const Color primaryLight = Color(0xFF9C4DCC);   // Light purple-violet
+  // ── Primary (deep navy) ────────────────────────────────────────────────────
+  static const Color primaryDark  = Color(0xFF14304F);   // darkest navy
+  static const Color primary      = Color(0xFF0B1F3A);   // deep navy
+  static const Color primaryLight = Color(0xFF1C3F6E);   // mid navy
 
-  // Accent colors
-  static const Color accent = Color(0xFF00BFA5);         // Teal accent
-  static const Color accentLight = Color(0xFF64FFDA);
+  // ── Accent (mint) ──────────────────────────────────────────────────────────
+  static const Color accent      = Color(0xFF1ECDB0);   // mint CTA
+  static const Color accentLight = Color(0xFF7BE5CE);   // light mint
+  static const Color accentDeep  = Color(0xFF0B7B66);   // dark mint text
+  static const Color accentSoft  = Color(0xFFD4F5EC);   // mint bg
 
-  // Status colors
-  static const Color success = Color(0xFF00C853);
-  static const Color error = Color(0xFFFF1744);
-  static const Color warning = Color(0xFFFF9100);
+  // ── Status ─────────────────────────────────────────────────────────────────
+  static const Color success      = Color(0xFF1F8A5B);
+  static const Color successSoft  = Color(0xFFDCF1E6);
+  static const Color error        = Color(0xFFC9382A);   // danger
+  static const Color errorSoft    = Color(0xFFFBE1DD);
+  static const Color warning      = Color(0xFFC97A0A);
+  static const Color warningSoft  = Color(0xFFFBEBD2);
+  static const Color info         = Color(0xFF2A6FDB);
+  static const Color infoSoft     = Color(0xFFDDE8F8);
 
-  // Neutral colors
-  static const Color cardBg = Color(0xFFF9F5FE);
-  static const Color surfaceBg = Color(0xFFF3EFF8);
-  static const Color textPrimary = Color(0xFF1A1D2E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textHint = Color(0xFF9CA3AF);
+  // ── Surfaces ───────────────────────────────────────────────────────────────
+  static const Color surface    = Color(0xFFFFFFFF);   // cards, sheets
+  static const Color surfaceAlt = Color(0xFFEFEDE6);   // subtle fills
+  static const Color cardBg     = Color(0xFFFFFFFF);   // form fields
+  static const Color surfaceBg  = Color(0xFFF2F4F7);   // scaffold background
 
-  // Section colors — 3 main categories
-  static const Color groupColor = Color(0xFF6A1B9A);       // Purple (same as primary)
-  static const Color groupColorDark = Color(0xFF4A148C);
-  static const Color groupColorLight = Color(0xFF9C4DCC);
+  // ── Borders ────────────────────────────────────────────────────────────────
+  static const Color border       = Color(0xFFE8E4DA);
+  static const Color borderStrong = Color(0xFFCBC8BD);
 
-  static const Color debtColor = Color(0xFF1565C0);         // Blue
-  static const Color debtColorDark = Color(0xFF0D47A1);
-  static const Color debtColorLight = Color(0xFF42A5F5);
+  // ── Text ───────────────────────────────────────────────────────────────────
+  static const Color textPrimary   = Color(0xFF0B1F3A);
+  static const Color textSecondary = Color(0xFF4B5C75);
+  static const Color textTertiary  = Color(0xFF8A99AE);
+  static const Color textHint      = Color(0xFF8A99AE);
 
-  static const Color billColor = Color(0xFFE65100);          // Orange
-  static const Color billColorDark = Color(0xFFBF360C);
-  static const Color billColorLight = Color(0xFFFB8C00);
+  // ── Category: Groups (indigo) ──────────────────────────────────────────────
+  static const Color groupColor      = Color(0xFF5B5BD6);
+  static const Color groupColorDark  = Color(0xFF4444AA);
+  static const Color groupColorLight = Color(0xFFE4E4F8);
 
-  // JDT colors
-  static const Color jdtRed = Color(0xFFD32F2F);
+  // ── Category: Debts / Loans (blue) ────────────────────────────────────────
+  static const Color debtColor      = Color(0xFF3B82F6);
+  static const Color debtColorDark  = Color(0xFF2563EB);
+  static const Color debtColorLight = Color(0xFFDBEAFE);
+
+  // ── Category: Bills (amber) ────────────────────────────────────────────────
+  static const Color billColor      = Color(0xFFF59E0B);
+  static const Color billColorDark  = Color(0xFF9A5D08);
+  static const Color billColorLight = Color(0xFFFEF3C7);
+
+  // ── JDT (unchanged) ────────────────────────────────────────────────────────
+  static const Color jdtRed  = Color(0xFFD32F2F);
   static const Color jdtGold = Color(0xFFFFB300);
 
-  // Gradients
+  // ── Gradients ──────────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryDark, primary, primaryLight],
+    colors: [primaryDark, primary],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF7B1FA2), Color(0xFF9C4DCC)],
+    colors: [Color(0xFF0B1F3A), Color(0xFF14304F)],
   );
 
   static const LinearGradient jdtGradient = LinearGradient(
@@ -61,25 +80,25 @@ class AppTheme {
   static const LinearGradient successGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF00897B), Color(0xFF00BFA5)],
+    colors: [Color(0xFF0B7B66), Color(0xFF1ECDB0)],
   );
 
   static const LinearGradient debtGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [debtColorDark, debtColor, debtColorLight],
+    colors: [debtColorDark, debtColor, Color(0xFF60A5FA)],
   );
 
   static const LinearGradient billGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [billColorDark, billColor, billColorLight],
+    colors: [billColorDark, billColor, Color(0xFFFBBF24)],
   );
 
-  // Shadows
+  // ── Shadows ────────────────────────────────────────────────────────────────
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: primaryDark.withValues(alpha: 0.08),
+      color: primary.withValues(alpha: 0.08),
       blurRadius: 20,
       offset: const Offset(0, 4),
     ),
@@ -87,29 +106,30 @@ class AppTheme {
 
   static List<BoxShadow> elevatedShadow = [
     BoxShadow(
-      color: primaryDark.withValues(alpha: 0.15),
+      color: primary.withValues(alpha: 0.15),
       blurRadius: 30,
       offset: const Offset(0, 10),
     ),
   ];
 
-  // Border radius
-  static const double radiusSmall = 8;
+  // ── Border radius ──────────────────────────────────────────────────────────
+  static const double radiusSmall  = 8;
   static const double radiusMedium = 16;
-  static const double radiusLarge = 24;
+  static const double radiusLarge  = 24;
   static const double radiusXLarge = 32;
 
-  // ThemeData
+  // ── ThemeData ──────────────────────────────────────────────────────────────
   static ThemeData get theme => ThemeData(
     useMaterial3: true,
-    fontFamily: 'Segoe UI',
+    textTheme: GoogleFonts.manropeTextTheme(),
     scaffoldBackgroundColor: surfaceBg,
     colorScheme: ColorScheme.fromSeed(
       seedColor: primary,
       primary: primary,
       onPrimary: Colors.white,
       secondary: accent,
-      surface: Colors.white,
+      onSecondary: Colors.white,
+      surface: surface,
       error: error,
     ),
     appBarTheme: const AppBarTheme(
@@ -125,7 +145,7 @@ class AppTheme {
       ),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusMedium),
@@ -133,7 +153,7 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: primary,
+        backgroundColor: accent,
         foregroundColor: Colors.white,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -158,7 +178,7 @@ class AppTheme {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: primary),
+      style: TextButton.styleFrom(foregroundColor: accent),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: primary,
@@ -178,14 +198,19 @@ class AppTheme {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(radiusSmall + 4),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: const BorderSide(color: border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(radiusSmall + 4),
-        borderSide: const BorderSide(color: primary, width: 1.5),
+        borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
       ),
       hintStyle: const TextStyle(color: textHint, fontSize: 14),
       labelStyle: const TextStyle(color: textSecondary, fontSize: 14),
+    ),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: textPrimary,
+      selectionColor: Color(0x330B1F3A),
+      selectionHandleColor: textPrimary,
     ),
     tabBarTheme: TabBarThemeData(
       labelColor: Colors.white,
@@ -199,7 +224,7 @@ class AppTheme {
       thickness: 1,
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: cardBg,
+      backgroundColor: surfaceBg,
       selectedColor: primary,
       labelStyle: const TextStyle(fontSize: 13),
       shape: RoundedRectangleBorder(
@@ -229,13 +254,13 @@ class AppTheme {
         fontWeight: FontWeight.w500,
         color: textPrimary,
       ),
-      todayBorder: const BorderSide(color: primary, width: 1.5),
+      todayBorder: const BorderSide(color: accent, width: 1.5),
       todayForegroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) return Colors.white;
-        return primary;
+        return accent;
       }),
       todayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return primary;
+        if (states.contains(WidgetState.selected)) return accent;
         return Colors.transparent;
       }),
       dayForegroundColor: WidgetStateProperty.resolveWith((states) {
@@ -257,7 +282,7 @@ class AppTheme {
         if (states.contains(WidgetState.selected)) return primary;
         return Colors.transparent;
       }),
-      weekdayStyle: TextStyle(
+      weekdayStyle: const TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: textSecondary,
@@ -267,14 +292,14 @@ class AppTheme {
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       confirmButtonStyle: TextButton.styleFrom(
-        foregroundColor: primary,
+        foregroundColor: accent,
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
       ),
       dividerColor: Colors.transparent,
     ),
   );
 
-  // Styled form field decoration
+  // ── Styled form field decoration ───────────────────────────────────────────
   static InputDecoration styledInput({
     required String label,
     required IconData prefixIcon,
@@ -299,15 +324,15 @@ class AppTheme {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: const BorderSide(color: border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: const BorderSide(color: border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primary, width: 1.5),
+        borderSide: const BorderSide(color: accent, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -320,7 +345,7 @@ class AppTheme {
     );
   }
 
-  // Page route with slide transition
+  // ── Page transitions ───────────────────────────────────────────────────────
   static Route<T> slideRoute<T>(Widget page) {
     return PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -329,16 +354,12 @@ class AppTheme {
         const end = Offset.zero;
         const curve = Curves.easeInOutCubic;
         final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
+        return SlideTransition(position: animation.drive(tween), child: child);
       },
       transitionDuration: const Duration(milliseconds: 300),
     );
   }
 
-  // Fade route transition
   static Route<T> fadeRoute<T>(Widget page) {
     return PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => page,

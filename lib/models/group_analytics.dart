@@ -12,7 +12,8 @@ class GroupAnalytics {
   final int activeMembers; // members who have made at least one payment
   final double totalExpenses;
   final int totalExpenseCount;
-  final double netBalance; // totalCollected - totalExpenses
+  final double initialBalance; // Starting money in the group
+  final double netBalance; // initialBalance + totalCollected - totalExpenses
 
   // Detailed expense tracking
   final int pendingExpenseCount;
@@ -39,6 +40,7 @@ class GroupAnalytics {
     required this.activeMembers,
     required this.totalExpenses,
     required this.totalExpenseCount,
+    this.initialBalance = 0.0,
     required this.netBalance,
     this.pendingExpenseCount = 0,
     this.approvedExpenseCount = 0,
@@ -50,6 +52,36 @@ class GroupAnalytics {
     this.yearlyCollections = const {},
     this.yearlyExpenses = const {},
   });
+
+  // Returns a copy with the starting balance applied to initialBalance and netBalance.
+  GroupAnalytics copyWithBalance(double startingBalance) {
+    return GroupAnalytics(
+      totalCollected: totalCollected,
+      averagePaymentAmount: averagePaymentAmount,
+      totalPayments: totalPayments,
+      expectedTotal: expectedTotal,
+      collectionRate: collectionRate,
+      memberContributions: memberContributions,
+      memberPaymentCounts: memberPaymentCounts,
+      monthlyCollections: monthlyCollections,
+      topContributor: topContributor,
+      topContributorAmount: topContributorAmount,
+      activeMembers: activeMembers,
+      totalExpenses: totalExpenses,
+      totalExpenseCount: totalExpenseCount,
+      initialBalance: startingBalance,
+      netBalance: startingBalance + totalCollected - totalExpenses,
+      pendingExpenseCount: pendingExpenseCount,
+      approvedExpenseCount: approvedExpenseCount,
+      rejectedExpenseCount: rejectedExpenseCount,
+      pendingExpenseAmount: pendingExpenseAmount,
+      expenseByRequester: expenseByRequester,
+      monthlyExpenses: monthlyExpenses,
+      recentExpenses: recentExpenses,
+      yearlyCollections: yearlyCollections,
+      yearlyExpenses: yearlyExpenses,
+    );
+  }
 
   factory GroupAnalytics.empty() {
     return GroupAnalytics(
@@ -66,6 +98,7 @@ class GroupAnalytics {
       activeMembers: 0,
       totalExpenses: 0.0,
       totalExpenseCount: 0,
+      initialBalance: 0.0,
       netBalance: 0.0,
     );
   }

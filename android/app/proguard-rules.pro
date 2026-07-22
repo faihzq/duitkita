@@ -14,5 +14,9 @@
 -keepattributes SourceFile,LineNumberTable
 -keep public class * extends java.lang.Exception
 
+## Image Cropper (UCrop)
+-keep class com.yalantis.ucrop.** { *; }
+-dontwarn com.yalantis.ucrop.**
+
 ## Play Core (deferred components)
 -dontwarn com.google.android.play.core.**
