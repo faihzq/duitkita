@@ -13,7 +13,8 @@ class GroupAnalytics {
   final double totalExpenses;
   final int totalExpenseCount;
   final double initialBalance; // Starting money in the group
-  final double netBalance; // initialBalance + totalCollected - totalExpenses
+  final double outstandingLoans; // unpaid balance of fund loans (reduces balance)
+  final double netBalance; // initialBalance + totalCollected - totalExpenses - outstandingLoans
 
   // Detailed expense tracking
   final int pendingExpenseCount;
@@ -41,6 +42,7 @@ class GroupAnalytics {
     required this.totalExpenses,
     required this.totalExpenseCount,
     this.initialBalance = 0.0,
+    this.outstandingLoans = 0.0,
     required this.netBalance,
     this.pendingExpenseCount = 0,
     this.approvedExpenseCount = 0,
@@ -70,7 +72,8 @@ class GroupAnalytics {
       totalExpenses: totalExpenses,
       totalExpenseCount: totalExpenseCount,
       initialBalance: startingBalance,
-      netBalance: startingBalance + totalCollected - totalExpenses,
+      outstandingLoans: outstandingLoans,
+      netBalance: startingBalance + totalCollected - totalExpenses - outstandingLoans,
       pendingExpenseCount: pendingExpenseCount,
       approvedExpenseCount: approvedExpenseCount,
       rejectedExpenseCount: rejectedExpenseCount,

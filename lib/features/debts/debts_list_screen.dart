@@ -9,7 +9,7 @@ import 'package:duitkita/services/debt_service.dart';
 import 'package:duitkita/screens/add_debt_screen.dart';
 import 'package:duitkita/screens/debt_detail_screen.dart';
 
-enum _Filter { all, loans, bills }
+enum _Filter { debts, bills }
 
 class DebtsListScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -20,7 +20,7 @@ class DebtsListScreen extends ConsumerStatefulWidget {
 }
 
 class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
-  _Filter _filter = _Filter.all;
+  _Filter _filter = _Filter.debts;
 
   @override
   Widget build(BuildContext context) {
@@ -157,41 +157,56 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
               ),
             ),
 
-            // ── Filter chips ──────────────────────────────────────
+            // ── Segmented control ─────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Row(
-                  children: _Filter.values.map((f) {
-                    final active = f == _filter;
-                    final label = switch (f) {
-                      _Filter.all => 'All',
-                      _Filter.loans => 'Loans',
-                      _Filter.bills => 'Bills',
-                    };
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _filter = f),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: active ? DT.text : DT.surface,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: active ? DT.text : DT.border),
-                          ),
-                          child: Text(
-                            label,
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: active ? DT.surface : DT.text,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: DT.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: DT.border),
+                  ),
+                  child: Row(
+                    children: _Filter.values.map((f) {
+                      final active = f == _filter;
+                      final (label, icon, accent) = switch (f) {
+                        _Filter.debts => ('Debts', Icons.account_balance_outlined, DT.catDebts),
+                        _Filter.bills => ('Bills', Icons.autorenew_rounded, DT.catBills),
+                      };
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() => _filter = f),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOut,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: active ? accent : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(icon, size: 16, color: active ? Colors.white : DT.textTertiary),
+                                const SizedBox(width: 7),
+                                Text(
+                                  label,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: active ? Colors.white : DT.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
@@ -202,17 +217,23 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                 final active = debts.where((d) {
                   if (!d.isActive) return false;
                   return switch (_filter) {
-                    _Filter.loans => d.isDebt,
+                    _Filter.debts => d.isDebt,
                     _Filter.bills => d.isBill,
-                    _Filter.all => true,
                   };
                 }).toList();
+                // Unpaid (this month) sort to the top.
+                bool paidThisMonth(DebtModel d) =>
+                    ref.watch(debtMonthPaidProvider(d.id)).valueOrNull ?? false;
+                active.sort((a, b) {
+                  final ap = paidThisMonth(a), bp = paidThisMonth(b);
+                  if (ap == bp) return 0;
+                  return ap ? 1 : -1;
+                });
                 final completed = debts.where((d) {
                   if (d.isActive) return false;
                   return switch (_filter) {
-                    _Filter.loans => d.isDebt,
+                    _Filter.debts => d.isDebt,
                     _Filter.bills => d.isBill,
-                    _Filter.all => true,
                   };
                 }).toList();
 
@@ -308,7 +329,7 @@ class _DebtCard extends ConsumerWidget {
     final isPaid = paidAsync.valueOrNull ?? false;
 
     final (iconColor, iconBg, typeLabel) = debt.isDebt
-        ? (DT.catDebts, DT.catDebtsSoft, 'Loan')
+        ? (DT.catDebts, DT.catDebtsSoft, 'Debt')
         : (DT.catBills, DT.catBillsSoft, 'Bill');
 
     final catInfo = debt.categoryInfo;
@@ -460,20 +481,15 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, title, body) = switch (filter) {
-      _Filter.loans => (
+      _Filter.debts => (
           Icons.account_balance_outlined,
-          'No loans yet',
-          'Add a loan — car, home, PTPTN — and track how much you\'ve paid down.',
+          'No debts yet',
+          'Add a debt — car, home, PTPTN — and track how much you\'ve paid down.',
         ),
       _Filter.bills => (
           Icons.receipt_outlined,
           'No bills yet',
           'Add subscriptions like Unifi, Astro, or Spotify and see what\'s due each month.',
-        ),
-      _Filter.all => (
-          Icons.account_balance_outlined,
-          'No debts or bills yet',
-          'Track loans and recurring bills in one place. Know exactly where your money goes.',
         ),
     };
 

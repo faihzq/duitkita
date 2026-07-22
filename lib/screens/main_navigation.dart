@@ -41,6 +41,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     await NotificationService.checkAndNotifyUnpaidDebts();
     await NotificationService.checkNewGroupMembership();
     await NotificationService.checkRecentPaymentsForAdmin();
+    await NotificationService.checkPendingFundLoansForAdmin();
+    await NotificationService.checkFundLoanDecisionsForMember();
   }
 
   void _openAddEntry() {

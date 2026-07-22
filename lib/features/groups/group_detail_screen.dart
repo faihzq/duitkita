@@ -9,8 +9,10 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/expense_service.dart';
 import 'package:duitkita/services/profile_service.dart';
+import 'package:duitkita/services/fund_loan_service.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/models/payment_model.dart';
+import 'package:duitkita/models/expense_model.dart';
 import 'package:duitkita/features/payments/add_payment_screen.dart';
 import 'package:duitkita/features/payments/payment_history_screen.dart';
 import 'package:duitkita/features/groups/manage_members_screen.dart';
@@ -18,6 +20,7 @@ import 'package:duitkita/features/groups/group_settings_screen.dart';
 import 'package:duitkita/features/groups/group_analytics_screen.dart';
 import 'package:duitkita/features/expenses/expense_list_screen.dart';
 import 'package:duitkita/features/groups/bulk_import_screen.dart';
+import 'package:duitkita/features/groups/fund_loans_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -597,14 +600,14 @@ class _MembersTab extends StatelessWidget {
           ),
         ),
 
-        // Admin quick-access row
-        if (isAdmin)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
+        // Quick-access row (Loans is available to everyone; admin tools gated)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (isAdmin) ...[
                   _QuickChip(label: 'Members', icon: Icons.people_outline, onTap: () => onNavigate(ManageMembersScreen(groupId: groupId, groupName: group.name as String))),
                   _QuickChip(label: 'History', icon: Icons.history_rounded, onTap: () => onNavigate(PaymentHistoryScreen(groupId: groupId))),
                   _QuickChip(label: 'Analytics', icon: Icons.bar_chart_rounded, onTap: () => onNavigate(GroupAnalyticsScreen(groupId: groupId, groupName: group.name as String))),
@@ -612,11 +615,17 @@ class _MembersTab extends StatelessWidget {
                     final count = ref.watch(pendingPaymentsStreamProvider(groupId)).valueOrNull?.length ?? 0;
                     return _QuickChip(label: 'Review${count > 0 ? ' ($count)' : ''}', icon: Icons.fact_check_outlined, onTap: () => onNavigate(PendingPaymentsReviewScreen(groupId: groupId, groupName: group.name as String)), highlight: count > 0);
                   }),
-                  _QuickChip(label: 'Import', icon: Icons.upload_outlined, onTap: () => onNavigate(BulkImportScreen(groupId: groupId, groupName: group.name as String, monthlyAmount: group.monthlyAmount as double, groupCreatedAt: group.createdAt as DateTime))),
                 ],
-              ),
+                Consumer(builder: (context, ref, _) {
+                  final count = isAdmin ? (ref.watch(pendingFundLoansCountProvider(groupId)).valueOrNull ?? 0) : 0;
+                  return _QuickChip(label: 'Loans${count > 0 ? ' ($count)' : ''}', icon: Icons.savings_outlined, onTap: () => onNavigate(FundLoansScreen(groupId: groupId, groupName: group.name as String, isAdmin: isAdmin)), highlight: count > 0);
+                }),
+                if (isAdmin)
+                  _QuickChip(label: 'Import', icon: Icons.upload_outlined, onTap: () => onNavigate(BulkImportScreen(groupId: groupId, groupName: group.name as String, monthlyAmount: group.monthlyAmount as double, groupCreatedAt: group.createdAt as DateTime))),
+              ],
             ),
           ),
+        ),
 
         const SizedBox(height: 14),
 
@@ -784,85 +793,207 @@ class _ExpensesTab extends ConsumerWidget {
 
   const _ExpensesTab({required this.groupId, required this.groupName, required this.isAdmin, required this.onNavigate});
 
+  static const _previewLimit = 5;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expensesAsync = ref.watch(pendingExpensesStreamProvider(groupId));
-    final pendingCount = expensesAsync.valueOrNull?.length ?? 0;
+    final expensesAsync = ref.watch(groupExpensesStreamProvider(groupId));
 
-    return Column(
-      children: [
-        if (isAdmin && pendingCount > 0)
-          GestureDetector(
-            onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              margin: const EdgeInsets.only(bottom: 10),
-              decoration: BoxDecoration(
-                color: DT.warningSoft,
-                borderRadius: BorderRadius.circular(DS.cardRadius),
-                border: Border.all(color: DT.warning.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.pending_actions_rounded, color: DT.warning, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('$pendingCount expense${pendingCount > 1 ? 's' : ''} pending review', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.warning))),
-                  const Icon(Icons.chevron_right_rounded, color: DT.warning, size: 16),
-                ],
-              ),
-            ),
-          ),
-        // Empty / view all card
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 40),
-          child: Column(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: DT.border)),
-                    child: const Icon(Icons.receipt_outlined, size: 32, color: DT.textTertiary),
-                  ),
-                  Positioned(
-                    right: -6, top: -6,
-                    child: Container(
-                      width: 24, height: 24,
-                      decoration: BoxDecoration(color: DT.accent, borderRadius: BorderRadius.circular(7)),
-                      child: const Icon(Icons.add_rounded, size: 13, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('Group expenses', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.3)),
-              const SizedBox(height: 8),
-              Text(
-                'Track shared costs — groceries, meals, outings — and see who paid what.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.manrope(fontSize: 14, color: DT.textSecondary, height: 1.5),
-              ),
-              const SizedBox(height: 20),
+    return expensesAsync.when(
+      loading: () => const Center(child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2),
+      )),
+      error: (e, _) => Center(child: Text('Error: $e', style: GoogleFonts.manrope(color: DT.textSecondary))),
+      data: (expenses) {
+        // Empty state — only shown when there are no expenses at all.
+        if (expenses.isEmpty) return _emptyState(context);
+
+        final pendingCount = expenses.where((e) => e.status == ExpenseStatus.pending).length;
+        final preview = expenses.take(_previewLimit).toList();
+
+        return Column(
+          children: [
+            // Pending review banner (admin only)
+            if (isAdmin && pendingCount > 0)
               GestureDetector(
                 onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.all(14),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: DT.warningSoft,
+                    borderRadius: BorderRadius.circular(DS.cardRadius),
+                    border: Border.all(color: DT.warning.withValues(alpha: 0.3)),
+                  ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.receipt_long_outlined, size: 16, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text('View expenses', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const Icon(Icons.pending_actions_rounded, color: DT.warning, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('$pendingCount expense${pendingCount > 1 ? 's' : ''} pending review', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.warning))),
+                      const Icon(Icons.chevron_right_rounded, color: DT.warning, size: 16),
                     ],
                   ),
                 ),
               ),
-            ],
+
+            // Expense list (preview)
+            ...preview.map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ExpenseCard(expense: e),
+            )),
+
+            const SizedBox(height: 4),
+            // View all / add
+            GestureDetector(
+              onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      expenses.length > _previewLimit
+                          ? 'View all ${expenses.length} expenses'
+                          : 'Manage expenses',
+                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _emptyState(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 40),
+    child: Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: DT.border)),
+              child: const Icon(Icons.receipt_outlined, size: 32, color: DT.textTertiary),
+            ),
+            Positioned(
+              right: -6, top: -6,
+              child: Container(
+                width: 24, height: 24,
+                decoration: BoxDecoration(color: DT.accent, borderRadius: BorderRadius.circular(7)),
+                child: const Icon(Icons.add_rounded, size: 13, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text('Group expenses', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.3)),
+        const SizedBox(height: 8),
+        Text(
+          'Track shared costs — groceries, meals, outings — and see who paid what.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.manrope(fontSize: 14, color: DT.textSecondary, height: 1.5),
+        ),
+        const SizedBox(height: 20),
+        GestureDetector(
+          onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.receipt_long_outlined, size: 16, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Add expense', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              ],
+            ),
           ),
         ),
       ],
+    ),
+  );
+}
+
+// ─── Expense card ─────────────────────────────────────────────────────────────
+
+class _ExpenseCard extends StatelessWidget {
+  final ExpenseModel expense;
+  const _ExpenseCard({required this.expense});
+
+  static const _monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg, label) = switch (expense.status) {
+      ExpenseStatus.approved => (DT.successSoft, DT.success, 'Approved'),
+      ExpenseStatus.pending  => (DT.warningSoft, DT.warning, 'Pending'),
+      ExpenseStatus.rejected => (DT.dangerSoft,  DT.danger,  'Rejected'),
+    };
+    final d = expense.createdAt;
+    final dateLabel = '${d.day} ${_monthShort[d.month - 1]}';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: DT.surface,
+        borderRadius: BorderRadius.circular(DS.cardRadius),
+        border: Border.all(color: DT.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.receipt_long_outlined, size: 16, color: DT.textSecondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.text),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${expense.requestedByName} · $dateLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.manrope(fontSize: 11, color: DT.textTertiary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'RM${expense.amount.toStringAsFixed(2)}',
+                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: DT.text),
+              ),
+              const SizedBox(height: 3),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+                child: Text(label, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

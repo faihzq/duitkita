@@ -6,6 +6,7 @@ import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/expense_service.dart';
+import 'package:duitkita/services/fund_loan_service.dart';
 
 class AnalyticsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -34,10 +35,9 @@ class AnalyticsService {
           .where((p) => p.paymentStatus == 'confirmed')
           .toList();
 
-      if (allPayments.isEmpty) {
-        // No payments yet, but the group may still hold a starting balance.
-        return GroupAnalytics.empty().copyWithBalance(group.initialBalance);
-      }
+      // Note: do NOT early-return when there are no payments — the group may
+      // still have expenses and a starting balance that must be reflected.
+      // The calculations below all handle an empty payments list safely.
 
       // Calculate total collected (confirmed only)
       final totalCollected = payments.fold<double>(
@@ -175,7 +175,30 @@ class AnalyticsService {
       final recentExpensesList = recentExpenses.take(5).toList();
 
       final totalExpenseCount = allExpenseDocs.length;
-      final netBalance = group.initialBalance + totalCollected - totalExpenses;
+
+      // Outstanding fund loans (money drawn from the fund, not yet repaid).
+      final loansSnapshot = await _firestore
+          .collection('fund_loans')
+          .where('groupId', isEqualTo: groupId)
+          .get();
+      double outstandingLoans = 0.0;
+      for (final doc in loansSnapshot.docs) {
+        final data = doc.data();
+        final status = data['status'] as String? ?? 'pending';
+        // Only approved (incl. legacy 'active') loans draw from the balance.
+        if (status != 'approved' && status != 'active') continue;
+        final principal = ((data['principal'] ?? 0.0) as num).toDouble();
+        final repayments = (data['repayments'] as List<dynamic>?) ?? [];
+        final repaid = repayments.fold<double>(
+          0.0,
+          (s, r) => s + (((r as Map)['amount'] ?? 0.0) as num).toDouble(),
+        );
+        final out = principal - repaid;
+        if (out > 0) outstandingLoans += out;
+      }
+
+      final netBalance =
+          group.initialBalance + totalCollected - totalExpenses - outstandingLoans;
 
       // Aggregate yearly collections from monthly data
       final Map<int, double> yearlyCollections = {};
@@ -206,6 +229,7 @@ class AnalyticsService {
         totalExpenses: totalExpenses,
         totalExpenseCount: totalExpenseCount,
         initialBalance: group.initialBalance,
+        outstandingLoans: outstandingLoans,
         netBalance: netBalance,
         pendingExpenseCount: pendingExpenseCount,
         approvedExpenseCount: approvedExpenseCount,
@@ -307,8 +331,9 @@ final groupAnalyticsProvider = FutureProvider.family<GroupAnalytics, String>((
 ) async {
   final analyticsService = ref.watch(analyticsServiceProvider);
 
-  // Watch expenses stream to auto-refresh when expenses change
+  // Watch expenses + fund loans streams to auto-refresh when they change
   ref.watch(groupExpensesStreamProvider(groupId));
+  ref.watch(groupFundLoansStreamProvider(groupId));
 
   // Get group and members data
   final group = await ref.watch(groupStreamProvider(groupId).future);

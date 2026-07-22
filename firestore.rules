@@ -133,6 +133,36 @@ service cloud.firestore {
                         isGroupAdmin(resource.data.groupId));
     }
 
+    // Fund loans collection (money borrowed from a group's fund, repaid over time)
+    match /fund_loans/{loanId} {
+      allow read: if isSignedIn() &&
+                     (request.auth.uid == resource.data.borrowerId ||
+                      request.auth.uid == resource.data.createdBy ||
+                      isGroupMember(resource.data.groupId));
+
+      // Members create pending requests (recorded under their own uid).
+      // Admins may create a pre-approved loan directly.
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.createdBy &&
+                       isGroupMember(request.resource.data.groupId) &&
+                       (request.resource.data.status == 'pending' ||
+                        (request.resource.data.status == 'approved' &&
+                         isGroupAdmin(request.resource.data.groupId)));
+
+      // Group admins can approve/reject and record repayments.
+      // The borrower may only flip their own 'borrowerNotified' flag.
+      allow update: if isSignedIn() &&
+                       (isGroupAdmin(resource.data.groupId) ||
+                        (request.auth.uid == resource.data.borrowerId &&
+                         request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['borrowerNotified'])));
+
+      // Requester (to cancel a pending request) or admin can delete.
+      allow delete: if isSignedIn() &&
+                       (request.auth.uid == resource.data.createdBy ||
+                        isGroupAdmin(resource.data.groupId));
+    }
+
     // App config (version check, feature flags)
     // Read: any authenticated user
     // Write: only via Firebase Console (no client writes)

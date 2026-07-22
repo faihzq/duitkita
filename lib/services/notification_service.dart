@@ -515,6 +515,35 @@ class NotificationService {
     }
   }
 
+  /// Returns the group docs where [uid] is an admin — either the creator or a
+  /// member with `isAdmin == true`. Costs one member-doc read per group that
+  /// isn't already owned by the user.
+  static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+      _adminGroupDocs(FirebaseFirestore firestore, String uid) async {
+    final groupsSnapshot = await firestore
+        .collection('groups')
+        .where('memberIds', arrayContains: uid)
+        .get();
+
+    final result = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (final doc in groupsSnapshot.docs) {
+      if (doc.data()['createdBy'] == uid) {
+        result.add(doc);
+        continue;
+      }
+      final memberDoc = await firestore
+          .collection('groups')
+          .doc(doc.id)
+          .collection('members')
+          .doc(uid)
+          .get();
+      if (memberDoc.exists && memberDoc.data()?['isAdmin'] == true) {
+        result.add(doc);
+      }
+    }
+    return result;
+  }
+
   /// For admins: check for recent payments and notify
   static Future<void> checkRecentPaymentsForAdmin() async {
     if (!_initialized) await init();
@@ -525,16 +554,8 @@ class NotificationService {
     try {
       final firestore = FirebaseFirestore.instance;
 
-      // Get groups where user is admin
-      final groupsSnapshot = await firestore
-          .collection('groups')
-          .where('memberIds', arrayContains: user.uid)
-          .get();
-
-      // Filter for groups where user is admin (creator)
-      final adminGroupDocs = groupsSnapshot.docs
-          .where((doc) => doc.data()['createdBy'] == user.uid)
-          .toList();
+      // Groups where the user is an admin (creator or member.isAdmin).
+      final adminGroupDocs = await _adminGroupDocs(firestore, user.uid);
 
       if (adminGroupDocs.isEmpty) return;
 
@@ -598,6 +619,146 @@ class NotificationService {
       debugPrint('Notified admin of ${recentPayments.length} recent payments');
     } catch (e) {
       debugPrint('Error checking recent payments for admin: $e');
+    }
+  }
+
+  /// For admins: notify about pending fund-loan requests that need approval.
+  static Future<void> checkPendingFundLoansForAdmin() async {
+    if (!_initialized) await init();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Groups where the user is an admin (creator or member.isAdmin).
+      final adminGroupDocs = await _adminGroupDocs(firestore, user.uid);
+
+      if (adminGroupDocs.isEmpty) return;
+
+      List<String> requests = [];
+
+      for (final groupDoc in adminGroupDocs) {
+        final groupName = groupDoc.data()['name'] ?? 'Unknown Group';
+
+        // Single equality filter (avoids composite index); status filtered below.
+        final loansSnapshot = await firestore
+            .collection('fund_loans')
+            .where('groupId', isEqualTo: groupDoc.id)
+            .get();
+
+        for (final loanDoc in loansSnapshot.docs) {
+          final d = loanDoc.data();
+          if ((d['status'] ?? 'pending') != 'pending') continue;
+          if (d['adminNotified'] == true) continue;
+          if (d['createdBy'] == user.uid) continue; // skip own requests
+
+          final borrower = d['borrowerName'] ?? 'A member';
+          final amount = (d['principal'] ?? 0).toDouble();
+          final title = d['title'] ?? '';
+          requests.add('$borrower requested RM${amount.toStringAsFixed(2)} ($title) in $groupName');
+
+          await firestore
+              .collection('fund_loans')
+              .doc(loanDoc.id)
+              .update({'adminNotified': true});
+        }
+      }
+
+      if (requests.isEmpty) return;
+
+      final message = requests.length == 1
+          ? requests.first
+          : '${requests.length} loan requests need approval:\n${requests.join('\n')}';
+
+      await _notifications.show(
+        4,
+        'Loan Request 🔔',
+        message,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _pushChannelId,
+            _pushChannelName,
+            channelDescription: _pushChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(message),
+          ),
+        ),
+      );
+
+      debugPrint('Notified admin of ${requests.length} pending fund-loan requests');
+    } catch (e) {
+      debugPrint('Error checking pending fund loans for admin: $e');
+    }
+  }
+
+  /// For borrowers: notify when a fund-loan request is approved or rejected.
+  static Future<void> checkFundLoanDecisionsForMember() async {
+    if (!_initialized) await init();
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Loans where the current user is the borrower.
+      final loansSnapshot = await firestore
+          .collection('fund_loans')
+          .where('borrowerId', isEqualTo: user.uid)
+          .get();
+
+      if (loansSnapshot.docs.isEmpty) return;
+
+      List<String> decisions = [];
+
+      for (final loanDoc in loansSnapshot.docs) {
+        final d = loanDoc.data();
+        final status = d['status'] as String? ?? 'pending';
+        if (status != 'approved' && status != 'rejected') continue;
+        if (d['borrowerNotified'] == true) continue;
+
+        final amount = (d['principal'] ?? 0).toDouble();
+        final title = d['title'] ?? '';
+        decisions.add(status == 'approved'
+            ? 'Approved: RM${amount.toStringAsFixed(2)} for "$title"'
+            : 'Rejected: your request for "$title"');
+
+        await firestore
+            .collection('fund_loans')
+            .doc(loanDoc.id)
+            .update({'borrowerNotified': true});
+      }
+
+      if (decisions.isEmpty) return;
+
+      final message = decisions.length == 1
+          ? decisions.first
+          : '${decisions.length} loan updates:\n${decisions.join('\n')}';
+
+      await _notifications.show(
+        5,
+        'Fund Loan Update 🔔',
+        message,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _pushChannelId,
+            _pushChannelName,
+            channelDescription: _pushChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
+            styleInformation: BigTextStyleInformation(message),
+          ),
+        ),
+      );
+
+      debugPrint('Notified borrower of ${decisions.length} fund-loan decisions');
+    } catch (e) {
+      debugPrint('Error checking fund loan decisions for member: $e');
     }
   }
 }

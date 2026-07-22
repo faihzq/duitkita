@@ -512,9 +512,8 @@ final groupMonthPaymentStatusProvider = StreamProvider.family<String, ({String g
 final groupMonthPaidCountProvider = StreamProvider.family<int, String>((ref, groupId) {
   final now = DateTime.now();
   return FirebaseFirestore.instance
-      .collection('groups')
-      .doc(groupId)
       .collection('payments')
+      .where('groupId', isEqualTo: groupId)
       .where('month', isEqualTo: now.month)
       .where('year', isEqualTo: now.year)
       .where('paymentStatus', isEqualTo: 'confirmed')

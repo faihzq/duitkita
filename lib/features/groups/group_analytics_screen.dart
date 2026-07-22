@@ -107,7 +107,17 @@ class _OverviewTab extends StatelessWidget {
         Row(children: [
           Expanded(child: _StatCard(label: 'Collected', value: 'RM${analytics.totalCollected.toStringAsFixed(2)}', icon: Icons.account_balance_wallet_outlined, iconBg: DT.accentSoft, iconColor: DT.accentDeep)),
           const SizedBox(width: DS.sm),
-          Expanded(child: _StatCard(label: 'Expenses', value: 'RM${analytics.totalExpenses.toStringAsFixed(2)}', icon: Icons.receipt_long_outlined, iconBg: DT.dangerSoft, iconColor: DT.danger)),
+          Expanded(child: _StatCard(
+            label: 'Expenses',
+            value: 'RM${analytics.totalExpenses.toStringAsFixed(2)}',
+            icon: Icons.receipt_long_outlined,
+            iconBg: DT.dangerSoft,
+            iconColor: DT.danger,
+            subtitle: analytics.pendingExpenseAmount > 0
+                ? '+ RM${analytics.pendingExpenseAmount.toStringAsFixed(2)} pending'
+                : null,
+            subtitleColor: DT.warning,
+          )),
         ]),
         const SizedBox(height: DS.sm),
         Row(children: [
@@ -121,12 +131,16 @@ class _OverviewTab extends StatelessWidget {
           const SizedBox(width: DS.sm),
           Expanded(child: _StatCard(label: 'Payments', value: '${analytics.totalPayments}', icon: Icons.payments_outlined, iconBg: DT.primarySoft, iconColor: DT.primary)),
         ]),
-        if (analytics.initialBalance != 0) ...[
+        if (analytics.initialBalance != 0 || analytics.outstandingLoans > 0) ...[
           const SizedBox(height: DS.sm),
           Row(children: [
-            Expanded(child: _StatCard(label: 'Starting Balance', value: 'RM${analytics.initialBalance.toStringAsFixed(2)}', icon: Icons.savings_outlined, iconBg: DT.warningSoft, iconColor: DT.warning)),
+            Expanded(child: analytics.initialBalance != 0
+                ? _StatCard(label: 'Starting Balance', value: 'RM${analytics.initialBalance.toStringAsFixed(2)}', icon: Icons.savings_outlined, iconBg: DT.warningSoft, iconColor: DT.warning)
+                : const SizedBox()),
             const SizedBox(width: DS.sm),
-            const Expanded(child: SizedBox()),
+            Expanded(child: analytics.outstandingLoans > 0
+                ? _StatCard(label: 'Loans Out', value: 'RM${analytics.outstandingLoans.toStringAsFixed(2)}', icon: Icons.savings_outlined, iconBg: DT.catDebtsSoft, iconColor: DT.catDebts)
+                : const SizedBox()),
           ]),
         ],
         const SizedBox(height: DS.md),
@@ -316,7 +330,9 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color iconBg;
   final Color iconColor;
-  const _StatCard({required this.label, required this.value, required this.icon, required this.iconBg, required this.iconColor});
+  final String? subtitle;
+  final Color? subtitleColor;
+  const _StatCard({required this.label, required this.value, required this.icon, required this.iconBg, required this.iconColor, this.subtitle, this.subtitleColor});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -328,6 +344,10 @@ class _StatCard extends StatelessWidget {
       Text(value, style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.5)),
       const SizedBox(height: 2),
       Text(label, style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary, fontWeight: FontWeight.w500)),
+      if (subtitle != null) ...[
+        const SizedBox(height: 4),
+        Text(subtitle!, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: subtitleColor ?? DT.textTertiary)),
+      ],
     ]),
   );
 }

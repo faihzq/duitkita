@@ -155,7 +155,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   // ─── Bank account ───────────────────────────────────────────────────────────
 
   Future<void> _bankAccount(GroupModel group) async {
-    const banks = ['Maybank', 'CIMB Bank', 'Public Bank', 'RHB Bank', 'Hong Leong Bank', 'AmBank', 'Bank Islam', 'BSN', 'Alliance Bank', 'Affin Bank', 'Bank Rakyat', 'OCBC Bank', 'UOB Bank', 'Standard Chartered', 'HSBC Bank', 'Other'];
+    const banks = ['Maybank', 'CIMB Bank', 'Public Bank', 'RHB Bank', 'Hong Leong Bank', 'AmBank', 'Bank Islam', 'BSN', 'Alliance Bank', 'Affin Bank', 'Bank Rakyat', 'OCBC Bank', 'UOB Bank', 'Standard Chartered', 'HSBC Bank', 'Tabung Haji', 'Other'];
     final bankCtrl = TextEditingController(text: group.bankName ?? '');
     final accCtrl = TextEditingController(text: group.accountNumber ?? '');
     final holderCtrl = TextEditingController(text: group.accountHolderName ?? '');
@@ -214,7 +214,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               ),
               if (selectedBank == 'Other') ...[
                 const SizedBox(height: 12),
-                _InputField(controller: bankCtrl, label: 'Bank name', icon: Icons.account_balance_outlined),
+                _InputField(controller: bankCtrl, label: 'Bank name', icon: Icons.account_balance_outlined, keyboardType: TextInputType.text, capitalization: TextCapitalization.words),
               ],
               const SizedBox(height: 12),
               _InputField(controller: accCtrl, label: 'Account number', icon: Icons.numbers_outlined, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),

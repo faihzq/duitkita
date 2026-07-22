@@ -81,10 +81,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       setState(() => _isUploadingImage = true);
       final url = await ref.read(storageServiceProvider).uploadProfileImage(userId: userId, file: File(cropped.path));
-      final profile = await ref.read(profileServiceProvider).getUserProfile(userId);
-      if (profile != null) {
-        await ref.read(profileServiceProvider).updateUserProfile(profile.copyWith(profileImageUrl: url));
-      }
+      await ref.read(profileServiceProvider).setProfileImageUrl(userId, url);
       if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('Profile photo updated')));
     } catch (e) {

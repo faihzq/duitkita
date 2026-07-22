@@ -66,6 +66,19 @@ class ProfileService {
       throw Exception('Failed to update profile: $e');
     }
   }
+
+  // Set the profile image URL. Uses merge-set so it succeeds even if the
+  // user document does not exist yet (avoids a silent no-op on update).
+  Future<void> setProfileImageUrl(String uid, String url) async {
+    try {
+      await _users.doc(uid).set({
+        'profileImageUrl': url,
+        'updatedAt': DateTime.now(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to update profile image: $e');
+    }
+  }
 }
 
 // Provider for profile service
