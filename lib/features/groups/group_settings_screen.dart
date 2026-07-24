@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/config/app_theme.dart';
+import 'package:duitkita/config/bank_brands.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/group_member.dart';
@@ -11,6 +15,7 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/expense_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/profile_service.dart';
+import 'package:duitkita/features/groups/manage_members_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/screens/pending_expenses_review_screen.dart';
 
@@ -471,6 +476,76 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
+  // ─── Export to CSV ────────────────────────────────────────────────────────────
+
+  Future<void> _exportCsv(GroupModel group) async {
+    setState(() => _busy = true);
+    try {
+      final payments = await ref.read(groupPaymentsStreamProvider(widget.groupId).future);
+      final expenses = await ref.read(groupExpensesStreamProvider(widget.groupId).future);
+
+      String esc(String v) => '"${v.replaceAll('"', '""')}"';
+      String fmtDate(DateTime dt) =>
+          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+      final buf = StringBuffer()
+        ..writeln('Type,Date,Member,Description,Amount (RM),Status,Method,Reference');
+
+      for (final p in payments) {
+        final desc = p.notes != null && p.notes!.isNotEmpty
+            ? '${p.month}/${p.year} contribution — ${p.notes}'
+            : '${p.month}/${p.year} contribution';
+        buf.writeln([
+          esc('Payment'),
+          esc(fmtDate(p.paymentDate)),
+          esc(p.userName),
+          esc(desc),
+          p.amount.toStringAsFixed(2),
+          esc(p.paymentStatus),
+          esc(p.paymentMethod),
+          esc(p.transactionReference ?? ''),
+        ].join(','));
+      }
+
+      for (final e in expenses) {
+        final desc = e.description != null && e.description!.isNotEmpty
+            ? '${e.title} — ${e.description}'
+            : e.title;
+        buf.writeln([
+          esc('Expense'),
+          esc(fmtDate(e.createdAt)),
+          esc(e.requestedByName),
+          esc(desc),
+          (-e.amount).toStringAsFixed(2),
+          esc(e.status.name),
+          esc(''),
+          esc(''),
+        ].join(','));
+      }
+
+      final dir = await getTemporaryDirectory();
+      final safeName = group.name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+      final file = File('${dir.path}/${safeName}_export_${DateTime.now().millisecondsSinceEpoch}.csv');
+      await file.writeAsString(buf.toString());
+
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: 'text/csv')],
+        subject: '${group.name} — DuitKita export',
+        text: '${group.name}: ${payments.length} payment(s) and ${expenses.length} expense(s)',
+      ));
+    } catch (e) {
+      if (mounted) _snack('Export failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _shareInvite(GroupModel group) {
+    final msg = 'Join "${group.name}" on DuitKita! Track monthly payments with family.\n\n'
+        'Download: https://appdistribution.firebase.dev/i/24015162eba1d1f9';
+    SharePlus.instance.share(ShareParams(text: msg, subject: 'Join ${group.name} on DuitKita'));
+  }
+
   // ─── Build ───────────────────────────────────────────────────────────────────
 
   @override
@@ -502,73 +577,76 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               data: (group) {
                 if (group == null) return const Center(child: Text('Group not found'));
                 final members = membersAsync.valueOrNull ?? [];
-                final initials = group.name.trim().split(RegExp(r'\s+')).take(2).map((w) => w[0].toUpperCase()).join();
+                final adminCount = members.where((m) => m.isAdmin).length;
 
                 return Stack(children: [
                   ListView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                     children: [
 
-                      // ── Hero group card ────────────────────
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: DT.primary,
-                          borderRadius: BorderRadius.circular(DS.heroRadius),
-                        ),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            Container(
-                              width: 52, height: 52,
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
-                              child: Center(child: Text(initials.isNotEmpty ? initials : '?', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white))),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(group.name, style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3), overflow: TextOverflow.ellipsis),
-                              if (group.description.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text(group.description, style: GoogleFonts.manrope(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              ],
-                            ])),
-                          ]),
-                          const SizedBox(height: 20),
-                          Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
-                          const SizedBox(height: 16),
-                          // Stat row
-                          Row(children: [
-                            _HeroStat(
-                              icon: Icons.payments_outlined,
-                              label: 'Monthly',
-                              value: 'RM${group.monthlyAmount.toStringAsFixed(0)}',
-                            ),
-                            _VertDivider(),
-                            _HeroStat(
-                              icon: Icons.people_outline_rounded,
-                              label: 'Members',
-                              value: '${members.length}',
-                            ),
-                            _VertDivider(),
-                            _HeroStat(
-                              icon: Icons.notifications_outlined,
-                              label: 'Reminder',
-                              value: _ordinal(group.reminderDay),
-                            ),
-                          ]),
-                        ]),
+                      // ── Identity hero ──────────────────────
+                      _IdentityCard(
+                        name: group.name,
+                        description: group.description,
+                        emoji: '🏠',
+                        colorSoft: DT.catGroupsSoft,
+                        editable: isAdmin,
+                        onTapEdit: () => _editGroup(group),
                       ),
 
-                      // ── Bank info card ─────────────────────
-                      if (group.bankName != null || group.accountNumber != null) ...[
+                      // ── Contribution ───────────────────────
+                      const SizedBox(height: DS.xl),
+                      _SectionLabel('Contribution'),
+                      const SizedBox(height: DS.sm),
+                      _Card(children: [
+                        _ValueRow(
+                          label: 'Monthly amount',
+                          value: 'RM ${group.monthlyAmount.toStringAsFixed(0)}',
+                          onTap: (isAdmin && !_busy) ? () => _editGroup(group) : null,
+                        ),
+                        _Divider(),
+                        _ValueRow(
+                          label: 'Reminder day',
+                          value: '${_ordinal(group.reminderDay)} of month',
+                          onTap: (isAdmin && !_busy) ? () => _setReminderDay(group) : null,
+                        ),
+                        _Divider(),
+                        const _ValueRow(label: 'Currency', value: '🇲🇾 MYR · RM', last: true),
+                      ]),
+
+                      // ── Members ────────────────────────────
+                      const SizedBox(height: DS.xl),
+                      _SectionLabel('Members'),
+                      const SizedBox(height: DS.sm),
+                      _MembersPreviewRow(
+                        members: members,
+                        adminCount: adminCount,
+                        onTap: () => Navigator.of(context).push(
+                          AppTheme.slideRoute(ManageMembersScreen(groupId: widget.groupId, groupName: group.name)),
+                        ),
+                      ),
+
+                      // ── Payment account (visible to all when set, or to admins to add) ──
+                      if (group.bankName != null || group.accountNumber != null || isAdmin) ...[
+                        const SizedBox(height: DS.xl),
+                        _SectionLabel('Payment account'),
                         const SizedBox(height: DS.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(color: DT.surface, border: Border.all(color: DT.border), borderRadius: BorderRadius.circular(DS.cardRadius)),
                           child: Row(children: [
-                            Container(width: 38, height: 38, decoration: BoxDecoration(color: DT.accentSoft, borderRadius: BorderRadius.circular(11)), child: const Icon(Icons.account_balance_outlined, size: 18, color: DT.accentDeep)),
+                            Builder(builder: (_) {
+                              final hasBank = group.bankName != null;
+                              final brand = bankBrandFor(group.bankName);
+                              return Container(
+                                width: 38, height: 38,
+                                decoration: BoxDecoration(color: hasBank ? brand.tile : DT.surfaceAlt, borderRadius: BorderRadius.circular(11)),
+                                child: Icon(Icons.account_balance, size: 18, color: hasBank ? brand.icon : DT.textTertiary),
+                              );
+                            }),
                             const SizedBox(width: 12),
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(group.bankName ?? '—', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
+                              Text(group.bankName ?? 'Not set', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: group.bankName != null ? DT.text : DT.textTertiary)),
                               if (group.accountNumber != null)
                                 Text(group.accountNumber!, style: GoogleFonts.manrope(fontSize: 12, color: DT.textSecondary, fontWeight: FontWeight.w500)),
                               if (group.accountHolderName != null)
@@ -577,39 +655,16 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                             if (isAdmin)
                               GestureDetector(
                                 onTap: _busy ? null : () => _bankAccount(group),
-                                child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: DT.accentSoft, borderRadius: BorderRadius.circular(DS.chipRadius)), child: Text('Edit', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: DT.accentDeep))),
+                                child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: DT.accentSoft, borderRadius: BorderRadius.circular(DS.chipRadius)), child: Text(group.bankName != null || group.accountNumber != null ? 'Edit' : 'Add', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: DT.accentDeep))),
                               ),
                           ]),
                         ),
                       ],
 
                       if (isAdmin) ...[
+                        // ── Payments ─────────────────────────
                         const SizedBox(height: DS.xl),
-                        _SectionLabel('Settings'),
-                        const SizedBox(height: DS.sm),
-                        _Card(children: [
-                          _SettingRow(
-                            icon: Icons.edit_outlined, iconBg: DT.primarySoft, iconColor: DT.primary,
-                            label: 'Edit group info',
-                            subtitle: 'Name, description, amounts',
-                            onTap: _busy ? null : () => _editGroup(group),
-                          ),
-                          _Divider(),
-                          _SettingRow(
-                            icon: Icons.notifications_active_outlined, iconBg: DT.warningSoft, iconColor: DT.warning,
-                            label: 'Payment reminder day',
-                            subtitle: '${_ordinal(group.reminderDay)} of each month',
-                            onTap: _busy ? null : () => _setReminderDay(group),
-                          ),
-                          _Divider(),
-                          _SettingRow(
-                            icon: Icons.account_balance_outlined, iconBg: DT.accentSoft, iconColor: DT.accentDeep,
-                            label: 'Bank account details',
-                            subtitle: group.bankName ?? 'Not set',
-                            onTap: _busy ? null : () => _bankAccount(group),
-                          ),
-                        ]),
-
+                        _SectionLabel('Payments'),
                         const SizedBox(height: DS.sm),
                         _Card(children: [
                           _ToggleRow(
@@ -629,6 +684,29 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                           ),
                         ]),
 
+                        // ── Data & sharing ───────────────────
+                        const SizedBox(height: DS.xl),
+                        _SectionLabel('Data & sharing'),
+                        const SizedBox(height: DS.sm),
+                        _Card(children: [
+                          _SettingRow(
+                            icon: Icons.download_outlined, iconBg: DT.infoSoft, iconColor: DT.info,
+                            label: 'Export to CSV',
+                            subtitle: 'Payments + expenses for this group',
+                            onTap: _busy ? null : () => _exportCsv(group),
+                          ),
+                          _Divider(),
+                          _SettingRow(
+                            icon: Icons.share_outlined, iconBg: DT.primarySoft, iconColor: DT.primary,
+                            label: 'Share invite link',
+                            subtitle: 'Anyone with the link can request to join',
+                            onTap: _busy ? null : () => _shareInvite(group),
+                          ),
+                        ]),
+
+                        // ── Admins ───────────────────────────
+                        const SizedBox(height: DS.xl),
+                        _SectionLabel('Admins'),
                         const SizedBox(height: DS.sm),
                         _Card(children: [
                           _SettingRow(
@@ -636,7 +714,6 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                             label: 'Manage admins',
                             subtitle: 'Promote or demote group admins',
                             onTap: _busy ? null : _manageAdmins,
-                            last: true,
                           ),
                         ]),
 
@@ -650,7 +727,6 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                             subtitle: 'Permanently delete all data',
                             onTap: _busy ? null : () => _deleteGroup(group),
                             dangerous: true,
-                            last: true,
                           ),
                         ]),
                       ],
@@ -858,19 +934,20 @@ class _SettingRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
   final bool dangerous;
-  final bool last;
-  const _SettingRow({required this.icon, required this.iconBg, required this.iconColor, required this.label, required this.subtitle, this.onTap, this.dangerous = false, this.last = false});
+  const _SettingRow({required this.icon, required this.iconBg, required this.iconColor, required this.label, required this.subtitle, this.onTap, this.dangerous = false});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
+    behavior: HitTestBehavior.opaque,
     child: Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, last ? 12 : 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
         Container(width: 36, height: 36, decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 18, color: iconColor)),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: dangerous ? DT.danger : DT.text)),
+          const SizedBox(height: 2),
           Text(subtitle, style: GoogleFonts.manrope(fontSize: 12, color: DT.textTertiary)),
         ])),
         Icon(Icons.chevron_right_rounded, size: 18, color: dangerous ? DT.danger.withValues(alpha: 0.5) : DT.textTertiary),
@@ -915,26 +992,164 @@ class _IconBtn extends StatelessWidget {
   );
 }
 
-class _HeroStat extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _HeroStat({required this.icon, required this.label, required this.value});
+// ─── Centered identity hero ─────────────────────────────────────────────────
+class _IdentityCard extends StatelessWidget {
+  final String name;
+  final String description;
+  final String emoji;
+  final Color colorSoft;
+  final bool editable;
+  final VoidCallback onTapEdit;
+
+  const _IdentityCard({
+    required this.name,
+    required this.description,
+    required this.emoji,
+    required this.colorSoft,
+    required this.editable,
+    required this.onTapEdit,
+  });
+
   @override
-  Widget build(BuildContext context) => Expanded(
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+    decoration: BoxDecoration(
+      color: DT.surface,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: DT.border),
+    ),
     child: Column(children: [
-      Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.7)),
-      const SizedBox(height: 4),
-      Text(value, style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
-      const SizedBox(height: 2),
-      Text(label, style: GoogleFonts.manrope(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+      GestureDetector(
+        onTap: editable ? onTapEdit : null,
+        child: Stack(clipBehavior: Clip.none, children: [
+          Container(
+            width: 86, height: 86,
+            decoration: BoxDecoration(color: colorSoft, borderRadius: BorderRadius.circular(26)),
+            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 46))),
+          ),
+          if (editable)
+            Positioned(
+              right: -2, bottom: -2,
+              child: Container(
+                width: 30, height: 30,
+                decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(10), border: Border.all(color: DT.surface, width: 3)),
+                child: const Icon(Icons.edit_outlined, size: 13, color: Colors.white),
+              ),
+            ),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      Text(name, textAlign: TextAlign.center,
+        style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4)),
+      if (description.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text(description, textAlign: TextAlign.center,
+          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w500, color: DT.textSecondary)),
+      ],
     ]),
   );
 }
 
-class _VertDivider extends StatelessWidget {
+// ─── Label + right-aligned value row (for the Contribution card) ────────────
+class _ValueRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final bool last;
+  const _ValueRow({required this.label, required this.value, this.onTap, this.last = false});
+
   @override
-  Widget build(BuildContext context) => Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.15));
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(children: [
+        Text(label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: DT.textSecondary)),
+        const Spacer(),
+        Text(value, style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
+        if (onTap != null) ...[
+          const SizedBox(width: 6),
+          const Icon(Icons.chevron_right_rounded, size: 18, color: DT.textTertiary),
+        ],
+      ]),
+    ),
+  );
+}
+
+// ─── Members preview row with avatar stack ──────────────────────────────────
+class _MembersPreviewRow extends StatelessWidget {
+  final List<GroupMember> members;
+  final int adminCount;
+  final VoidCallback onTap;
+  const _MembersPreviewRow({required this.members, required this.adminCount, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = members.take(4).toList();
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(DS.cardRadius), border: Border.all(color: DT.border)),
+        child: Row(children: [
+          // Overlapping avatar stack
+          if (preview.isNotEmpty) ...[
+            SizedBox(
+              width: 32.0 + (preview.length - 1) * 24.0,
+              height: 32,
+              child: Stack(children: [
+                for (int i = 0; i < preview.length; i++)
+                  Positioned(
+                    left: i * 24.0,
+                    child: _StackAvatar(userId: preview[i].userId, name: preview[i].userName),
+                  ),
+              ]),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Manage ${members.length} member${members.length == 1 ? '' : 's'}',
+              style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
+            const SizedBox(height: 2),
+            Text('$adminCount admin${adminCount == 1 ? '' : 's'} · ${members.length - adminCount} member${members.length - adminCount == 1 ? '' : 's'}',
+              style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, size: 18, color: DT.textTertiary),
+        ]),
+      ),
+    );
+  }
+
+}
+
+// ─── Avatar for the overlapping members stack ───────────────────────────────
+class _StackAvatar extends ConsumerWidget {
+  final String userId;
+  final String name;
+  const _StackAvatar({required this.userId, required this.name});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photoUrl = ref.watch(userProfileStreamProvider(userId)).valueOrNull?.profileImageUrl;
+    return Container(
+      width: 32, height: 32,
+      decoration: BoxDecoration(color: DT.surfaceAlt, shape: BoxShape.circle, border: Border.all(color: DT.surface, width: 2)),
+      child: ClipOval(
+        child: photoUrl != null && photoUrl.isNotEmpty
+            ? Image.network(photoUrl, fit: BoxFit.cover, width: 32, height: 32, errorBuilder: (_, __, ___) => _initialsTile())
+            : _initialsTile(),
+      ),
+    );
+  }
+
+  Widget _initialsTile() {
+    final initials = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+    return Center(child: Text(
+      initials.isNotEmpty ? initials : '?',
+      style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w800, color: DT.text),
+    ));
+  }
 }
 
 class _OutlineBtn extends StatelessWidget {

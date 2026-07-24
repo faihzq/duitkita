@@ -35,6 +35,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   int _tab = 0; // 0=Members, 1=Activity, 2=Expenses
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
+  int _monthDir = 1; // +1 = moving forward, -1 = moving back (drives hero slide direction)
 
   static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -92,11 +93,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
   // ─── Month navigation ────────────────────────────────────────────────────────
   void _prevMonth() => setState(() {
+        _monthDir = -1;
         if (_selectedMonth == 1) { _selectedMonth = 12; _selectedYear--; }
         else { _selectedMonth--; }
       });
 
   void _nextMonth() => setState(() {
+        _monthDir = 1;
         if (_selectedMonth == 12) { _selectedMonth = 1; _selectedYear++; }
         else { _selectedMonth++; }
       });
@@ -108,7 +111,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       builder: (_) => _MonthPickerSheet(
         currentMonth: _selectedMonth,
         currentYear: _selectedYear,
-        onPicked: (m, y) => setState(() { _selectedMonth = m; _selectedYear = y; }),
+        onPicked: (m, y) => setState(() {
+          // Slide direction based on whether the picked month is ahead or behind.
+          _monthDir = (y * 12 + m) >= (_selectedYear * 12 + _selectedMonth) ? 1 : -1;
+          _selectedMonth = m;
+          _selectedYear = y;
+        }),
       ),
     );
   }
@@ -131,7 +139,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
     final groupAsync = ref.watch(groupStreamProvider(widget.groupId));
     final membersAsync = ref.watch(groupMembersStreamProvider(widget.groupId));
-    final paidCount = ref.watch(groupMonthPaidCountProvider(widget.groupId)).valueOrNull ?? 0;
 
     return groupAsync.when(
       loading: () => Scaffold(
@@ -148,8 +155,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         }
         final members = membersAsync.valueOrNull ?? [];
         final isAdmin = members.any((m) => m.userId == userId && m.isAdmin);
-        final perMember = group.monthlyAmount;
-        final paidPct = group.memberCount > 0 ? (paidCount / group.memberCount).clamp(0.0, 1.0) : 0.0;
 
         return Scaffold(
           backgroundColor: DT.bg,
@@ -167,7 +172,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       ),
                       const Spacer(),
                       _IconBtn(
-                        icon: Icons.ios_share_rounded,
+                        icon: Icons.share,
                         onTap: () => _share(group, members),
                       ),
                       const SizedBox(width: 8),
@@ -187,12 +192,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Group hero ───────────────────────────
+                        // ── Group identity (avatar + name + description) ──
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                           child: Row(
                             children: [
-                              _GroupTile(name: group.name, size: 54),
+                              _GroupAvatar(name: group.name, size: 52),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -200,10 +205,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                   children: [
                                     Text(
                                       group.name,
-                                      style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.5),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.manrope(fontSize: 21, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.5),
                                     ),
                                     if (group.description.isNotEmpty) ...[
-                                      const SizedBox(height: 3),
+                                      const SizedBox(height: 2),
                                       Text(
                                         group.description,
                                         maxLines: 2,
@@ -218,57 +225,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           ),
                         ),
 
-                        // ── Stats card ───────────────────────────
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: DT.surface,
-                              borderRadius: BorderRadius.circular(DS.cardRadius),
-                              border: Border.all(color: DT.border),
-                            ),
-                            child: Column(
-                              children: [
-                                IntrinsicHeight(
-                                  child: Row(
-                                    children: [
-                                      _StatCell(label: 'Per member', value: group.monthlyAmount > 0 ? 'RM${perMember.toStringAsFixed(0)}' : '—'),
-                                      const VerticalDivider(width: 1, color: DT.border),
-                                      _StatCell(label: 'Members', value: '${group.memberCount}'),
-                                      const VerticalDivider(width: 1, color: DT.border),
-                                      _StatCell(label: 'This month', value: '$paidCount/${group.memberCount}'),
-                                    ],
-                                  ),
-                                ),
-                                if (group.monthlyAmount > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text('Collection progress', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: DT.textSecondary)),
-                                            Text('${(paidPct * 100).round()}%', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.accentDeep)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(3),
-                                          child: LinearProgressIndicator(
-                                            value: paidPct,
-                                            minHeight: 5,
-                                            backgroundColor: DT.surfaceAlt,
-                                            valueColor: const AlwaysStoppedAnimation<Color>(DT.accent),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
+                        // ── Collection hero ──────────────────────
+                        _CollectionHero(
+                          group: group,
+                          groupId: widget.groupId,
+                          selectedMonth: _selectedMonth,
+                          selectedYear: _selectedYear,
+                          monthDir: _monthDir,
+                          onPrevMonth: _prevMonth,
+                          onNextMonth: _nextMonth,
+                          onPickMonth: _showMonthPicker,
                         ),
 
                         // ── Action buttons ───────────────────────
@@ -310,7 +276,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         // ── Tab bar ──────────────────────────────
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                          child: _TabBar(
+                          child: _SegmentedTabs(
                             tabs: const ['Members', 'Activity', 'Expenses'],
                             selectedIndex: _tab,
                             onTap: (i) => setState(() => _tab = i),
@@ -328,17 +294,14 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                 members: members,
                                 selectedMonth: _selectedMonth,
                                 selectedYear: _selectedYear,
+                                monthDir: _monthDir,
                                 userId: userId ?? '',
                                 isAdmin: isAdmin,
                                 group: group,
-                                onPrevMonth: _prevMonth,
-                                onNextMonth: _nextMonth,
-                                onPickMonth: _showMonthPicker,
                                 fetchStatus: _fetchPaymentStatus,
                                 onVerify: _verifyPayment,
                                 onShowReview: _showPaymentReviewSheet,
                                 groupId: widget.groupId,
-                                onShowReject: _showRejectDialog,
                                 onNavigate: (screen) => Navigator.of(context).push(AppTheme.slideRoute(screen)),
                               ),
                               // Activity tab
@@ -530,98 +493,84 @@ class _MembersTab extends StatelessWidget {
   final List<GroupMember> members;
   final int selectedMonth;
   final int selectedYear;
+  final int monthDir;
   final String userId;
   final bool isAdmin;
   final dynamic group;
   final String groupId;
-  final VoidCallback onPrevMonth;
-  final VoidCallback onNextMonth;
-  final VoidCallback onPickMonth;
   final Future<Map<String, _PayInfo>> Function(List<GroupMember>) fetchStatus;
   final Future<void> Function(String, String, String, {BuildContext? sheetCtx, String? rejectionReason}) onVerify;
   final void Function(BuildContext, {required PaymentModel payment, required String memberName}) onShowReview;
-  final void Function(BuildContext, String, String) onShowReject;
   final void Function(Widget) onNavigate;
-
-  static const _months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const _MembersTab({
     required this.members,
     required this.selectedMonth,
     required this.selectedYear,
+    required this.monthDir,
     required this.userId,
     required this.isAdmin,
     required this.group,
     required this.groupId,
-    required this.onPrevMonth,
-    required this.onNextMonth,
-    required this.onPickMonth,
     required this.fetchStatus,
     required this.onVerify,
     required this.onShowReview,
-    required this.onShowReject,
     required this.onNavigate,
   });
+
+  // ─── "More" admin-tools menu ────────────────────────────────────────────────
+  void _showMoreMenu(BuildContext context) {
+    void go(BuildContext sheetCtx, Widget screen) {
+      Navigator.pop(sheetCtx);
+      onNavigate(screen);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Container(
+        decoration: const BoxDecoration(color: DT.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: DT.borderStrong, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 12),
+          _MoreTile(icon: Icons.people_outline, label: 'Members', subtitle: 'Add, remove & manage roles',
+            onTap: () => go(sheetCtx, ManageMembersScreen(groupId: groupId, groupName: group.name as String))),
+          _MoreTile(icon: Icons.history_rounded, label: 'Payment history', subtitle: 'All past payments',
+            onTap: () => go(sheetCtx, PaymentHistoryScreen(groupId: groupId))),
+          _MoreTile(icon: Icons.bar_chart_rounded, label: 'Analytics', subtitle: 'Collection trends & insights',
+            onTap: () => go(sheetCtx, GroupAnalyticsScreen(groupId: groupId, groupName: group.name as String))),
+          _MoreTile(icon: Icons.upload_outlined, label: 'Bulk import', subtitle: 'Import past payments',
+            onTap: () => go(sheetCtx, BulkImportScreen(groupId: groupId, groupName: group.name as String, monthlyAmount: group.monthlyAmount as double, groupCreatedAt: group.createdAt as DateTime))),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Month selector
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: DT.surface,
-            borderRadius: BorderRadius.circular(DS.cardRadius),
-            border: Border.all(color: DT.border),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(onTap: onPrevMonth, child: const Icon(Icons.chevron_left_rounded, size: 22, color: DT.textSecondary)),
-              Expanded(
-                child: GestureDetector(
-                  onTap: onPickMonth,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${_months[selectedMonth - 1]} $selectedYear',
-                        style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: DT.textTertiary),
-                    ],
-                  ),
-                ),
-              ),
-              GestureDetector(onTap: onNextMonth, child: const Icon(Icons.chevron_right_rounded, size: 22, color: DT.textSecondary)),
-            ],
-          ),
-        ),
-
-        // Quick-access row (Loans is available to everyone; admin tools gated)
+        // Quick-access row — only the count-carrying actions stay inline;
+        // the rest of the admin tools live behind "More".
         Padding(
-          padding: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.only(top: 0),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                if (isAdmin) ...[
-                  _QuickChip(label: 'Members', icon: Icons.people_outline, onTap: () => onNavigate(ManageMembersScreen(groupId: groupId, groupName: group.name as String))),
-                  _QuickChip(label: 'History', icon: Icons.history_rounded, onTap: () => onNavigate(PaymentHistoryScreen(groupId: groupId))),
-                  _QuickChip(label: 'Analytics', icon: Icons.bar_chart_rounded, onTap: () => onNavigate(GroupAnalyticsScreen(groupId: groupId, groupName: group.name as String))),
+                if (isAdmin)
                   Consumer(builder: (context, ref, _) {
                     final count = ref.watch(pendingPaymentsStreamProvider(groupId)).valueOrNull?.length ?? 0;
                     return _QuickChip(label: 'Review${count > 0 ? ' ($count)' : ''}', icon: Icons.fact_check_outlined, onTap: () => onNavigate(PendingPaymentsReviewScreen(groupId: groupId, groupName: group.name as String)), highlight: count > 0);
                   }),
-                ],
                 Consumer(builder: (context, ref, _) {
                   final count = isAdmin ? (ref.watch(pendingFundLoansCountProvider(groupId)).valueOrNull ?? 0) : 0;
                   return _QuickChip(label: 'Loans${count > 0 ? ' ($count)' : ''}', icon: Icons.savings_outlined, onTap: () => onNavigate(FundLoansScreen(groupId: groupId, groupName: group.name as String, isAdmin: isAdmin)), highlight: count > 0);
                 }),
                 if (isAdmin)
-                  _QuickChip(label: 'Import', icon: Icons.upload_outlined, onTap: () => onNavigate(BulkImportScreen(groupId: groupId, groupName: group.name as String, monthlyAmount: group.monthlyAmount as double, groupCreatedAt: group.createdAt as DateTime))),
+                  _QuickChip(label: 'More', icon: Icons.more_horiz_rounded, onTap: () => _showMoreMenu(context)),
               ],
             ),
           ),
@@ -629,47 +578,78 @@ class _MembersTab extends StatelessWidget {
 
         const SizedBox(height: 14),
 
-        // Member list
-        if (members.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Text('No members yet', style: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary)),
-            ),
-          )
-        else
-          FutureBuilder<Map<String, _PayInfo>>(
-            future: fetchStatus(members),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2),
-                ));
-              }
-              final statusMap = snapshot.data!;
-              return Column(
-                children: members.map((m) {
-                  final info = statusMap[m.userId] ?? _PayInfo(status: 'unpaid');
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _MemberCard(
-                      member: m,
-                      info: info,
-                      isCurrentUser: m.userId == userId,
-                      isAdmin: isAdmin,
-                      group: group,
-                      groupId: groupId,
-                      selectedMonth: selectedMonth,
-                      selectedYear: selectedYear,
-                      onVerify: onVerify,
-                      onShowReview: (ctx) => onShowReview(ctx, payment: info.payment!, memberName: m.userName),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
+        // Member list — slides with month changes to match the summary card.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final isIncoming = child.key == ValueKey('$selectedMonth-$selectedYear');
+            final begin = Offset(0.15 * monthDir * (isIncoming ? 1 : -1), 0);
+            final slide = Tween<Offset>(begin: begin, end: Offset.zero).animate(animation);
+            return ClipRect(
+              child: FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: slide, child: child),
+              ),
+            );
+          },
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            alignment: Alignment.topLeft,
+            children: [
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
           ),
+          child: KeyedSubtree(
+            key: ValueKey('$selectedMonth-$selectedYear'),
+            child: members.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Text('No members yet', style: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary)),
+                    ),
+                  )
+                : FutureBuilder<Map<String, _PayInfo>>(
+                    future: fetchStatus(members),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Center(child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2),
+                        ));
+                      }
+                      final statusMap = snapshot.data!;
+                      final paid = statusMap.values.where((i) => i.status == 'confirmed').length;
+                      final pending = statusMap.values.where((i) => i.status == 'pending').length;
+                      final unpaid = members.length - paid - pending;
+                      return Column(
+                        children: [
+                          _StatusStrip(paid: paid, pending: pending, unpaid: unpaid),
+                          ...members.map((m) {
+                          final info = statusMap[m.userId] ?? _PayInfo(status: 'unpaid');
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _MemberCard(
+                              member: m,
+                              info: info,
+                              isCurrentUser: m.userId == userId,
+                              isAdmin: isAdmin,
+                              group: group,
+                              groupId: groupId,
+                              selectedMonth: selectedMonth,
+                              selectedYear: selectedYear,
+                              onVerify: onVerify,
+                              onShowReview: (ctx) => onShowReview(ctx, payment: info.payment!, memberName: m.userName),
+                            ),
+                          );
+                        }),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        ),
       ],
     );
   }
@@ -1049,8 +1029,14 @@ class _MemberCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Avatar
-              _Avatar40(name: member.userName, userId: member.userId),
+              // Avatar with status dot
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _Avatar40(name: member.userName, userId: member.userId),
+                  Positioned(right: -2, bottom: -2, child: _statusDot(status)),
+                ],
+              ),
               const SizedBox(width: 12),
               // Name + role
               Expanded(
@@ -1237,40 +1223,17 @@ class _IconBtn extends StatelessWidget {
   );
 }
 
-class _GroupTile extends StatelessWidget {
+class _GroupAvatar extends StatelessWidget {
   final String name;
   final double size;
-  const _GroupTile({required this.name, required this.size});
-
-  String _initials() {
-    final w = name.trim().split(RegExp(r'\s+'));
-    if (w.length >= 2) return '${w[0][0]}${w[1][0]}'.toUpperCase();
-    return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
-  }
+  const _GroupAvatar({required this.name, required this.size});
 
   @override
   Widget build(BuildContext context) => Container(
     width: size, height: size,
+    alignment: Alignment.center,
     decoration: BoxDecoration(color: DT.catGroupsSoft, borderRadius: BorderRadius.circular(16)),
-    child: Center(child: Text(_initials(), style: GoogleFonts.manrope(fontSize: size * 0.3, fontWeight: FontWeight.w800, color: DT.catGroups))),
-  );
-}
-
-class _StatCell extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatCell({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-      child: Column(children: [
-        Text(value, style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4)),
-        const SizedBox(height: 2),
-        Text(label.toUpperCase(), textAlign: TextAlign.center, style: GoogleFonts.manrope(fontSize: 9, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.4)),
-      ]),
-    ),
+    child: Icon(Icons.home_rounded, size: size * 0.5, color: DT.catGroups),
   );
 }
 
@@ -1303,33 +1266,250 @@ class _ActionBtn extends StatelessWidget {
   );
 }
 
-class _TabBar extends StatelessWidget {
+const _kMonths = ['January','February','March','April','May','June',
+  'July','August','September','October','November','December'];
+
+// ─── Collection hero (gradient card) ───────────────────────────────────────────
+class _CollectionHero extends ConsumerWidget {
+  final dynamic group;              // needs .monthlyAmount .memberCount
+  final String groupId;
+  final int selectedMonth;          // 1-12
+  final int selectedYear;
+  final int monthDir;               // +1 forward, -1 back — drives slide direction
+  final VoidCallback onPrevMonth;
+  final VoidCallback onNextMonth;
+  final VoidCallback onPickMonth;
+
+  const _CollectionHero({
+    required this.group,
+    required this.groupId,
+    required this.selectedMonth,
+    required this.selectedYear,
+    required this.monthDir,
+    required this.onPrevMonth,
+    required this.onNextMonth,
+    required this.onPickMonth,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final double monthly = (group.monthlyAmount as num).toDouble();
+    final int members = group.memberCount as int;
+    final bool hasFund = monthly > 0;
+    // monthlyAmount is the per-member due; the whole-group target is perMember × members.
+    final double perMember = monthly;
+
+    // True collected total = sum of confirmed payment amounts for the selected month.
+    final payments = ref.watch(monthPaymentsStreamProvider((
+      groupId: groupId, month: selectedMonth, year: selectedYear,
+    ))).valueOrNull ?? const [];
+    final confirmed = payments.where((p) => p.paymentStatus == 'confirmed');
+    final double collected = confirmed.fold(0.0, (sum, p) => sum + p.amount);
+    final int paidCount = confirmed.length;
+
+    final double pct = members > 0 ? (paidCount / members).clamp(0.0, 1.0) : 0.0;
+    final int awaiting = members - paidCount;
+    const white = Colors.white;
+    final white70 = Colors.white.withValues(alpha: 0.70);
+    final white55 = Colors.white.withValues(alpha: 0.55);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [DT.headerGradientStart, DT.headerGradientEnd],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: DT.text.withValues(alpha: 0.18), blurRadius: 30, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label + month stepper
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(hasFund ? 'COLLECTED THIS MONTH' : 'TRIP FUND',
+                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: white55, letterSpacing: 0.5)),
+              Container(
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  GestureDetector(onTap: onPrevMonth, child: Icon(Icons.chevron_left_rounded, size: 18, color: white70)),
+                  GestureDetector(onTap: onPickMonth, child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('${_kMonths[selectedMonth - 1].substring(0, 3)} $selectedYear',
+                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: white)),
+                  )),
+                  GestureDetector(onTap: onNextMonth, child: Icon(Icons.chevron_right_rounded, size: 18, color: white70)),
+                ]),
+              ),
+            ],
+          ),
+
+          // Month-dependent body — slides in the travel direction on month change.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final isIncoming = child.key == ValueKey('$selectedMonth-$selectedYear');
+              // Incoming enters from the travel direction; outgoing exits the opposite side.
+              final begin = Offset(0.15 * monthDir * (isIncoming ? 1 : -1), 0);
+              final slide = Tween<Offset>(begin: begin, end: Offset.zero).animate(animation);
+              return ClipRect(
+                child: FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                ),
+              );
+            },
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.topLeft,
+              children: [
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            ),
+            child: Column(
+              key: ValueKey('$selectedMonth-$selectedYear'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasFund) ...[
+                  const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                    Text('RM${collected.toStringAsFixed(0)}',
+                      style: GoogleFonts.manrope(fontSize: 36, fontWeight: FontWeight.w800, color: white, letterSpacing: -1, height: 1)),
+                    const SizedBox(width: 8),
+                    Text('of RM${(monthly * members).toStringAsFixed(0)}',
+                      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: white70)),
+                  ]),
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(value: pct, minHeight: 6,
+                      backgroundColor: Colors.white.withValues(alpha: 0.16),
+                      valueColor: const AlwaysStoppedAnimation<Color>(DT.accent)),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    RichText(text: TextSpan(children: [
+                      TextSpan(text: '${(pct * 100).round()}% ', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w800, color: DT.accent)),
+                      TextSpan(text: 'collected', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: white70)),
+                    ])),
+                    Text('$paidCount of $members paid', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: white70)),
+                  ]),
+                ] else ...[
+                  const SizedBox(height: 10),
+                  Text('No fixed amount — costs are split between $members members as they come up.',
+                    style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.82), height: 1.4)),
+                ],
+
+                const SizedBox(height: 16),
+                Container(margin: const EdgeInsets.only(top: 0), padding: const EdgeInsets.only(top: 14),
+                  decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.12)))),
+                  child: Row(children: [
+                    _heroStat('PER MEMBER', hasFund ? 'RM${perMember.toStringAsFixed(0)}' : '—', CrossAxisAlignment.start),
+                    _heroDivider(),
+                    _heroStat('MEMBERS', '$members', CrossAxisAlignment.center),
+                    _heroDivider(),
+                    _heroStat('AWAITING', hasFund ? '$awaiting' : '—', CrossAxisAlignment.center),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroDivider() => Container(width: 1, height: 34, color: Colors.white.withValues(alpha: 0.12));
+
+  Widget _heroStat(String label, String value, CrossAxisAlignment align) => Expanded(
+    child: Column(crossAxisAlignment: align, children: [
+      Text(value, style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
+      const SizedBox(height: 3),
+      Text(label, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.55), letterSpacing: 0.4)),
+    ]),
+  );
+}
+
+// ─── Segmented tab control ──────────────────────────────────────────────────────
+class _SegmentedTabs extends StatelessWidget {
   final List<String> tabs;
   final int selectedIndex;
   final void Function(int) onTap;
-  const _TabBar({required this.tabs, required this.selectedIndex, required this.onTap});
+  const _SegmentedTabs({required this.tabs, required this.selectedIndex, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: tabs.asMap().entries.map((e) {
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(13), border: Border.all(color: DT.border)),
+    child: Row(children: tabs.asMap().entries.map((e) {
       final active = e.key == selectedIndex;
-      return GestureDetector(
+      return Expanded(child: GestureDetector(
         onTap: () => onTap(e.key),
-        child: Padding(
-          padding: EdgeInsets.only(right: e.key < tabs.length - 1 ? 4 : 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                child: Text(e.value, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: active ? DT.text : DT.textTertiary)),
-              ),
-              Container(height: 2, width: e.value.length * 8.0, color: active ? DT.text : Colors.transparent),
-            ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: active ? DT.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: active ? [BoxShadow(color: DT.text.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))] : null,
           ),
+          child: Center(child: Text(e.value,
+            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: active ? DT.text : DT.textSecondary))),
         ),
-      );
-    }).toList(),
+      ));
+    }).toList()),
+  );
+}
+
+// ─── Paid / Pending / Unpaid strip ──────────────────────────────────────────────
+class _StatusStrip extends StatelessWidget {
+  final int paid, pending, unpaid;
+  const _StatusStrip({required this.paid, required this.pending, required this.unpaid});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(children: [
+      _tile('Paid', paid, DT.success, DT.successSoft),
+      const SizedBox(width: 8),
+      _tile('Pending', pending, DT.warning, DT.warningSoft),
+      const SizedBox(width: 8),
+      _tile('Unpaid', unpaid, DT.danger, DT.dangerSoft),
+    ]),
+  );
+
+  Widget _tile(String label, int value, Color fg, Color bg) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Column(children: [
+        Text('$value', style: GoogleFonts.manrope(fontSize: 19, fontWeight: FontWeight.w800, color: fg, height: 1)),
+        const SizedBox(height: 4),
+        Text(label.toUpperCase(), style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.text.withValues(alpha: 0.7), letterSpacing: 0.4)),
+      ]),
+    ),
+  );
+}
+
+// ─── Status dot overlaid on member avatar ───────────────────────────────────────
+Widget _statusDot(String status) {
+  final color = switch (status) {
+    'confirmed' => DT.success,
+    'pending'   => DT.warning,
+    'rejected'  => DT.danger,
+    _           => DT.danger, // unpaid
+  };
+  return Container(
+    width: 13, height: 13,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: DT.surface, width: 2)),
   );
 }
 
@@ -1355,6 +1535,43 @@ class _QuickChip extends StatelessWidget {
         Icon(icon, size: 13, color: highlight ? DT.warning : DT.text),
         const SizedBox(width: 5),
         Text(label, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: highlight ? DT.warning : DT.text)),
+      ]),
+    ),
+  );
+}
+
+class _MoreTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _MoreTile({required this.icon, required this.label, required this.subtitle, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(children: [
+        Container(
+          width: 42, height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, size: 20, color: DT.text),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700, color: DT.text)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: GoogleFonts.manrope(fontSize: 12, color: DT.textSecondary)),
+            ],
+          ),
+        ),
+        const Icon(Icons.chevron_right_rounded, size: 20, color: DT.textTertiary),
       ]),
     ),
   );

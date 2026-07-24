@@ -275,17 +275,12 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   itemBuilder: (_, i) {
                     final m = members[i];
                     final isMe = m.userId == currentUid;
-                    final initials = m.userName.trim().split(RegExp(r'\s+')).take(2).map((w) => w[0].toUpperCase()).join();
                     return Container(
                       padding: const EdgeInsets.all(DS.md),
                       decoration: BoxDecoration(color: DT.surface, border: Border.all(color: DT.border), borderRadius: BorderRadius.circular(DS.cardRadius)),
                       child: Row(children: [
                         // Avatar
-                        Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(color: m.isAdmin ? DT.primarySoft : DT.accentSoft, borderRadius: BorderRadius.circular(14)),
-                          child: Center(child: Text(initials.isNotEmpty ? initials : '?', style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: m.isAdmin ? DT.primary : DT.accentDeep))),
-                        ),
+                        _MemberAvatar(userId: m.userId, name: m.userName, isAdmin: m.isAdmin),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -327,6 +322,38 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
 }
 
 // ─── Shared widgets ───────────────────────────────────────────────────────────
+
+class _MemberAvatar extends ConsumerWidget {
+  final String userId;
+  final String name;
+  final bool isAdmin;
+  const _MemberAvatar({required this.userId, required this.name, required this.isAdmin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photoUrl = ref.watch(userProfileStreamProvider(userId)).valueOrNull?.profileImageUrl;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        width: 44, height: 44,
+        child: photoUrl != null && photoUrl.isNotEmpty
+            ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialsTile())
+            : _initialsTile(),
+      ),
+    );
+  }
+
+  Widget _initialsTile() {
+    final initials = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+    return Container(
+      color: isAdmin ? DT.primarySoft : DT.accentSoft,
+      child: Center(child: Text(
+        initials.isNotEmpty ? initials : '?',
+        style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: isAdmin ? DT.primary : DT.accentDeep),
+      )),
+    );
+  }
+}
 
 class _IconBtn extends StatelessWidget {
   final IconData icon;

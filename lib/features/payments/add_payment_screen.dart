@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/config/bank_brands.dart';
 import 'package:duitkita/models/payment_model.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/services/payment_service.dart';
@@ -453,43 +454,6 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     );
   }
 
-  // ── Bank theming ───────────────────────────────────────────────────────────
-
-  static final Map<String, _BankTheme> _bankThemes = {
-    'maybank': _BankTheme(
-      tile: const Color(0xFFFFC72C),
-      icon: const Color(0xFF003B6F),
-    ),
-    'cimb': _BankTheme(tile: const Color(0xFFEC1C24), icon: Colors.white),
-    'rhb': _BankTheme(tile: const Color(0xFF003DA5), icon: Colors.white),
-    'public bank': _BankTheme(
-      tile: const Color(0xFFE8E8E8),
-      icon: const Color(0xFF1A1A1A),
-    ),
-    'bank islam': _BankTheme(tile: const Color(0xFF00695C), icon: Colors.white),
-    'bank rakyat': _BankTheme(
-      tile: const Color(0xFF1B5E20),
-      icon: Colors.white,
-    ),
-    'hong leong': _BankTheme(tile: const Color(0xFF0D47A1), icon: Colors.white),
-    'ambank': _BankTheme(tile: const Color(0xFF1A237E), icon: Colors.white),
-    'bsn': _BankTheme(tile: const Color(0xFFE65100), icon: Colors.white),
-    'affin': _BankTheme(tile: const Color(0xFF880E4F), icon: Colors.white),
-  };
-  static final _defaultBank = _BankTheme(
-    tile: const Color(0xFF37474F),
-    icon: Colors.white,
-  );
-
-  _BankTheme _bankTheme(String? name) {
-    if (name == null) return _defaultBank;
-    final lower = name.toLowerCase();
-    for (final e in _bankThemes.entries) {
-      if (lower.contains(e.key)) return e.value;
-    }
-    return _defaultBank;
-  }
-
   String _formatAcct(String raw) {
     final clean = raw.replaceAll(RegExp(r'[\s-]'), '');
     final buf = StringBuffer();
@@ -820,7 +784,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
   // ── Bank card ──────────────────────────────────────────────────────────────
 
   Widget _buildBankCard(dynamic group) {
-    final bt = _bankTheme(group.bankName as String?);
+    final bt = bankBrandFor(group.bankName as String?);
     final formatted = _formatAcct(group.accountNumber as String? ?? '');
     final holder = (group.accountHolderName as String?) ?? '';
 
@@ -2117,10 +2081,3 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
   }
 }
 
-// ── Bank theme data ────────────────────────────────────────────────────────────
-
-class _BankTheme {
-  final Color tile;
-  final Color icon;
-  const _BankTheme({required this.tile, required this.icon});
-}
