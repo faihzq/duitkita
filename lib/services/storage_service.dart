@@ -92,6 +92,43 @@ class StorageService {
     }
   }
 
+  // Upload group icon image and return download URL
+  Future<String> uploadGroupImage({
+    required String groupId,
+    required File file,
+  }) async {
+    try {
+      final fileSize = await file.length();
+      if (fileSize > maxFileSizeBytes) {
+        throw Exception('File too large. Maximum size is 10MB.');
+      }
+
+      final extension = file.path.split('.').last.toLowerCase();
+      if (!['jpg', 'jpeg', 'png'].contains(extension)) {
+        throw Exception('Invalid file type. Allowed: jpg, jpeg, png');
+      }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filename = 'icon_$timestamp.$extension';
+      final path = 'group_icons/$groupId/$filename';
+
+      final ref = _storage.ref().child(path);
+      final metadata = SettableMetadata(contentType: 'image/$extension');
+      final uploadTask = await ref.putFile(file, metadata);
+
+      return await uploadTask.ref.getDownloadURL();
+    } catch (e) {
+      throw Exception('Failed to upload group image: $e');
+    }
+  }
+
+  // Best-effort delete of a previously uploaded group icon. Safe to ignore errors.
+  Future<void> deleteGroupImage(String iconUrl) async {
+    try {
+      await _storage.refFromURL(iconUrl).delete();
+    } catch (_) {/* file may already be gone */}
+  }
+
   // Delete receipt from storage
   Future<void> deleteReceipt(String receiptUrl) async {
     try {

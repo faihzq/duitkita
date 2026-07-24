@@ -9,6 +9,12 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Design handoff reference snippets — paste-ready fragments, not app code.
+    # They intentionally don't compile on their own (bare methods, no imports).
+    - design_handoff_duitkita_redesign/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:duitkita/config/design_tokens.dart';
@@ -15,6 +16,7 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/expense_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/profile_service.dart';
+import 'package:duitkita/services/storage_service.dart';
 import 'package:duitkita/features/groups/manage_members_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/screens/pending_expenses_review_screen.dart';
@@ -82,6 +84,79 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     nameCtrl.dispose(); descCtrl.dispose(); amtCtrl.dispose(); balCtrl.dispose();
   }
 
+  // ─── Group icon ─────────────────────────────────────────────────────────────
+
+  Future<void> _pickGroupIcon(GroupModel group) async {
+    final action = await showModalBottomSheet<_IconResult>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _GroupIconSheet(
+        currentEmoji: group.iconEmoji ?? '🏠',
+        hasPhoto: group.iconUrl != null,
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    // Pick an emoji ---------------------------------------------------------
+    if (action.emoji != null) {
+      setState(() => _busy = true);
+      try {
+        final old = group.iconUrl;
+        await ref.read(groupServiceProvider).setGroupIcon(groupId: widget.groupId, emoji: action.emoji);
+        if (old != null) ref.read(storageServiceProvider).deleteGroupImage(old);
+        if (mounted) _snack('Group icon updated');
+      } catch (e) {
+        if (mounted) _snack('Error: $e');
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+
+    // Remove the photo / reset to default ----------------------------------
+    if (action.remove) {
+      setState(() => _busy = true);
+      try {
+        final old = group.iconUrl;
+        await ref.read(groupServiceProvider).setGroupIcon(groupId: widget.groupId, emoji: '🏠');
+        if (old != null) ref.read(storageServiceProvider).deleteGroupImage(old);
+        if (mounted) _snack('Photo removed');
+      } catch (e) {
+        if (mounted) _snack('Error: $e');
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+
+    // Upload a photo --------------------------------------------------------
+    if (action.pickPhoto) {
+      try {
+        final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 85,
+        );
+        if (picked == null || !mounted) return;
+        setState(() => _busy = true);
+        final old = group.iconUrl;
+        final url = await ref.read(storageServiceProvider).uploadGroupImage(
+          groupId: widget.groupId,
+          file: File(picked.path),
+        );
+        await ref.read(groupServiceProvider).setGroupIcon(groupId: widget.groupId, iconUrl: url);
+        if (old != null) ref.read(storageServiceProvider).deleteGroupImage(old);
+        if (mounted) _snack('Group photo updated');
+      } catch (e) {
+        if (mounted) _snack('Error: $e');
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+  }
+
   // ─── Reminder day ───────────────────────────────────────────────────────────
 
   Future<void> _setReminderDay(GroupModel group) async {
@@ -102,6 +177,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
             const SizedBox(height: 20),
             GridView.builder(
               shrinkWrap: true,
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1),
               itemCount: 28,
@@ -193,6 +269,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               const SizedBox(height: 10),
               GridView.builder(
                 shrinkWrap: true,
+                padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2.4),
                 itemCount: banks.length,
@@ -588,10 +665,12 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                       _IdentityCard(
                         name: group.name,
                         description: group.description,
-                        emoji: '🏠',
+                        emoji: group.iconEmoji ?? '🏠',
+                        iconUrl: group.iconUrl,
                         colorSoft: DT.catGroupsSoft,
                         editable: isAdmin,
-                        onTapEdit: () => _editGroup(group),
+                        onTapIcon: () => _pickGroupIcon(group),
+                        onTapName: () => _editGroup(group),
                       ),
 
                       // ── Contribution ───────────────────────
@@ -997,17 +1076,21 @@ class _IdentityCard extends StatelessWidget {
   final String name;
   final String description;
   final String emoji;
+  final String? iconUrl;
   final Color colorSoft;
   final bool editable;
-  final VoidCallback onTapEdit;
+  final VoidCallback onTapIcon;
+  final VoidCallback onTapName;
 
   const _IdentityCard({
     required this.name,
     required this.description,
     required this.emoji,
+    required this.iconUrl,
     required this.colorSoft,
     required this.editable,
-    required this.onTapEdit,
+    required this.onTapIcon,
+    required this.onTapName,
   });
 
   @override
@@ -1020,12 +1103,16 @@ class _IdentityCard extends StatelessWidget {
     ),
     child: Column(children: [
       GestureDetector(
-        onTap: editable ? onTapEdit : null,
+        onTap: editable ? onTapIcon : null,
         child: Stack(clipBehavior: Clip.none, children: [
           Container(
             width: 86, height: 86,
             decoration: BoxDecoration(color: colorSoft, borderRadius: BorderRadius.circular(26)),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 46))),
+            clipBehavior: Clip.antiAlias,
+            child: (iconUrl != null && iconUrl!.isNotEmpty)
+                ? Image.network(iconUrl!, width: 86, height: 86, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Center(child: Text(emoji, style: const TextStyle(fontSize: 46))))
+                : Center(child: Text(emoji, style: const TextStyle(fontSize: 46))),
           ),
           if (editable)
             Positioned(
@@ -1033,14 +1120,17 @@ class _IdentityCard extends StatelessWidget {
               child: Container(
                 width: 30, height: 30,
                 decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(10), border: Border.all(color: DT.surface, width: 3)),
-                child: const Icon(Icons.edit_outlined, size: 13, color: Colors.white),
+                child: Icon(iconUrl != null ? Icons.photo_camera_outlined : Icons.edit_outlined, size: 13, color: Colors.white),
               ),
             ),
         ]),
       ),
       const SizedBox(height: 14),
-      Text(name, textAlign: TextAlign.center,
-        style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4)),
+      GestureDetector(
+        onTap: editable ? onTapName : null,
+        child: Text(name, textAlign: TextAlign.center,
+          style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4)),
+      ),
       if (description.isNotEmpty) ...[
         const SizedBox(height: 4),
         Text(description, textAlign: TextAlign.center,
@@ -1261,6 +1351,101 @@ class _DialogField extends StatelessWidget {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
     ),
+  );
+}
+
+// ─── Group icon picker ────────────────────────────────────────────────────────
+
+// Result object the icon sheet pops with.
+class _IconResult {
+  final String? emoji;
+  final bool pickPhoto;
+  final bool remove;
+  const _IconResult({this.emoji, this.pickPhoto = false, this.remove = false});
+}
+
+const _kGroupEmojis = [
+  '🏠', '👨‍👩‍👧‍👦', '💰', '🎓', '🕌', '✈️', '🚗', '🏥',
+  '🎁', '🍽️', '⚽', '🏢', '🌴', '🐱', '🎉', '📚',
+];
+
+class _GroupIconSheet extends StatelessWidget {
+  final String currentEmoji;
+  final bool hasPhoto;
+  const _GroupIconSheet({required this.currentEmoji, required this.hasPhoto});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: const BoxDecoration(color: DT.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.viewInsetsOf(context).bottom + 20),
+    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: DT.borderStrong, borderRadius: BorderRadius.circular(2)))),
+      const SizedBox(height: 16),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Group icon', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text)),
+          const SizedBox(height: 2),
+          Text('Pick an emoji or upload a photo', style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary)),
+        ]),
+      ),
+      const SizedBox(height: 16),
+
+      // Upload / change photo
+      GestureDetector(
+        onTap: () => Navigator.pop(context, const _IconResult(pickPhoto: true)),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(14), border: Border.all(color: DT.border)),
+          child: Row(children: [
+            Container(width: 44, height: 44, decoration: BoxDecoration(color: DT.primarySoft, borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.photo_camera_outlined, size: 20, color: DT.primary)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(hasPhoto ? 'Change photo' : 'Upload a photo', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
+              Text('Square images look best', style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary)),
+            ])),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: DT.textTertiary),
+          ]),
+        ),
+      ),
+      if (hasPhoto)
+        GestureDetector(
+          onTap: () => Navigator.pop(context, const _IconResult(remove: true)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 10, 4, 2),
+            child: Text('Remove photo', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.danger)),
+          ),
+        ),
+
+      const SizedBox(height: 16),
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text('EMOJI', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.textTertiary, letterSpacing: 0.5)),
+      ),
+      GridView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1),
+        itemCount: _kGroupEmojis.length,
+        itemBuilder: (_, i) {
+          final e = _kGroupEmojis[i];
+          final active = !hasPhoto && e == currentEmoji;
+          return GestureDetector(
+            onTap: () => Navigator.pop(context, _IconResult(emoji: e)),
+            child: Container(
+              decoration: BoxDecoration(
+                color: active ? DT.catGroupsSoft : DT.surfaceAlt,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: active ? DT.accent : Colors.transparent, width: 2),
+              ),
+              child: Center(child: Text(e, style: const TextStyle(fontSize: 24))),
+            ),
+          );
+        },
+      ),
+    ]),
   );
 }
 

@@ -341,6 +341,7 @@ class _Step1 extends StatelessWidget {
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
@@ -821,6 +822,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
           GridView.count(
             crossAxisCount: 4,
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             childAspectRatio: 1.5,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,

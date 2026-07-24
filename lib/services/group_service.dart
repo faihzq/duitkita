@@ -204,6 +204,24 @@ class GroupService {
     }
   }
 
+  // Set the group icon. Pass emoji OR iconUrl (not both). Passing neither
+  // clears both (reset to default).
+  Future<void> setGroupIcon({
+    required String groupId,
+    String? emoji,
+    String? iconUrl,
+  }) async {
+    try {
+      await _groups.doc(groupId).update({
+        'updatedAt': DateTime.now(),
+        'iconEmoji': emoji ?? FieldValue.delete(),
+        'iconUrl': iconUrl ?? FieldValue.delete(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update group icon: $e');
+    }
+  }
+
   // Delete group
   Future<void> deleteGroup(String groupId) async {
     try {

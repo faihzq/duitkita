@@ -17,6 +17,8 @@ class GroupModel {
   final String? accountHolderName; // Name on the bank account
   final bool autoApprovePayments; // Auto-approve payments without admin review
   final bool autoApproveExpenses; // Auto-approve expenses without admin review
+  final String? iconEmoji; // chosen emoji, e.g. '🏠'
+  final String? iconUrl; // uploaded photo (Storage URL)
 
   GroupModel({
     required this.id,
@@ -35,6 +37,8 @@ class GroupModel {
     this.accountHolderName,
     this.autoApprovePayments = false,
     this.autoApproveExpenses = false,
+    this.iconEmoji,
+    this.iconUrl,
   });
 
   factory GroupModel.fromMap(Map<String, dynamic> data, String id) {
@@ -61,6 +65,8 @@ class GroupModel {
       accountHolderName: data['accountHolderName'],
       autoApprovePayments: data['autoApprovePayments'] ?? false,
       autoApproveExpenses: data['autoApproveExpenses'] ?? false,
+      iconEmoji: data['iconEmoji'],
+      iconUrl: data['iconUrl'],
     );
   }
 
@@ -81,6 +87,8 @@ class GroupModel {
       'accountHolderName': accountHolderName,
       'autoApprovePayments': autoApprovePayments,
       'autoApproveExpenses': autoApproveExpenses,
+      'iconEmoji': iconEmoji,
+      'iconUrl': iconUrl,
     };
   }
 
@@ -97,6 +105,8 @@ class GroupModel {
     String? accountHolderName,
     bool? autoApprovePayments,
     bool? autoApproveExpenses,
+    String? iconEmoji,
+    String? iconUrl,
   }) {
     return GroupModel(
       id: id,
@@ -115,6 +125,8 @@ class GroupModel {
       accountHolderName: accountHolderName ?? this.accountHolderName,
       autoApprovePayments: autoApprovePayments ?? this.autoApprovePayments,
       autoApproveExpenses: autoApproveExpenses ?? this.autoApproveExpenses,
+      iconEmoji: iconEmoji ?? this.iconEmoji,
+      iconUrl: iconUrl ?? this.iconUrl,
     );
   }
 }

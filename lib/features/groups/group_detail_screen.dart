@@ -1183,6 +1183,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
         const SizedBox(height: 16),
         GridView.builder(
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 2),
           itemCount: 12,

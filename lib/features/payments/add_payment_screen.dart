@@ -471,7 +471,9 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     final result = <(int, int)>{};
     for (final p in payments) {
       if (p.paymentStatus == 'confirmed' || p.paymentStatus == 'pending') {
-        result.add((p.paymentDate.year, p.paymentDate.month));
+        // Use the canonical month/year fields (the month the payment covers),
+        // not paymentDate — that's what every payment query keys off.
+        result.add((p.year, p.month));
       }
     }
     return result;
@@ -1019,9 +1021,11 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
               ),
             ],
           ),
+          const SizedBox(height: DS.md),
           // Month grid
           GridView.builder(
             shrinkWrap: true,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
