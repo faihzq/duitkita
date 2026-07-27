@@ -75,7 +75,6 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
 
     final groupAsync = ref.watch(groupStreamProvider(widget.groupId));
     final groupName = groupAsync.valueOrNull?.name ?? '';
-    final membersCount = membersAsync.valueOrNull?.length ?? 1;
 
     final isAdmin = membersAsync.valueOrNull?.any((m) => m.userId == userId && m.isAdmin) ?? false;
     final isPending = expense.status == ExpenseStatus.pending;
@@ -86,7 +85,6 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
         expense: expense,
         isApprove: true,
         groupName: groupName,
-        membersCount: membersCount,
         rejectNoteCtrl: _rejectNoteCtrl,
         isLoading: _isLoading,
         onBack: () => setState(() => _mode = _ReviewMode.none),
@@ -98,7 +96,6 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
         expense: expense,
         isApprove: false,
         groupName: groupName,
-        membersCount: membersCount,
         rejectNoteCtrl: _rejectNoteCtrl,
         isLoading: _isLoading,
         onBack: () => setState(() => _mode = _ReviewMode.none),
@@ -295,7 +292,6 @@ class _ConfirmScreen extends StatefulWidget {
   final ExpenseModel expense;
   final bool isApprove;
   final String groupName;
-  final int membersCount;
   final TextEditingController rejectNoteCtrl;
   final bool isLoading;
   final VoidCallback onBack;
@@ -305,7 +301,6 @@ class _ConfirmScreen extends StatefulWidget {
     required this.expense,
     required this.isApprove,
     required this.groupName,
-    required this.membersCount,
     required this.rejectNoteCtrl,
     required this.isLoading,
     required this.onBack,
@@ -439,12 +434,7 @@ class _ConfirmScreenState extends State<_ConfirmScreen> {
                     _ReviewRow(label: 'Expense', value: expense.title),
                     _ReviewRow(label: 'Amount', value: 'RM ${expense.amount.toStringAsFixed(2)}', emphasize: true),
                     _ReviewRow(label: 'Requester', value: expense.requestedByName),
-                    _ReviewRow(label: 'Group', value: widget.groupName),
-                    _ReviewRow(
-                      label: 'Per member',
-                      value: 'RM ${(expense.amount / (widget.membersCount > 0 ? widget.membersCount : 1)).toStringAsFixed(2)}',
-                      last: true,
-                    ),
+                    _ReviewRow(label: 'Group', value: widget.groupName, last: true),
                   ]),
                 ),
 
@@ -726,13 +716,13 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
-class _RequesterCard extends StatelessWidget {
+class _RequesterCard extends ConsumerWidget {
   final ExpenseModel expense;
   final bool requesterIsAdmin;
   const _RequesterCard({required this.expense, required this.requesterIsAdmin});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final initials = expense.requestedByName
         .split(' ')
         .where((s) => s.isNotEmpty)
@@ -740,6 +730,15 @@ class _RequesterCard extends StatelessWidget {
         .take(2)
         .join()
         .toUpperCase();
+
+    final photoUrl = ref.watch(userProfileStreamProvider(expense.requestedBy)).valueOrNull?.profileImageUrl;
+
+    // Requester's track record across the group's other expenses (this one
+    // excluded), so 'Approved'/'Past rejections' reflect real history.
+    final allExpenses = ref.watch(groupExpensesStreamProvider(expense.groupId)).valueOrNull ?? [];
+    final theirs = allExpenses.where((e) => e.requestedBy == expense.requestedBy && e.id != expense.id);
+    final approvedCount = theirs.where((e) => e.status == ExpenseStatus.approved).length;
+    final rejectedCount = theirs.where((e) => e.status == ExpenseStatus.rejected).length;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -750,12 +749,14 @@ class _RequesterCard extends StatelessWidget {
       ),
       child: Column(children: [
         Row(children: [
-          Container(
-            width: 44, height: 44,
-            decoration: BoxDecoration(color: DT.primarySoft, borderRadius: BorderRadius.circular(13)),
-            child: Center(child: Text(initials, style: GoogleFonts.manrope(
-              fontSize: 16, fontWeight: FontWeight.w800, color: DT.text,
-            ))),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: SizedBox(
+              width: 44, height: 44,
+              child: photoUrl != null && photoUrl.isNotEmpty
+                  ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialsTile(initials))
+                  : _initialsTile(initials),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -773,19 +774,27 @@ class _RequesterCard extends StatelessWidget {
             icon: Icons.check_circle_outline_rounded,
             iconColor: DT.success,
             label: 'Approved',
-            value: expense.approvedByName != null ? '✓' : '—',
+            value: '$approvedCount',
           )),
           const SizedBox(width: 8),
           Expanded(child: _TrustStat(
             icon: Icons.cancel_outlined,
             iconColor: DT.danger,
             label: 'Past rejections',
-            value: expense.rejectedByName != null ? '1' : '0',
+            value: '$rejectedCount',
           )),
         ]),
       ]),
     );
   }
+
+  Widget _initialsTile(String initials) => Container(
+    color: DT.primarySoft,
+    alignment: Alignment.center,
+    child: Text(initials.isNotEmpty ? initials : '?', style: GoogleFonts.manrope(
+      fontSize: 16, fontWeight: FontWeight.w800, color: DT.text,
+    )),
+  );
 }
 
 class _TrustStat extends StatelessWidget {

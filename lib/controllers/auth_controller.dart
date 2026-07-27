@@ -67,6 +67,22 @@ class AuthController extends StateNotifier<AuthState> {
     return response;
   }
 
+  // Sign in with Google
+  Future<AuthResponse> signInWithGoogle() async {
+    state = AuthState.loading;
+
+    final response = await _authService.signInWithGoogle();
+
+    // A cancelled picker leaves the user exactly where they were.
+    state = response.isSuccess
+        ? AuthState.authenticated
+        : response.cancelled
+            ? AuthState.unauthenticated
+            : AuthState.error;
+
+    return response;
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _authService.signOut();

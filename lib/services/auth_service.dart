@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:duitkita/models/user_profile.dart';
 import 'package:duitkita/services/profile_service.dart';
 
@@ -22,7 +23,16 @@ class AuthResponse {
   final AuthError? error;
   final String? errorMessage;
 
-  AuthResponse({this.user, this.error, this.errorMessage});
+  /// True when the user backed out of a provider flow (e.g. dismissed the
+  /// Google account picker). Not a failure — callers should stay silent.
+  final bool cancelled;
+
+  AuthResponse({
+    this.user,
+    this.error,
+    this.errorMessage,
+    this.cancelled = false,
+  });
 
   bool get isSuccess => user != null && error == null;
 }
@@ -119,8 +129,99 @@ class AuthService {
     }
   }
 
+  // ─── Google sign-in ─────────────────────────────────────────────────────────
+
+  /// Web OAuth client ID. Android needs this to return an ID token in some
+  /// project configurations; when null the plugin falls back to the value in
+  /// google-services.json / GoogleService-Info.plist. If sign-in succeeds but
+  /// [GoogleSignInAuthentication.idToken] comes back null, set this to the
+  /// "Web client" ID from Firebase Console → Project settings → Your apps.
+  static const String? _googleServerClientId = null;
+
+  bool _googleInitialized = false;
+
+  Future<void> _ensureGoogleInitialized() async {
+    if (_googleInitialized) return;
+    await GoogleSignIn.instance.initialize(
+      serverClientId: _googleServerClientId,
+    );
+    _googleInitialized = true;
+  }
+
+  /// Signs in with Google and exchanges the ID token for a Firebase session.
+  /// On first sign-in a user profile document is created from the Google
+  /// account; existing profiles are left untouched so local edits survive.
+  Future<AuthResponse> signInWithGoogle() async {
+    try {
+      await _ensureGoogleInitialized();
+
+      if (!GoogleSignIn.instance.supportsAuthenticate()) {
+        return AuthResponse(
+          error: AuthError.operationNotAllowed,
+          errorMessage: 'Google sign-in is not supported on this platform.',
+        );
+      }
+
+      final GoogleSignInAccount account =
+          await GoogleSignIn.instance.authenticate();
+      final String? idToken = account.authentication.idToken;
+
+      if (idToken == null) {
+        return AuthResponse(
+          error: AuthError.invalidCredential,
+          errorMessage:
+              'Google did not return an ID token. Check that the OAuth web '
+              'client ID is configured for this project.',
+        );
+      }
+
+      final credential = GoogleAuthProvider.credential(idToken: idToken);
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        final profileService = ProfileService();
+        final existing = await profileService.getUserProfile(user.uid);
+        if (existing == null) {
+          await profileService.createUserProfile(UserProfile(
+            uid: user.uid,
+            name: user.displayName ?? account.displayName,
+            email: user.email ?? account.email,
+            profileImageUrl: user.photoURL,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ));
+        }
+      }
+
+      return AuthResponse(user: user);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        return AuthResponse(cancelled: true);
+      }
+      return AuthResponse(
+        error: AuthError.undefined,
+        errorMessage: e.description ?? 'Google sign-in failed (${e.code.name}).',
+      );
+    } on FirebaseAuthException catch (e) {
+      return AuthResponse(error: _getAuthError(e), errorMessage: e.message);
+    } catch (e) {
+      return AuthResponse(
+        error: AuthError.undefined,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
+    // Also clear the Google session so the account picker reappears next time.
+    // Best-effort: fails harmlessly if Google sign-in was never initialized.
+    try {
+      await _ensureGoogleInitialized();
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {/* not signed in with Google, or plugin unavailable */}
     await _firebaseAuth.signOut();
   }
 

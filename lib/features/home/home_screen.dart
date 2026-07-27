@@ -15,6 +15,7 @@ import 'package:duitkita/features/expenses/expense_list_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/onboarding/onboarding_screen.dart';
+import 'package:duitkita/widgets/group_icon_avatar.dart';
 
 class HomeScreen extends ConsumerWidget {
   final void Function(int)? onTabChange;
@@ -854,6 +855,8 @@ class _UpNextSection extends ConsumerWidget {
           icon: Icons.group_outlined,
           iconBg: DT.catGroupsSoft,
           iconColor: DT.catGroups,
+          iconEmoji: g.iconEmoji,
+          iconUrl: g.iconUrl,
           title: g.name,
           subtitle: 'Group · monthly contribution',
           amount: g.monthlyAmount,
@@ -939,6 +942,10 @@ class _UpNextItemData {
   final bool muted;
   final VoidCallback onTap;
 
+  /// Group icon, when this row is a group. Falls back to [icon] otherwise.
+  final String? iconEmoji;
+  final String? iconUrl;
+
   const _UpNextItemData({
     required this.icon,
     required this.iconBg,
@@ -949,6 +956,8 @@ class _UpNextItemData {
     required this.ctaLabel,
     required this.muted,
     required this.onTap,
+    this.iconEmoji,
+    this.iconUrl,
   });
 }
 
@@ -967,11 +976,13 @@ class _UpNextCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: item.iconBg, borderRadius: BorderRadius.circular(12)),
-            child: Icon(item.icon, size: 20, color: item.iconColor),
+          GroupIconAvatar(
+            iconEmoji: item.iconEmoji,
+            iconUrl: item.iconUrl,
+            size: 40,
+            radius: 12,
+            background: item.iconBg,
+            fallback: Icon(item.icon, size: 20, color: item.iconColor),
           ),
           const SizedBox(width: 12),
           Expanded(

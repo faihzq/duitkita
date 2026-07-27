@@ -12,7 +12,28 @@
           "package_name": "com.example.duitkita"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "375006835997-15q76l3dekn9ltputa2pk2lcj17ej681.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.duitkita",
+            "certificate_hash": "179eb7edbe0abb2b8d28ca65fb33b479c48bee02"
+          }
+        },
+        {
+          "client_id": "375006835997-j5qbmkko09cpeqob6cttuqichvoul4jb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.duitkita",
+            "certificate_hash": "2b7428af2831cb8e25795065ed241862a4f630d1"
+          }
+        },
+        {
+          "client_id": "375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCuYIG_mehkLuSgB94t3tTAfkYCF8BVuKI"
@@ -20,7 +41,71 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "375006835997-50chaqifumjpq1sqpk2ss8vi081hkage.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.duitkita"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:375006835997:android:7ca069a057fa50d2bcddf4",
+        "android_client_info": {
+          "package_name": "my.duitkita.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "375006835997-a7l0cvbrucvh0rh083mgqi4k294bcubu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "my.duitkita.app",
+            "certificate_hash": "179eb7edbe0abb2b8d28ca65fb33b479c48bee02"
+          }
+        },
+        {
+          "client_id": "375006835997-mm7bvlqjvn72psk2qtbhf0t6o9k2cn7v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "my.duitkita.app",
+            "certificate_hash": "2b7428af2831cb8e25795065ed241862a4f630d1"
+          }
+        },
+        {
+          "client_id": "375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuYIG_mehkLuSgB94t3tTAfkYCF8BVuKI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "375006835997-50chaqifumjpq1sqpk2ss8vi081hkage.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.duitkita"
+              }
+            }
+          ]
         }
       }
     }

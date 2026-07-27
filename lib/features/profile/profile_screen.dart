@@ -139,7 +139,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Expanded(child: _OutlineBtn(label: 'Cancel', onTap: () => Navigator.pop(ctx))),
                 const SizedBox(width: 12),
                 Expanded(child: _FilledBtn(label: 'Sign out', color: DT.danger, onTap: () {
-                  Navigator.pop(ctx);
+                  Navigator.pop(ctx); // close the confirm dialog
+                  // Drop every pushed route first. ProfileScreen sits on top of
+                  // AuthWrapper's home route, so swapping home -> LoginScreen
+                  // would otherwise leave this screen covering it, rendering
+                  // the "Not logged in" placeholder instead of the login form.
+                  Navigator.of(context).popUntil((r) => r.isFirst);
                   ref.read(authControllerProvider.notifier).signOut();
                 })),
               ]),
@@ -253,7 +258,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: SafeArea(
         child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2)),
-          error: (e, _) => Center(child: Text('Error: $e')),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: const BoxDecoration(color: DT.dangerSoft, shape: BoxShape.circle),
+                    child: const Icon(Icons.cloud_off_rounded, color: DT.danger, size: 26),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Couldn\'t load your profile',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: DT.text)),
+                  const SizedBox(height: 6),
+                  Text('Check your connection and try again.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary, height: 1.4)),
+                  const SizedBox(height: 18),
+                  GestureDetector(
+                    onTap: () => ref.invalidate(userProfileStreamProvider(userId)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                      decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
+                      child: Text('Retry',
+                          style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           data: (profile) => SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
             child: Column(

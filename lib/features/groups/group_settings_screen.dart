@@ -917,7 +917,7 @@ class _ManageAdminsSheetState extends ConsumerState<_ManageAdminsSheet> {
   }
 }
 
-class _MemberTile extends StatelessWidget {
+class _MemberTile extends ConsumerWidget {
   final GroupMember member;
   final bool isAdmin;
   final bool isCurrentUser;
@@ -927,9 +927,18 @@ class _MemberTile extends StatelessWidget {
   final VoidCallback onDemote;
   const _MemberTile({required this.member, required this.isAdmin, required this.isCurrentUser, required this.adminCount, required this.processing, required this.onPromote, required this.onDemote});
 
+  Widget _initialsTile() {
+    final initials = member.userName.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+    return Container(
+      color: isAdmin ? DT.primarySoft : DT.surfaceAlt,
+      alignment: Alignment.center,
+      child: Text(initials.isNotEmpty ? initials : '?', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: isAdmin ? DT.primary : DT.textSecondary)),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final initials = member.userName.trim().split(RegExp(r'\s+')).take(2).map((w) => w[0].toUpperCase()).join();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photoUrl = ref.watch(userProfileStreamProvider(member.userId)).valueOrNull?.profileImageUrl;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -939,10 +948,13 @@ class _MemberTile extends StatelessWidget {
         border: Border.all(color: isAdmin ? DT.primary.withValues(alpha: 0.2) : DT.border),
       ),
       child: Row(children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(color: isAdmin ? DT.primarySoft : DT.surfaceAlt, shape: BoxShape.circle),
-          child: Center(child: Text(initials, style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w800, color: isAdmin ? DT.primary : DT.textSecondary))),
+        ClipOval(
+          child: SizedBox(
+            width: 40, height: 40,
+            child: photoUrl != null && photoUrl.isNotEmpty
+                ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initialsTile())
+                : _initialsTile(),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

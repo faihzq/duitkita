@@ -1,4 +1,4 @@
-package com.example.duitkita
+package my.duitkita.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -8,8 +8,12 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/screens/create_group_screen.dart';
 import 'package:duitkita/features/groups/group_detail_screen.dart';
+import 'package:duitkita/widgets/group_icon_avatar.dart';
 
-enum _Filter { all, active, pending, settled }
+/// All four chips filter the same axis: *your* payment status for the current
+/// month, as reported by [groupMonthPaymentStatusProvider]. They are mutually
+/// exclusive, and every group is reachable by exactly one of them.
+enum _Filter { all, unpaid, pending, settled }
 
 class GroupsListScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -53,8 +57,11 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
       switch (_filter) {
         case _Filter.all:
           return true;
-        case _Filter.active:
-          return g.monthlyAmount > 0;
+        case _Filter.unpaid:
+          // 'rejected' belongs here too — a rejected payment still needs
+          // paying, and no other chip would surface it.
+          final s = statusMap[g.id];
+          return s == 'unpaid' || s == 'rejected';
         case _Filter.pending:
           return statusMap[g.id] == 'pending';
         case _Filter.settled:
@@ -103,7 +110,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                           if (allGroups.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
-                              '${allGroups.length} active · RM${totalMonthly.toStringAsFixed(0)}/mo',
+                              '${allGroups.length} group${allGroups.length == 1 ? '' : 's'} · RM${totalMonthly.toStringAsFixed(0)}/mo',
                               style: GoogleFonts.manrope(
                                 fontSize: 13,
                                 color: DT.textSecondary,
@@ -144,9 +151,9 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                     final active = f == _filter;
                     final label = switch (f) {
                       _Filter.all => 'All',
-                      _Filter.active => 'Active',
+                      _Filter.unpaid => 'Not paid',
                       _Filter.pending => 'Pending',
-                      _Filter.settled => 'Settled',
+                      _Filter.settled => 'Paid',
                     };
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -282,22 +289,19 @@ class _GroupCard extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Tile with initials
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: tileSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  _initials(group.name as String),
-                  style: GoogleFonts.manrope(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: tileColor,
-                  ),
+            // Group icon (photo / emoji), falling back to initials
+            GroupIconAvatar(
+              iconEmoji: group.iconEmoji as String?,
+              iconUrl: group.iconUrl as String?,
+              size: 44,
+              radius: 12,
+              background: tileSoft,
+              fallback: Text(
+                _initials(group.name as String),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: tileColor,
                 ),
               ),
             ),

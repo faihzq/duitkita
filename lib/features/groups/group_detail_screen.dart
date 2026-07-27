@@ -20,6 +20,7 @@ import 'package:duitkita/features/groups/group_settings_screen.dart';
 import 'package:duitkita/features/groups/group_analytics_screen.dart';
 import 'package:duitkita/features/expenses/expense_list_screen.dart';
 import 'package:duitkita/features/groups/bulk_import_screen.dart';
+import 'package:duitkita/widgets/group_icon_avatar.dart';
 import 'package:duitkita/features/groups/fund_loans_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 
@@ -197,7 +198,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                           child: Row(
                             children: [
-                              _GroupAvatar(name: group.name, size: 52),
+                              _GroupAvatar(iconEmoji: group.iconEmoji, iconUrl: group.iconUrl, size: 52),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -1225,16 +1226,19 @@ class _IconBtn extends StatelessWidget {
 }
 
 class _GroupAvatar extends StatelessWidget {
-  final String name;
+  final String? iconEmoji;
+  final String? iconUrl;
   final double size;
-  const _GroupAvatar({required this.name, required this.size});
+  const _GroupAvatar({required this.iconEmoji, required this.iconUrl, required this.size});
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: size, height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: DT.catGroupsSoft, borderRadius: BorderRadius.circular(16)),
-    child: Icon(Icons.home_rounded, size: size * 0.5, color: DT.catGroups),
+  Widget build(BuildContext context) => GroupIconAvatar(
+    iconEmoji: iconEmoji,
+    iconUrl: iconUrl,
+    size: size,
+    radius: 16,
+    background: DT.catGroupsSoft,
+    fallback: Icon(Icons.home_rounded, size: size * 0.5, color: DT.catGroups),
   );
 }
 

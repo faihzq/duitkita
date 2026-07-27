@@ -223,13 +223,20 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
               : _notesController.text.trim();
       final date = _effectiveDate;
 
+      // Use the amount the user actually entered (Full / Half / Custom), not the
+      // group's full monthly figure. For multi-month it's the total, split
+      // evenly across the selected months.
+      final totalAmount =
+          double.tryParse(_amountController.text) ?? widget.monthlyAmount;
+      final perMonthAmount = totalAmount / _selectedMonths.length;
+
       for (final (year, month) in _sortedMonths) {
         final paymentDate = DateTime(year, month, date.day.clamp(1, 28));
         await paymentService.addPayment(
           groupId: widget.groupId,
           userId: userId,
           userName: profile?.name ?? 'Unknown',
-          amount: widget.monthlyAmount,
+          amount: perMonthAmount,
           paymentDate: paymentDate,
           notes:
               _selectedMonths.length > 1
@@ -245,7 +252,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
           .updateMemberStats(
             groupId: widget.groupId,
             userId: userId,
-            amount: widget.monthlyAmount * _selectedMonths.length,
+            amount: totalAmount,
             count: _selectedMonths.length,
           );
 
