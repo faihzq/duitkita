@@ -16,6 +16,7 @@ import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/onboarding/onboarding_screen.dart';
 import 'package:duitkita/widgets/group_icon_avatar.dart';
+import 'package:duitkita/widgets/help_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   final void Function(int)? onTabChange;
@@ -171,12 +172,15 @@ class HomeScreen extends ConsumerWidget {
   }
 
   static void _showHelp(BuildContext context, WidgetRef ref, String userId) {
-    Navigator.of(context).push(MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => OnboardingScreen(
-        onDone: () => Navigator.of(context).pop(),
-      ),
-    ));
+    showHelpSheet(
+      context,
+      onShowIntro: () => Navigator.of(context).push(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => OnboardingScreen(
+          onDone: () => Navigator.of(context).pop(),
+        ),
+      )),
+    );
   }
 }
 

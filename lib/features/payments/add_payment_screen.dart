@@ -2062,7 +2062,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                                 size: 18,
                                 color:
                                     _amountValid
-                                        ? const Color(0xFF003830)
+                                        ? DT.text
                                         : DT.textTertiary,
                               ),
                               const SizedBox(width: 8),
@@ -2076,7 +2076,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                                   letterSpacing: -0.2,
                                   color:
                                       _amountValid
-                                          ? const Color(0xFF003830)
+                                          ? DT.text
                                           : DT.textTertiary,
                                 ),
                               ),

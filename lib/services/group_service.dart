@@ -17,6 +17,8 @@ class GroupService {
     required String? creatorEmail,
     double monthlyAmount = 30.0,
     double initialBalance = 0.0,
+    int reminderDay = 28,
+    String? iconEmoji,
   }) async {
     // Input validation
     if (name.trim().isEmpty) {
@@ -34,6 +36,8 @@ class GroupService {
         'createdBy': createdBy,
         'monthlyAmount': monthlyAmount,
         'initialBalance': initialBalance,
+        'reminderDay': reminderDay,
+        if (iconEmoji != null) 'iconEmoji': iconEmoji,
         'createdAt': now,
         'updatedAt': now,
         'memberIds': [createdBy],
