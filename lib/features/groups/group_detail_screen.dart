@@ -19,6 +19,7 @@ import 'package:duitkita/features/groups/manage_members_screen.dart';
 import 'package:duitkita/features/groups/group_settings_screen.dart';
 import 'package:duitkita/features/groups/group_analytics_screen.dart';
 import 'package:duitkita/features/expenses/expense_list_screen.dart';
+import 'package:duitkita/screens/add_expense_screen.dart';
 import 'package:duitkita/features/groups/bulk_import_screen.dart';
 import 'package:duitkita/widgets/group_icon_avatar.dart';
 import 'package:duitkita/features/groups/fund_loans_screen.dart';
@@ -262,11 +263,26 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: _ActionBtn(
+                                    label: 'Add loan',
+                                    icon: Icons.savings_outlined,
+                                    primary: false,
+                                    onTap: () => Navigator.of(context).push(
+                                      AppTheme.slideRoute(FundLoansScreen(
+                                        groupId: widget.groupId,
+                                        groupName: group.name,
+                                        isAdmin: isAdmin,
+                                      )),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _ActionBtn(
                                     label: 'Add expense',
                                     icon: Icons.add_rounded,
                                     primary: false,
                                     onTap: () => Navigator.of(context).push(
-                                      AppTheme.slideRoute(ExpenseListScreen(groupId: widget.groupId, groupName: group.name)),
+                                      AppTheme.slideRoute(AddExpenseScreen(groupId: widget.groupId)),
                                     ),
                                   ),
                                 ),
@@ -823,30 +839,6 @@ class _ExpensesTab extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: _ExpenseCard(expense: e),
             )),
-
-            const SizedBox(height: 4),
-            // View all / add
-            GestureDetector(
-              onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.receipt_long_outlined, size: 16, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(
-                      expenses.length > _previewLimit
-                          ? 'View all ${expenses.length} expenses'
-                          : 'Manage expenses',
-                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         );
       },
@@ -885,7 +877,7 @@ class _ExpensesTab extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
         GestureDetector(
-          onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
+          onTap: () => onNavigate(AddExpenseScreen(groupId: groupId)),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
@@ -1264,7 +1256,7 @@ class _ActionBtn extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: primary ? Colors.white : DT.text),
           const SizedBox(width: 6),
-          Text(label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: primary ? Colors.white : DT.text)),
+          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: primary ? Colors.white : DT.text))),
         ],
       ),
     ),

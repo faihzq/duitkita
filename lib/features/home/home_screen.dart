@@ -913,19 +913,7 @@ class _UpNextSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(
-          title: 'Up next',
-          action: TextButton(
-            onPressed: () {},
-            style: TextButton.styleFrom(
-              foregroundColor: DT.textSecondary,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text('View all', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600)),
-          ),
-        ),
+        const _SectionHeader(title: 'Up next'),
         ...items.map((item) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: _UpNextCard(item: item),
