@@ -475,3 +475,147 @@ exports.dailyPaymentReminder = onSchedule(
     }
   }
 );
+
+/**
+ * When a fund-loan request is created (status 'pending'), notify the group's
+ * admins so they can approve/reject it.
+ * Triggers on: fund_loans/{loanId} — document created
+ */
+exports.onFundLoanCreated = onDocumentCreated(
+  { document: "fund_loans/{loanId}", region: "asia-southeast1" },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+
+    const loan = snapshot.data();
+    // Only pending requests need admin attention (admins may create pre-approved loans).
+    if ((loan.status || "pending") !== "pending") return;
+
+    const groupId = loan.groupId;
+    const borrower = loan.borrowerName || "A member";
+    const amount = loan.principal || 0;
+    const title = loan.title || "";
+    const requesterId = loan.createdBy;
+
+    const groupDoc = await db.collection("groups").doc(groupId).get();
+    if (!groupDoc.exists) return;
+    const groupName = groupDoc.data().name || "Unknown Group";
+
+    // Notify every admin of the group except the requester.
+    const membersSnapshot = await db
+      .collection("groups").doc(groupId).collection("members")
+      .where("isAdmin", "==", true).get();
+
+    for (const memberDoc of membersSnapshot.docs) {
+      const adminId = memberDoc.id;
+      if (adminId === requesterId) continue;
+      await sendNotification(adminId, {
+        notification: {
+          title: `Loan Request - ${groupName}`,
+          body: `${borrower} requested RM${amount.toFixed(2)} (${title})`,
+        },
+        data: { type: "fund_loan_requested", groupId: groupId, loanId: event.params.loanId },
+      });
+    }
+    console.log(`Notified admins of fund-loan request in ${groupName}`);
+  }
+);
+
+/**
+ * When a fund-loan's status changes to approved/rejected, notify the borrower.
+ * Triggers on: fund_loans/{loanId} — document updated
+ */
+exports.onFundLoanUpdated = onDocumentUpdated(
+  { document: "fund_loans/{loanId}", region: "asia-southeast1" },
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    if (before.status === after.status) return;
+    if (after.status !== "approved" && after.status !== "rejected") return;
+
+    const borrowerId = after.borrowerId;
+    const amount = after.principal || 0;
+    const title = after.title || "";
+    const isApproved = after.status === "approved";
+
+    await sendNotification(borrowerId, {
+      notification: {
+        title: isApproved ? "Loan Approved 🎉" : "Loan Rejected",
+        body: isApproved
+          ? `Your request for RM${amount.toFixed(2)} ("${title}") was approved`
+          : `Your request for "${title}" was rejected`,
+      },
+      data: { type: "fund_loan_decision", loanId: event.params.loanId, status: after.status },
+    });
+    console.log(`Notified borrower ${borrowerId} of fund-loan ${after.status}`);
+  }
+);
+
+/**
+ * Daily scheduled debt/bill reminder.
+ * Runs every day at 9:00 AM MYT (1:00 AM UTC). For each active debt/bill that
+ * hasn't been paid this month, notifies the owner the day before it's due
+ * ("due tomorrow") and on the due day ("due today").
+ */
+exports.dailyDebtBillReminder = onSchedule(
+  {
+    schedule: "0 1 * * *", // 1:00 AM UTC = 9:00 AM MYT
+    timeZone: "Asia/Kuala_Lumpur",
+    region: "asia-southeast1",
+  },
+  async () => {
+    const now = new Date();
+    const today = now.getDate();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    console.log(`Running daily debt/bill reminder for day ${today}`);
+
+    try {
+      const debtsSnapshot = await db
+        .collection("debts")
+        .where("isActive", "==", true)
+        .get();
+
+      if (debtsSnapshot.empty) {
+        console.log("No active debts/bills");
+        return;
+      }
+
+      for (const debtDoc of debtsSnapshot.docs) {
+        const d = debtDoc.data();
+        const dueDay = d.dueDay || 1;
+        // Remind the day before (or on the day itself when dueDay is the 1st).
+        const dayBefore = dueDay > 1 ? dueDay - 1 : dueDay;
+        if (today !== dayBefore && today !== dueDay) continue;
+
+        // Skip if already paid this month.
+        const paidSnapshot = await db
+          .collection("debts").doc(debtDoc.id).collection("payments")
+          .where("month", "==", currentMonth)
+          .where("year", "==", currentYear)
+          .limit(1).get();
+        if (!paidSnapshot.empty) continue;
+
+        const isBill = (d.type || "debt") === "bill";
+        const label = isBill ? "Bill" : "Loan";
+        const emoji = isBill ? "📋" : "💳";
+        const title = d.title || "Payment";
+        const amount = d.monthlyPayment || 0;
+        const when = today === dueDay ? "due today" : "due tomorrow";
+
+        await sendNotification(d.userId, {
+          notification: {
+            title: `${label} Reminder - ${title} ${emoji}`,
+            body: `${isBill ? "Bil" : "Hutang"} "${title}" RM${amount.toFixed(2)} ${when}!`,
+          },
+          data: { type: "debt_bill_reminder", debtId: debtDoc.id },
+        });
+      }
+      console.log("Debt/bill reminders sent");
+    } catch (error) {
+      console.error("Error in daily debt/bill reminder:", error);
+    }
+  }
+);

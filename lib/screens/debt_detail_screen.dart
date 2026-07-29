@@ -7,6 +7,7 @@ import 'package:duitkita/models/debt_model.dart';
 import 'package:duitkita/models/debt_payment_model.dart';
 import 'package:duitkita/services/debt_service.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class DebtDetailScreen extends ConsumerWidget {
   final String debtId;
@@ -400,7 +401,7 @@ class DebtDetailScreen extends ConsumerWidget {
             Text('for ${debt.title}', style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary)),
             const SizedBox(height: DS.lg),
 
-            _SheetField(controller: amountCtrl, label: 'Amount (RM)', icon: Icons.payments_outlined,
+            FloatingField(controller: amountCtrl, gap: 0, label: 'Amount (RM)', icon: Icons.payments_outlined,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
             const SizedBox(height: DS.md),
@@ -428,7 +429,7 @@ class DebtDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: DS.md),
 
-            _SheetField(controller: notesCtrl, label: 'Notes (optional)', icon: Icons.notes_rounded, hint: 'e.g., Monthly installment'),
+            FloatingField(controller: notesCtrl, gap: 0, label: 'Notes (optional)', icon: Icons.notes_rounded, hint: 'e.g., Monthly installment'),
             const SizedBox(height: DS.xl),
 
             GestureDetector(
@@ -484,24 +485,24 @@ class DebtDetailScreen extends ConsumerWidget {
               Text('Edit ${debt.isBill ? "Bill" : "Debt"}', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text)),
               const SizedBox(height: DS.lg),
 
-              _SheetField(controller: titleCtrl, label: 'Title', icon: Icons.title_rounded, capitalization: TextCapitalization.words),
+              FloatingField(controller: titleCtrl, gap: 0, label: 'Title', icon: Icons.title_rounded, capitalization: TextCapitalization.words),
               const SizedBox(height: DS.md),
-              _SheetField(controller: creditorCtrl, label: debt.isBill ? 'Provider' : 'Owed To', icon: Icons.business_outlined, capitalization: TextCapitalization.words),
+              FloatingField(controller: creditorCtrl, gap: 0, label: debt.isBill ? 'Provider' : 'Owed To', icon: Icons.business_outlined, capitalization: TextCapitalization.words),
               const SizedBox(height: DS.md),
 
               if (debt.isDebt) ...[
-                _SheetField(controller: totalCtrl, label: 'Total Amount (RM)', icon: Icons.account_balance_wallet_outlined,
+                FloatingField(controller: totalCtrl, gap: 0, label: 'Total Amount (RM)', icon: Icons.account_balance_wallet_outlined,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
                 const SizedBox(height: DS.md),
               ],
 
               Row(children: [
-                Expanded(child: _SheetField(controller: monthlyCtrl, label: 'Monthly (RM)', icon: Icons.calendar_month_outlined,
+                Expanded(child: FloatingField(controller: monthlyCtrl, gap: 0, label: 'Monthly (RM)', icon: Icons.calendar_month_outlined,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
                 const SizedBox(width: DS.md),
-                Expanded(child: _SheetField(controller: dueDayCtrl, label: 'Due Day (1–28)', icon: Icons.event_outlined,
+                Expanded(child: FloatingField(controller: dueDayCtrl, gap: 0, label: 'Due Day (1–28)', icon: Icons.event_outlined,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
               ]),
@@ -531,7 +532,7 @@ class DebtDetailScreen extends ConsumerWidget {
               }).toList()),
               const SizedBox(height: DS.md),
 
-              _SheetField(controller: descCtrl, label: 'Notes (optional)', icon: Icons.notes_rounded, maxLines: 2),
+              FloatingField(controller: descCtrl, gap: 0, label: 'Notes (optional)', icon: Icons.notes_rounded, maxLines: 2),
               const SizedBox(height: DS.xl),
 
               GestureDetector(
@@ -672,52 +673,6 @@ class _PaymentTile extends StatelessWidget {
           ),
         ),
       ]),
-    ),
-  );
-}
-
-// ─── Sheet input field ─────────────────────────────────────────────────────────
-
-class _SheetField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final String? hint;
-  final TextInputType? keyboardType;
-  final TextCapitalization capitalization;
-  final List<TextInputFormatter>? inputFormatters;
-  final int maxLines;
-
-  const _SheetField({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    this.hint,
-    this.keyboardType,
-    this.capitalization = TextCapitalization.none,
-    this.inputFormatters,
-    this.maxLines = 1,
-  });
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    keyboardType: keyboardType,
-    textCapitalization: capitalization,
-    inputFormatters: inputFormatters,
-    maxLines: maxLines,
-    style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: DT.text),
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: hint,
-      labelStyle: GoogleFonts.manrope(fontSize: 12, color: DT.textSecondary),
-      hintStyle: GoogleFonts.manrope(fontSize: 13, color: DT.textTertiary),
-      prefixIcon: Icon(icon, size: 18, color: DT.textSecondary),
-      filled: true, fillColor: DT.surfaceAlt,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
     ),
   );
 }

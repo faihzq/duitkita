@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/config/app_theme.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 import 'package:duitkita/config/bank_brands.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/group_model.dart';
@@ -58,10 +59,10 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
         icon: Icons.edit_outlined,
         iconColor: DT.primary,
         fields: [
-          _DialogField(controller: nameCtrl, label: 'Group name', icon: Icons.group_outlined, capitalization: TextCapitalization.words),
-          _DialogField(controller: descCtrl, label: 'Description', icon: Icons.notes_outlined, maxLines: 2),
-          _DialogField(controller: amtCtrl, label: 'Monthly amount (RM)', icon: Icons.payments_outlined, keyboardType: TextInputType.number),
-          _DialogField(controller: balCtrl, label: 'Starting balance (RM)', icon: Icons.savings_outlined, keyboardType: TextInputType.number),
+          FloatingField(controller: nameCtrl, gap: 0, label: 'Group name', icon: Icons.group_outlined, capitalization: TextCapitalization.words),
+          FloatingField(controller: descCtrl, gap: 0, label: 'Description', icon: Icons.notes_outlined, maxLines: 2),
+          FloatingField(controller: amtCtrl, gap: 0, label: 'Monthly amount (RM)', icon: Icons.payments_outlined, keyboardType: TextInputType.number),
+          FloatingField(controller: balCtrl, gap: 0, label: 'Starting balance (RM)', icon: Icons.savings_outlined, keyboardType: TextInputType.number),
         ],
       ),
     );
@@ -296,12 +297,12 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               ),
               if (selectedBank == 'Other') ...[
                 const SizedBox(height: 12),
-                _InputField(controller: bankCtrl, label: 'Bank name', icon: Icons.account_balance_outlined, keyboardType: TextInputType.text, capitalization: TextCapitalization.words),
+                FloatingField(controller: bankCtrl, gap: 0, label: 'Bank name', icon: Icons.account_balance_outlined, keyboardType: TextInputType.text, capitalization: TextCapitalization.words),
               ],
               const SizedBox(height: 12),
-              _InputField(controller: accCtrl, label: 'Account number', icon: Icons.numbers_outlined, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
+              FloatingField(controller: accCtrl, gap: 0, label: 'Account number', icon: Icons.numbers_outlined, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly]),
               const SizedBox(height: 12),
-              _InputField(controller: holderCtrl, label: 'Account holder name', icon: Icons.person_outline_rounded, capitalization: TextCapitalization.characters, inputFormatters: [TextInputFormatter.withFunction((o, n) => n.copyWith(text: n.text.toUpperCase()))]),
+              FloatingField(controller: holderCtrl, gap: 0, label: 'Account holder name', icon: Icons.person_outline_rounded, capitalization: TextCapitalization.characters, inputFormatters: [TextInputFormatter.withFunction((o, n) => n.copyWith(text: n.text.toUpperCase()))]),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: _OutlineBtn(label: 'Cancel', color: DT.textSecondary, onTap: () => Navigator.pop(ctx))),
@@ -1278,34 +1279,6 @@ class _FilledBtn extends StatelessWidget {
   );
 }
 
-class _InputField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final TextCapitalization capitalization;
-  final List<TextInputFormatter>? inputFormatters;
-  const _InputField({required this.controller, required this.label, required this.icon, this.keyboardType, this.capitalization = TextCapitalization.none, this.inputFormatters});
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    keyboardType: keyboardType,
-    textCapitalization: capitalization,
-    inputFormatters: inputFormatters,
-    style: GoogleFonts.manrope(fontSize: 14, color: DT.text),
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary),
-      prefixIcon: Icon(icon, size: 18, color: DT.textSecondary),
-      filled: true, fillColor: DT.surfaceAlt,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-    ),
-  );
-}
-
 class _FormDialog extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -1334,34 +1307,6 @@ class _FormDialog extends StatelessWidget {
           Expanded(child: GestureDetector(onTap: () => Navigator.pop(context, true), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)), child: Center(child: Text('Save', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))))),
         ]),
       ]),
-    ),
-  );
-}
-
-class _DialogField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final int? maxLines;
-  final TextCapitalization capitalization;
-  const _DialogField({required this.controller, required this.label, required this.icon, this.keyboardType, this.maxLines, this.capitalization = TextCapitalization.none});
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    keyboardType: keyboardType,
-    maxLines: maxLines ?? 1,
-    textCapitalization: capitalization,
-    style: GoogleFonts.manrope(fontSize: 14, color: DT.text),
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary),
-      prefixIcon: Icon(icon, size: 18, color: DT.textSecondary),
-      filled: true, fillColor: DT.surfaceAlt,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
     ),
   );
 }

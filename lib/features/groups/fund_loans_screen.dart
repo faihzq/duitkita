@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/fund_loan_model.dart';
 import 'package:duitkita/models/group_member.dart';
@@ -519,18 +520,13 @@ class _AddLoanSheetState extends ConsumerState<_AddLoanSheet> {
               _borrowerDropdown(),
               const SizedBox(height: 14),
             ],
-            _label('Purpose'),
-            _field(_titleCtrl, 'e.g. Wiring', Icons.description_outlined),
-            const SizedBox(height: 14),
-            _label('Amount to borrow (RM)'),
-            _field(_amountCtrl, '0.00', Icons.payments_outlined, number: true),
-            const SizedBox(height: 14),
-            _label('Monthly repayment (RM) — optional'),
-            _field(_monthlyCtrl, '0.00', Icons.calendar_month_outlined, number: true),
-            const SizedBox(height: 14),
-            _label('Note — optional'),
-            _field(_noteCtrl, 'Any details', Icons.notes_outlined),
-            const SizedBox(height: 22),
+            FloatingField(controller: _titleCtrl, label: 'Purpose', icon: Icons.description_outlined, hint: 'e.g. Wiring'),
+            FloatingField(controller: _amountCtrl, label: 'Amount to borrow', prefixText: 'RM ', icon: Icons.payments_outlined, hint: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+            FloatingField(controller: _monthlyCtrl, label: 'Monthly repayment', optional: true, prefixText: 'RM ', icon: Icons.calendar_month_outlined, hint: '0.00',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+            FloatingField(controller: _noteCtrl, label: 'Note', optional: true, icon: Icons.notes_outlined, hint: 'Any details'),
+            const SizedBox(height: 10),
             GestureDetector(
               onTap: _busy ? null : _save,
               child: Container(
@@ -572,25 +568,6 @@ class _AddLoanSheetState extends ConsumerState<_AddLoanSheet> {
     );
   }
 
-  Widget _field(TextEditingController c, String hint, IconData icon, {bool number = false}) {
-    return TextField(
-      controller: c,
-      keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-      inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))] : null,
-      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: DT.text),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary),
-        prefixIcon: Icon(icon, size: 18, color: DT.textTertiary),
-        filled: true,
-        fillColor: DT.surfaceAlt,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-      ),
-    );
-  }
 }
 
 // ─── Repay sheet ──────────────────────────────────────────────────────────────

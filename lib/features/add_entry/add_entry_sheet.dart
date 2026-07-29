@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
@@ -550,25 +551,15 @@ class _Step2 extends ConsumerWidget {
         // 4. Notes — appears after group selected
         if (selectedGroup != null) ...[
           const SizedBox(height: 20),
-          _Label(text: 'NOTES (OPTIONAL)'),
-          const SizedBox(height: 8),
-          TextField(
+          FloatingField(
             controller: notesCtrl,
+            label: 'Notes',
+            icon: Icons.notes_rounded,
+            hint: 'e.g. Raya contribution, late payment…',
+            optional: true,
             maxLines: 2,
-            textCapitalization: TextCapitalization.sentences,
-            style: GoogleFonts.manrope(fontSize: 14, color: DT.text),
-            decoration: InputDecoration(
-              hintText: 'e.g. Raya contribution, late payment…',
-              hintStyle: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary),
-              filled: true,
-              fillColor: DT.surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: DT.border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: DT.border)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
+            capitalization: TextCapitalization.sentences,
           ),
-          const SizedBox(height: 8),
         ],
       ],
     );

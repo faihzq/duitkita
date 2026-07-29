@@ -13,6 +13,7 @@ import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/storage_service.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class AddPaymentScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -647,10 +648,14 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                     const SizedBox(height: DS.lg),
 
                     // ── Reference ──────────────────────────────────
-                    _sectionLabel('REFERENCE · OPTIONAL'),
+                    FloatingField(
+                      controller: _notesController,
+                      label: 'Reference',
+                      icon: Icons.receipt_long_outlined,
+                      hint: 'Bank transaction ID, e.g. MB240518…',
+                      optional: true,
+                    ),
                     const SizedBox(height: DS.sm),
-                    _buildReferenceCard(),
-                    const SizedBox(height: DS.lg),
 
                     // ── Receipt ────────────────────────────────────
                     _sectionLabel('RECEIPT · OPTIONAL'),
@@ -1694,49 +1699,6 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     );
   }
 
-  // ── Reference card ─────────────────────────────────────────────────────────
-
-  Widget _buildReferenceCard() => Container(
-    decoration: BoxDecoration(
-      color: DT.surface,
-      borderRadius: BorderRadius.circular(DS.cardRadius),
-      border: Border.all(color: DT.border),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-    child: Row(
-      children: [
-        const Icon(
-          Icons.receipt_long_outlined,
-          size: 18,
-          color: DT.textTertiary,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: TextField(
-            controller: _notesController,
-            style: GoogleFonts.manrope(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: DT.text,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Bank transaction ID, e.g. MB240518…',
-              hintStyle: GoogleFonts.manrope(
-                fontSize: 14,
-                color: DT.textTertiary,
-              ),
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              isDense: true,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 
   // ── Receipt section ────────────────────────────────────────────────────────
 

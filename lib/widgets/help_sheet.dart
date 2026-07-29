@@ -51,10 +51,10 @@ class HelpSheet extends StatelessWidget {
         iconBg: DT.catBillsSoft,
         title: 'Bills',
         steps: [
-          'Add subscriptions (Unifi, Astro, Spotify…)',
-          'Pick a due date for each bill',
+          'Add bills & subscriptions (Unifi, Astro, Spotify…)',
+          'Set a due date for each',
           'Tick when paid each month',
-          'Auto-resets at month start',
+          'Auto-rolls over every month',
         ],
       ),
     ];

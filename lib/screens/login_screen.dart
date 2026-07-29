@@ -7,6 +7,7 @@ import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/screens/signup_screen.dart';
 import 'package:duitkita/screens/forgot_password_screen.dart';
 import 'package:duitkita/screens/auth_widgets.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -98,18 +99,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FloatingField(
-                    controller: _emailController,
+                    controller: _emailController, gap: 0,
                     label: 'Email',
-                    prefixIcon: Icons.mail_outline_rounded,
+                    icon: Icons.mail_outline_rounded,
                     keyboardType: TextInputType.emailAddress,
                     error: _emailError,
                     onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },
                   ),
                   const SizedBox(height: DS.md),
                   FloatingField(
-                    controller: _passwordController,
+                    controller: _passwordController, gap: 0,
                     label: 'Password',
-                    prefixIcon: Icons.lock_outline_rounded,
+                    icon: Icons.lock_outline_rounded,
                     isPassword: true,
                     error: _passwordError,
                     onChanged: (_) { if (_passwordError != null) setState(() => _passwordError = null); },

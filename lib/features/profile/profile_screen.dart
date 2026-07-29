@@ -13,6 +13,7 @@ import 'package:duitkita/models/user_profile.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/storage_service.dart';
 import 'package:duitkita/widgets/help_sheet.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>(
   (_) => PackageInfo.fromPlatform(),
@@ -192,9 +193,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 16),
                 Text('Edit profile', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text)),
                 const SizedBox(height: 20),
-                _EditField(controller: nameCtrl, label: 'Full name', hint: 'Your full name'),
+                FloatingField(controller: nameCtrl, gap: 0, label: 'Full name', icon: Icons.person_outline_rounded, hint: 'Your full name', capitalization: TextCapitalization.words),
                 const SizedBox(height: 12),
-                _EditField(controller: phoneCtrl, label: 'Phone number', hint: 'e.g. 012-3456789', keyboardType: TextInputType.phone),
+                FloatingField(controller: phoneCtrl, gap: 0, label: 'Phone number', icon: Icons.phone_outlined, hint: 'e.g. 012-3456789', keyboardType: TextInputType.phone),
                 const SizedBox(height: 20),
                 GestureDetector(
                   onTap: saving ? null : () async {
@@ -670,35 +671,6 @@ class _PhotoOption extends StatelessWidget {
   );
 }
 
-class _EditField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final TextInputType? keyboardType;
-  const _EditField({required this.controller, required this.label, required this.hint, this.keyboardType});
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label.toUpperCase(), style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.6)),
-      const SizedBox(height: 6),
-      TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        style: GoogleFonts.manrope(fontSize: 14, color: DT.text),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary),
-          filled: true, fillColor: DT.surfaceAlt,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        ),
-      ),
-    ],
-  );
-}
 
 class _OutlineBtn extends StatelessWidget {
   final String label;

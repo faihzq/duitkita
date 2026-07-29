@@ -5,6 +5,7 @@ import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/screens/auth_widgets.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -90,9 +91,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FloatingField(
-          controller: _emailController,
+          controller: _emailController, gap: 0,
           label: 'Email',
-          prefixIcon: Icons.mail_outline_rounded,
+          icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
           error: _emailError,
           onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },

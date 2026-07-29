@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/models/match_model.dart';
 import 'package:duitkita/services/match_service.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 // JDT brand colours (not in global DT — JDT-only feature)
 const _jdtRed = Color(0xFFD32F2F);
@@ -297,32 +298,33 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                   const SizedBox(height: DS.xxl),
 
                   // Home team
-                  _DialogLabel('Home Team'),
-                  const SizedBox(height: DS.xs),
-                  _DialogField(
-                    controller: homeCtrl,
-                    hint: "e.g. Johor Darul Ta'zim",
+                  FloatingField(
+                    controller: homeCtrl, gap: 0,
+                    label: 'Home team',
                     icon: Icons.shield_outlined,
+                    hint: "e.g. Johor Darul Ta'zim",
+                    capitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: DS.md),
 
                   // Away team
-                  _DialogLabel('Away Team'),
-                  const SizedBox(height: DS.xs),
-                  _DialogField(
-                    controller: awayCtrl,
-                    hint: 'e.g. Selangor FC',
+                  FloatingField(
+                    controller: awayCtrl, gap: 0,
+                    label: 'Away team',
                     icon: Icons.shield_outlined,
+                    hint: 'e.g. Selangor FC',
+                    capitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: DS.md),
 
                   // Venue
-                  _DialogLabel('Venue (optional)'),
-                  const SizedBox(height: DS.xs),
-                  _DialogField(
-                    controller: venueCtrl,
-                    hint: 'e.g. Stadium Larkin',
+                  FloatingField(
+                    controller: venueCtrl, gap: 0,
+                    label: 'Venue',
                     icon: Icons.location_on_outlined,
+                    hint: 'e.g. Stadium Larkin',
+                    optional: true,
+                    capitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: DS.lg),
 
@@ -782,55 +784,6 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-// ─── Dialog helpers ─────────────────────────────────────────────────
-
-class _DialogLabel extends StatelessWidget {
-  final String text;
-
-  const _DialogLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text,
-        style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: DT.textSecondary));
-  }
-}
-
-class _DialogField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-
-  const _DialogField({required this.controller, required this.hint, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      style: GoogleFonts.manrope(fontSize: 14, color: DT.text),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.manrope(color: DT.textTertiary, fontSize: 14),
-        prefixIcon: Icon(icon, size: 18, color: DT.textTertiary),
-        filled: true,
-        fillColor: DT.surfaceAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: DS.lg, vertical: DS.md),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DS.md),
-          borderSide: const BorderSide(color: DT.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DS.md),
-          borderSide: const BorderSide(color: DT.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DS.md),
-          borderSide: const BorderSide(color: _jdtRed, width: 1.5),
-        ),
-      ),
-    );
-  }
-}
 
 class _DateTimeButton extends StatelessWidget {
   final IconData icon;

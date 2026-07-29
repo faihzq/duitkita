@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 import 'package:duitkita/models/group_member.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/payment_service.dart';
@@ -434,28 +435,13 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
       const SizedBox(height: DS.sm),
 
       // Notes
-      Container(
-        padding: const EdgeInsets.all(DS.md),
-        decoration: BoxDecoration(color: DT.surface, border: Border.all(color: DT.border), borderRadius: BorderRadius.circular(DS.cardRadius)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Notes (optional)', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.text)),
-          const SizedBox(height: DS.sm),
-          TextField(
-            controller: _notesCtrl,
-            style: GoogleFonts.manrope(fontSize: 13, color: DT.text),
-            decoration: InputDecoration(
-              hintText: 'e.g. Historical backfill',
-              hintStyle: GoogleFonts.manrope(fontSize: 13, color: DT.textTertiary),
-              prefixIcon: const Icon(Icons.note_outlined, size: 18, color: DT.textSecondary),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              filled: true, fillColor: DT.bg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: DT.border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: DT.border)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-            ),
-          ),
-        ]),
+      FloatingField(
+        controller: _notesCtrl,
+        label: 'Notes',
+        icon: Icons.note_outlined,
+        hint: 'e.g. Historical backfill',
+        optional: true,
+        gap: 0,
       ),
     ]);
   }

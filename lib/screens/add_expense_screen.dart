@@ -11,6 +11,7 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/storage_service.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -255,36 +256,17 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
                   // ── Title ──────────────────────────────────────────
-                  TextField(
+                  FloatingField(
                     controller: _titleCtrl,
+                    label: 'Title',
+                    icon: Icons.edit_outlined,
+                    hint: "What's this expense for?",
                     maxLength: 60,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w600, color: DT.text, letterSpacing: -0.1),
-                    decoration: InputDecoration(
-                      labelText: 'Title',
-                      hintText: "What's this expense for?",
-                      floatingLabelBehavior: FloatingLabelBehavior.auto,
-                      floatingLabelStyle: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.5),
-                      labelStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w500, color: DT.textTertiary),
-                      hintStyle: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary),
-                      prefixIcon: const Icon(Icons.edit_outlined, size: 18, color: DT.textSecondary),
-                      filled: true, fillColor: DT.surface,
-                      counterText: '',
-                      contentPadding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.border)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.border)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.text, width: 1.5)),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 5, 6, 0),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text("What's this expense for?", style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w500, color: DT.textTertiary)),
-                      Text('${_titleCtrl.text.length}/60', style: GoogleFonts.manrope(fontSize: 11, color: DT.textTertiary)),
-                    ]),
+                    showCounter: true,
+                    capitalization: TextCapitalization.sentences,
                   ),
 
-                  const SizedBox(height: DS.md),
+                  const SizedBox(height: DS.sm),
 
                   // ── Category ───────────────────────────────────────
                   Text('CATEGORY', style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.8)),
@@ -320,40 +302,19 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   const SizedBox(height: DS.md),
 
                   // ── Notes ──────────────────────────────────────────
-                  TextField(
+                  FloatingField(
                     controller: _notesCtrl,
+                    label: 'Notes',
+                    icon: Icons.notes_rounded,
+                    hint: 'Add any relevant details…',
+                    optional: true,
                     maxLines: 3,
                     maxLength: 200,
-                    textCapitalization: TextCapitalization.sentences,
-                    style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w500, color: DT.text),
-                    decoration: InputDecoration(
-                      labelText: 'Notes',
-                      hintText: 'Add any relevant details…',
-                      floatingLabelBehavior: FloatingLabelBehavior.auto,
-                      floatingLabelStyle: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.5),
-                      labelStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w500, color: DT.textTertiary),
-                      hintStyle: GoogleFonts.manrope(fontSize: 14, color: DT.textTertiary),
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(bottom: 46),
-                        child: Icon(Icons.notes_rounded, size: 18, color: DT.textSecondary),
-                      ),
-                      filled: true, fillColor: DT.surface,
-                      counterText: '',
-                      contentPadding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.border)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.border)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: DT.text, width: 1.5)),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 5, 6, 0),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text('optional', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w500, color: DT.textTertiary)),
-                      Text('${_notesCtrl.text.length}/200', style: GoogleFonts.manrope(fontSize: 11, color: DT.textTertiary)),
-                    ]),
+                    showCounter: true,
+                    capitalization: TextCapitalization.sentences,
                   ),
 
-                  const SizedBox(height: DS.xl),
+                  const SizedBox(height: DS.md),
 
                   // ── Receipt ────────────────────────────────────────
                   Text('RECEIPT', style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.8)),

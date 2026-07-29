@@ -10,7 +10,6 @@ import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/add_entry/add_entry_sheet.dart';
 import 'package:duitkita/features/jdt/jdt_matches_screen.dart';
 import 'package:duitkita/services/update_service.dart';
-import 'package:duitkita/services/notification_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
@@ -34,15 +33,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   }
 
   Future<void> _onReady() async {
+    // Reminders and activity notifications are now sent server-side by Cloud
+    // Functions (see functions/index.js), so no local scheduling here.
     await UpdateService.checkForUpdate(context);
-    await NotificationService.scheduleGroupReminders();
-    await NotificationService.scheduleDebtAndBillReminders();
-    await NotificationService.checkAndNotifyUnpaid();
-    await NotificationService.checkAndNotifyUnpaidDebts();
-    await NotificationService.checkNewGroupMembership();
-    await NotificationService.checkRecentPaymentsForAdmin();
-    await NotificationService.checkPendingFundLoansForAdmin();
-    await NotificationService.checkFundLoanDecisionsForMember();
   }
 
   void _openAddEntry() {

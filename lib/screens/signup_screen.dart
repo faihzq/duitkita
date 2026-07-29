@@ -5,6 +5,7 @@ import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/screens/auth_widgets.dart';
+import 'package:duitkita/widgets/floating_field.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -242,28 +243,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   List<Widget> _step1() => [
         FloatingField(
-          controller: _nameController,
+          controller: _nameController, gap: 0,
           label: 'Full name',
-          prefixIcon: Icons.person_outline_rounded,
-          textCapitalization: TextCapitalization.words,
+          icon: Icons.person_outline_rounded,
+          capitalization: TextCapitalization.words,
           helper: 'As shown on your IC / passport',
           error: _nameError,
           onChanged: (_) { if (_nameError != null) setState(() => _nameError = null); },
         ),
         const SizedBox(height: DS.md),
         FloatingField(
-          controller: _emailController,
+          controller: _emailController, gap: 0,
           label: 'Email',
-          prefixIcon: Icons.mail_outline_rounded,
+          icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
           error: _emailError,
           onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },
         ),
         const SizedBox(height: DS.md),
         FloatingField(
-          controller: _phoneController,
+          controller: _phoneController, gap: 0,
           label: 'Mobile number',
-          prefixIcon: Icons.phone_outlined,
+          icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           error: _phoneError,
           leadingOverride: Text('🇲🇾 +60', style: GoogleFonts.manrope(
@@ -284,9 +285,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     ];
     return [
       FloatingField(
-        controller: _passwordController,
+        controller: _passwordController, gap: 0,
         label: 'Password',
-        prefixIcon: Icons.lock_outline_rounded,
+        icon: Icons.lock_outline_rounded,
         isPassword: true,
         error: _passwordError,
         onChanged: (_) => setState(() {

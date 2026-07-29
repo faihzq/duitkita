@@ -7,10 +7,12 @@ import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/debt_model.dart';
 import 'package:duitkita/services/debt_service.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/widgets/floating_field.dart';
+
+const _kDueDays = [1, 5, 10, 15, 25, 28];
 
 class AddDebtScreen extends ConsumerStatefulWidget {
   const AddDebtScreen({super.key});
-
   @override
   ConsumerState<AddDebtScreen> createState() => _AddDebtScreenState();
 }
@@ -18,99 +20,88 @@ class AddDebtScreen extends ConsumerStatefulWidget {
 class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   final _titleController = TextEditingController();
   final _creditorController = TextEditingController();
-  final _totalAmountController = TextEditingController();
-  final _monthlyPaymentController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _dueDayController = TextEditingController(text: '1');
-  final _totalPaidController = TextEditingController(text: '0');
+  final _totalController = TextEditingController();      // debt total (hero)
+  final _monthlyController = TextEditingController();     // debt monthly / bill amount (hero)
+  final _descController = TextEditingController();
+
+  String _type = 'debt'; // 'debt' | 'bill'
   String _category = 'other';
-  String _type = 'debt'; // 'debt' or 'bill'
-  DateTime _startDate = DateTime.now();
+  int _dueDay = 15;
+  final DateTime _startDate = DateTime.now();
   bool _isLoading = false;
 
   bool get _isDebt => _type == 'debt';
-  Color get _accentColor => _isDebt ? DT.catDebts : DT.catBills;
+  Color get _accent => _isDebt ? DT.catDebts : DT.catBills;
+  List<DebtCategory> get _categories => DebtModel.categoriesForType(_type);
+
+  // Hero = total for a debt, monthly for a bill.
+  TextEditingController get _heroController => _isDebt ? _totalController : _monthlyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _totalController.addListener(_refresh);
+    _monthlyController.addListener(_refresh);
+    _titleController.addListener(_refresh);
+  }
+
+  void _refresh() => setState(() {});
 
   @override
   void dispose() {
     _titleController.dispose();
     _creditorController.dispose();
-    _totalAmountController.dispose();
-    _monthlyPaymentController.dispose();
-    _descriptionController.dispose();
-    _dueDayController.dispose();
-    _totalPaidController.dispose();
+    _totalController.dispose();
+    _monthlyController.dispose();
+    _descController.dispose();
     super.dispose();
   }
 
-  List<DebtCategory> get _categories => DebtModel.categoriesForType(_type);
+  void _switchType(String t) => setState(() {
+    _type = t;
+    _category = _categories.first.value; // keep category valid for the new type
+  });
 
-  Future<void> _pickStartDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _startDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: DT.primary),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) setState(() => _startDate = picked);
+  double get _heroNum => double.tryParse(_heroController.text.trim()) ?? 0;
+  double get _totalNum => double.tryParse(_totalController.text.trim()) ?? 0;
+  double get _monthlyNum => double.tryParse(_monthlyController.text.trim()) ?? 0;
+  int get _payoffMonths => _isDebt && _totalNum > 0 && _monthlyNum > 0 ? (_totalNum / _monthlyNum).ceil() : 0;
+
+  bool get _canSubmit {
+    if (_titleController.text.trim().isEmpty) return false;
+    if (_heroNum <= 0) return false;
+    if (_isDebt && _monthlyNum <= 0) return false;
+    return !_isLoading;
   }
 
-  Future<void> _createDebt() async {
-    final title = _titleController.text.trim();
-    final creditor = _creditorController.text.trim();
-    final totalStr = _totalAmountController.text.trim();
-    final monthlyStr = _monthlyPaymentController.text.trim();
-    final dueDayStr = _dueDayController.text.trim();
-    final totalPaidStr = _totalPaidController.text.trim();
+  String _payoffLabel() {
+    final m = _payoffMonths;
+    final y = m ~/ 12, r = m % 12;
+    if (y == 0) return '$m month${m == 1 ? '' : 's'}';
+    if (r == 0) return '$y year${y == 1 ? '' : 's'}';
+    return '${y}y ${r}m';
+  }
 
-    if (title.isEmpty) {
-      showSnackBar(context, 'Title is required', isError: true);
-      return;
-    }
-    if (creditor.isEmpty) {
-      showSnackBar(context, _isDebt ? 'Owed To is required' : 'Provider is required', isError: true);
-      return;
-    }
-    final totalAmount = _isDebt ? (double.tryParse(totalStr) ?? -1) : 0.0;
-    if (_isDebt && totalAmount <= 0) {
-      showSnackBar(context, 'Enter a valid total amount', isError: true);
-      return;
-    }
-    final monthlyPayment = double.tryParse(monthlyStr);
-    if (monthlyPayment == null || monthlyPayment <= 0) {
-      showSnackBar(context, 'Enter a valid monthly amount', isError: true);
-      return;
-    }
-    final dueDay = int.tryParse(dueDayStr) ?? 1;
-    if (dueDay < 1 || dueDay > 28) {
-      showSnackBar(context, 'Due day must be between 1–28', isError: true);
-      return;
-    }
-    final totalPaid = _isDebt ? (double.tryParse(totalPaidStr) ?? 0) : 0.0;
-
+  Future<void> _create() async {
+    if (!_canSubmit) return;
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
-    if (userId == null) return;
-
+    if (userId == null) {
+      showSnackBar(context, 'User not logged in', isError: true);
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       await ref.read(debtServiceProvider).createDebt(
         userId: userId,
-        title: title,
-        description: _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
-        creditor: creditor,
-        totalAmount: totalAmount,
-        monthlyPayment: monthlyPayment,
+        title: _titleController.text.trim(),
+        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+        creditor: _creditorController.text.trim(),
+        totalAmount: _isDebt ? _totalNum : 0.0,     // bills carry no balance
+        monthlyPayment: _monthlyNum,                 // = hero for a bill
         startDate: _startDate,
-        dueDay: dueDay,
+        dueDay: _dueDay,
         category: _category,
         type: _type,
-        totalPaid: totalPaid,
       );
       if (mounted) {
         showSnackBar(context, _isDebt ? 'Debt added!' : 'Bill added!');
@@ -127,339 +118,205 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DT.bg,
-      body: Column(
-        children: [
-          // ── Gradient header ──────────────────────────────────────
-          _Header(isDebt: _isDebt, accentColor: _accentColor),
-
-          // ── Scrollable form ──────────────────────────────────────
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(DS.xl, DS.xl, DS.xl, 120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Type toggle
-                  _TypeToggle(
-                    isDebt: _isDebt,
-                    onDebt: () => setState(() { _type = 'debt'; _category = 'other'; }),
-                    onBill: () => setState(() { _type = 'bill'; _category = 'other'; }),
-                  ),
-                  const SizedBox(height: DS.xl),
-
-                  // Category
-                  _SectionLabel('Category'),
-                  const SizedBox(height: DS.sm),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((cat) {
-                      final sel = _category == cat.value;
-                      return GestureDetector(
-                        onTap: () => setState(() => _category = cat.value),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: sel ? _accentColor : DT.surface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: sel ? _accentColor : DT.border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(cat.icon, size: 15, color: sel ? Colors.white : DT.textSecondary),
-                              const SizedBox(width: 6),
-                              Text(cat.label, style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? Colors.white : DT.text)),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: DS.xl),
-
-                  // Title
-                  _Field(controller: _titleController, label: _isDebt ? 'Debt Title' : 'Bill Title', icon: Icons.title_rounded, hint: _isDebt ? 'e.g., Car Loan Myvi' : 'e.g., Unifi, Netflix', capitalization: TextCapitalization.words),
-                  const SizedBox(height: DS.md),
-
-                  // Creditor / Provider
-                  _Field(controller: _creditorController, label: _isDebt ? 'Owed To' : 'Provider', icon: Icons.business_outlined, hint: _isDebt ? 'e.g., Maybank, PTPTN' : 'e.g., Astro, TNB', capitalization: TextCapitalization.words),
-                  const SizedBox(height: DS.md),
-
-                  // Amount row
-                  if (_isDebt)
-                    Row(children: [
-                      Expanded(child: _Field(controller: _totalAmountController, label: 'Total Amount (RM)', icon: Icons.account_balance_wallet_outlined, hint: '50000', keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
-                      const SizedBox(width: DS.md),
-                      Expanded(child: _Field(controller: _monthlyPaymentController, label: 'Monthly (RM)', icon: Icons.calendar_month_outlined, hint: '800', keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
-                    ])
-                  else
-                    Row(children: [
-                      Expanded(child: _Field(controller: _monthlyPaymentController, label: 'Monthly (RM)', icon: Icons.payments_outlined, hint: '150', keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
-                      const SizedBox(width: DS.md),
-                      Expanded(child: _Field(controller: _dueDayController, label: 'Due Day (1–28)', icon: Icons.event_outlined, hint: '1', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-                    ]),
-                  const SizedBox(height: DS.md),
-
-                  // Debt-only: already paid + due day
-                  if (_isDebt) ...[
-                    Row(children: [
-                      Expanded(child: _Field(controller: _totalPaidController, label: 'Already Paid (RM)', icon: Icons.payments_outlined, hint: '0', keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))])),
-                      const SizedBox(width: DS.md),
-                      Expanded(child: _Field(controller: _dueDayController, label: 'Due Day (1–28)', icon: Icons.event_outlined, hint: '1', keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
-                    ]),
-                    const SizedBox(height: DS.md),
-
-                    // Start date
-                    GestureDetector(
-                      onTap: _pickStartDate,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: DT.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: DT.border),
-                        ),
-                        child: Row(children: [
-                          Icon(Icons.calendar_today_outlined, size: 18, color: DT.textSecondary),
-                          const SizedBox(width: 10),
-                          Expanded(child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Start Date', style: GoogleFonts.manrope(fontSize: 11, color: DT.textTertiary, fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 2),
-                              Text('${_startDate.day}/${_startDate.month}/${_startDate.year}', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
-                            ],
-                          )),
-                          Icon(Icons.edit_calendar_outlined, size: 16, color: DT.textTertiary),
-                        ]),
-                      ),
-                    ),
-                    const SizedBox(height: DS.md),
-                  ],
-
-                  // Notes
-                  _Field(controller: _descriptionController, label: 'Notes (optional)', icon: Icons.notes_rounded, hint: 'Any additional details...', maxLines: 2),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-
-      // ── Sticky CTA ───────────────────────────────────────────────
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(DS.xl, DS.sm, DS.xl, DS.md),
-          child: GestureDetector(
-            onTap: _isLoading ? null : _createDebt,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              height: 52,
-              decoration: BoxDecoration(
-                color: _isLoading ? _accentColor.withValues(alpha: 0.6) : _accentColor,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: _isLoading
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_circle_outline_rounded, size: 20, color: Colors.white),
-                          const SizedBox(width: 8),
-                          Text(_isDebt ? 'Add Debt' : 'Add Bill', style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Header ───────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  final bool isDebt;
-  final Color accentColor;
-  const _Header({required this.isDebt, required this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [DT.primary, isDebt ? const Color(0xFF1A2E50) : const Color(0xFF2A1F0A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(DS.xl, DS.sm, DS.xl, DS.xxl),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isDebt ? 'Add Debt' : 'Add Bill',
-                      style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.4),
-                    ),
-                    Text(
-                      isDebt ? 'Track a new loan or commitment' : 'Track a recurring bill or subscription',
-                      style: GoogleFonts.manrope(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)),
-                    ),
-                  ],
-                ),
-              ),
+      body: Column(children: [
+        // ── Gradient header + type toggle ──────────────────────────────
+        Container(
+          decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [DT.primary, _isDebt ? const Color(0xFF1A2E50) : const Color(0xFF2A1F0A)])),
+          child: SafeArea(bottom: false, child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 26),
+            child: Column(children: [
+              Row(children: [
+                GestureDetector(onTap: () => Navigator.pop(context), child: Container(
+                  width: 38, height: 38, alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15))),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18))),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_isDebt ? 'Add Debt' : 'Add Bill', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.3)),
+                  Text(_isDebt ? 'Track a loan you’re paying down' : 'Track a recurring monthly bill',
+                    style: GoogleFonts.manrope(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+                ])),
+              ]),
+              const SizedBox(height: 16),
+              // Segmented toggle
               Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(isDebt ? Icons.account_balance_outlined : Icons.receipt_outlined, size: 20, color: accentColor),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  _TypeTab(label: 'Debt', icon: Icons.credit_card_outlined, selected: _isDebt, onTap: () => _switchType('debt')),
+                  _TypeTab(label: 'Bill', icon: Icons.receipt_long_outlined, selected: !_isDebt, onTap: () => _switchType('bill')),
+                ]),
               ),
-            ],
+            ]),
+          )),
+        ),
+
+        // ── Amount hero (overlaps header) ──────────────────────────────
+        Transform.translate(offset: const Offset(0, -12), child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: DT.border),
+              boxShadow: [BoxShadow(color: DT.primary.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 8))]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_isDebt ? 'TOTAL AMOUNT' : 'MONTHLY AMOUNT',
+                style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.5)),
+              const SizedBox(height: 6),
+              Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                Text('RM', style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w700, color: DT.textTertiary)),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  controller: _heroController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                  style: GoogleFonts.manrope(fontSize: 40, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -1.2, height: 1.0),
+                  decoration: InputDecoration(
+                    isDense: true, filled: false, border: InputBorder.none,
+                    enabledBorder: InputBorder.none, focusedBorder: InputBorder.none, contentPadding: EdgeInsets.zero,
+                    hintText: '0.00',
+                    hintStyle: GoogleFonts.manrope(fontSize: 40, fontWeight: FontWeight.w800, color: DT.textTertiary, letterSpacing: -1.2)),
+                )),
+              ]),
+              const SizedBox(height: 4),
+              Text(_isDebt ? 'Current outstanding balance' : 'Charged every month',
+                style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w500, color: DT.textSecondary)),
+            ]),
           ),
-        ),
-      ),
-    );
-  }
-}
+        )),
 
-// ─── Type toggle ──────────────────────────────────────────────────────────────
+        // ── Scrollable form ────────────────────────────────────────────
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            FloatingField(controller: _titleController, label: 'Title', icon: Icons.edit_outlined,
+              hint: _isDebt ? 'e.g. Car loan, PTPTN' : 'e.g. Unifi fibre, Netflix', capitalization: TextCapitalization.words),
+            FloatingField(controller: _creditorController, label: _isDebt ? 'Lender' : 'Biller', icon: Icons.account_balance_outlined,
+              hint: _isDebt ? 'Who you owe' : 'Company you pay', capitalization: TextCapitalization.words),
 
-class _TypeToggle extends StatelessWidget {
-  final bool isDebt;
-  final VoidCallback onDebt;
-  final VoidCallback onBill;
-  const _TypeToggle({required this.isDebt, required this.onDebt, required this.onBill});
+            const SizedBox(height: 4),
+            _Label('CATEGORY'),
+            const SizedBox(height: 8),
+            GridView.count(
+              crossAxisCount: 3, shrinkWrap: true, padding: EdgeInsets.zero, physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1.55,
+              children: _categories.map((cat) {
+                final sel = _category == cat.value;
+                return GestureDetector(onTap: () => setState(() => _category = cat.value), child: Container(
+                  decoration: BoxDecoration(
+                    color: sel ? _accent.withValues(alpha: 0.12) : DT.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: sel ? _accent : DT.border, width: 1.5)),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(cat.icon, size: 18, color: sel ? _accent : DT.textSecondary),
+                    const SizedBox(height: 6),
+                    Text(cat.label, style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.text)),
+                  ]),
+                ));
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: DT.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: DT.border),
-      ),
-      child: Row(children: [
-        _Tab(label: 'Debt / Loan', icon: Icons.account_balance_outlined, selected: isDebt, color: DT.catDebts, onTap: onDebt),
-        _Tab(label: 'Bill / Subscription', icon: Icons.receipt_outlined, selected: !isDebt, color: DT.catBills, onTap: onBill),
+            // Monthly payment — debt only (a bill's monthly IS the hero)
+            if (_isDebt)
+              FloatingField(controller: _monthlyController, label: 'Monthly payment', icon: Icons.payments_outlined,
+                hint: 'How much you repay each month', prefixText: 'RM ',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+
+            _Label('DUE DAY EACH MONTH'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: _kDueDays.map((day) {
+              final sel = _dueDay == day;
+              return GestureDetector(onTap: () => setState(() => _dueDay = day), child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: sel ? DT.text : DT.surface, borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: sel ? DT.text : DT.border)),
+                child: Text('$day${day == 1 ? 'st' : 'th'}',
+                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: sel ? Colors.white : DT.text)),
+              ));
+            }).toList()),
+            const SizedBox(height: 16),
+
+            // Payoff preview — debt only
+            if (_isDebt && _payoffMonths > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: DT.catDebts.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  Container(width: 40, height: 40, alignment: Alignment.center,
+                    decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(11)),
+                    child: const Icon(Icons.schedule_rounded, size: 19, color: DT.catDebts)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Paid off in ${_payoffLabel()}', style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.2)),
+                    Text('$_payoffMonths payment${_payoffMonths == 1 ? '' : 's'} of RM ${_monthlyNum.toStringAsFixed(0)}',
+                      style: GoogleFonts.manrope(fontSize: 11.5, fontWeight: FontWeight.w500, color: DT.textSecondary)),
+                  ])),
+                ]),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            FloatingField(controller: _descController, label: 'Notes', icon: Icons.notes_rounded,
+              hint: 'Any additional details', optional: true, maxLines: 3),
+          ]),
+        )),
       ]),
+
+      // ── Sticky footer CTA ───────────────────────────────────────────
+      bottomNavigationBar: SafeArea(child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+        decoration: const BoxDecoration(color: DT.surface, border: Border(top: BorderSide(color: DT.border))),
+        child: GestureDetector(onTap: _canSubmit ? _create : null, child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150), height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(color: _canSubmit ? DT.text : DT.surfaceAlt, borderRadius: BorderRadius.circular(14)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(_heroNum > 0 ? 'RM ${_heroNum.toStringAsFixed(2)}${_isDebt ? '' : '/mo'}' : 'Enter amount',
+              style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600, color: _canSubmit ? Colors.white70 : DT.textTertiary)),
+            _isLoading
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_isDebt ? 'Add debt' : 'Add bill',
+                    style: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w800, color: _canSubmit ? Colors.white : DT.textTertiary, letterSpacing: -0.2)),
+                  const SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, size: 18, color: _canSubmit ? Colors.white : DT.textTertiary),
+                ]),
+          ]),
+        )),
+      )),
     );
   }
 }
 
-class _Tab extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-  const _Tab({required this.label, required this.icon, required this.selected, required this.color, required this.onTap});
-
+// ─── Type toggle tab ────────────────────────────────────────────────────────
+class _TypeTab extends StatelessWidget {
+  final String label; final IconData icon; final bool selected; final VoidCallback onTap;
+  const _TypeTab({required this.label, required this.icon, required this.selected, required this.onTap});
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: selected ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: selected ? Colors.white : DT.textSecondary),
-            const SizedBox(width: 6),
-            Text(label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: selected ? Colors.white : DT.textSecondary)),
-          ],
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => Expanded(child: GestureDetector(onTap: onTap, child: AnimatedContainer(
+    duration: const Duration(milliseconds: 150),
+    padding: const EdgeInsets.symmetric(vertical: 9),
+    decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(9)),
+    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(icon, size: 15, color: selected ? DT.text : Colors.white70),
+      const SizedBox(width: 7),
+      Text(label, style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w700, color: selected ? DT.text : Colors.white70)),
+    ]),
+  )));
 }
 
-// ─── Section label ────────────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel(this.label);
+// ─── Section label ──────────────────────────────────────────────────────────
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
   @override
-  Widget build(BuildContext context) => Text(
-    label.toUpperCase(),
-    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.textTertiary, letterSpacing: 0.5),
-  );
-}
-
-// ─── Text field ───────────────────────────────────────────────────────────────
-
-class _Field extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final String hint;
-  final TextInputType? keyboardType;
-  final TextCapitalization capitalization;
-  final List<TextInputFormatter>? inputFormatters;
-  final int maxLines;
-
-  const _Field({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    required this.hint,
-    this.keyboardType,
-    this.capitalization = TextCapitalization.none,
-    this.inputFormatters,
-    this.maxLines = 1,
-  });
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: controller,
-    keyboardType: keyboardType,
-    textCapitalization: capitalization,
-    inputFormatters: inputFormatters,
-    maxLines: maxLines,
-    style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: DT.text),
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: hint,
-      labelStyle: GoogleFonts.manrope(fontSize: 12, color: DT.textSecondary),
-      hintStyle: GoogleFonts.manrope(fontSize: 13, color: DT.textTertiary),
-      prefixIcon: Icon(icon, size: 18, color: DT.textSecondary),
-      filled: true,
-      fillColor: DT.surface,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: DT.accent, width: 1.5)),
-    ),
-  );
+  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(left: 4),
+    child: Text(text, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.5)));
 }
