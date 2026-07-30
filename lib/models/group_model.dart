@@ -19,6 +19,8 @@ class GroupModel {
   final bool autoApproveExpenses; // Auto-approve expenses without admin review
   final String? iconEmoji; // chosen emoji, e.g. '🏠'
   final String? iconUrl; // uploaded photo (Storage URL)
+  final double goalAmount; // savings target; 0 = no goal / open-ended monthly group
+  final bool isSettled; // goal reached & closed: no more monthly contributions
 
   GroupModel({
     required this.id,
@@ -39,6 +41,8 @@ class GroupModel {
     this.autoApproveExpenses = false,
     this.iconEmoji,
     this.iconUrl,
+    this.goalAmount = 0.0,
+    this.isSettled = false,
   });
 
   factory GroupModel.fromMap(Map<String, dynamic> data, String id) {
@@ -67,6 +71,8 @@ class GroupModel {
       autoApproveExpenses: data['autoApproveExpenses'] ?? false,
       iconEmoji: data['iconEmoji'],
       iconUrl: data['iconUrl'],
+      goalAmount: (data['goalAmount'] ?? 0.0).toDouble(),
+      isSettled: data['isSettled'] ?? false,
     );
   }
 
@@ -89,6 +95,8 @@ class GroupModel {
       'autoApproveExpenses': autoApproveExpenses,
       'iconEmoji': iconEmoji,
       'iconUrl': iconUrl,
+      'goalAmount': goalAmount,
+      'isSettled': isSettled,
     };
   }
 
@@ -107,6 +115,8 @@ class GroupModel {
     bool? autoApproveExpenses,
     String? iconEmoji,
     String? iconUrl,
+    double? goalAmount,
+    bool? isSettled,
   }) {
     return GroupModel(
       id: id,
@@ -127,6 +137,8 @@ class GroupModel {
       autoApproveExpenses: autoApproveExpenses ?? this.autoApproveExpenses,
       iconEmoji: iconEmoji ?? this.iconEmoji,
       iconUrl: iconUrl ?? this.iconUrl,
+      goalAmount: goalAmount ?? this.goalAmount,
+      isSettled: isSettled ?? this.isSettled,
     );
   }
 }

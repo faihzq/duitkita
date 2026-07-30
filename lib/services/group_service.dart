@@ -187,6 +187,8 @@ class GroupService {
     String? accountHolderName,
     bool? autoApprovePayments,
     bool? autoApproveExpenses,
+    double? goalAmount,
+    bool? isSettled,
   }) async {
     try {
       final updateData = <String, dynamic>{'updatedAt': DateTime.now()};
@@ -201,6 +203,8 @@ class GroupService {
       if (accountHolderName != null) updateData['accountHolderName'] = accountHolderName;
       if (autoApprovePayments != null) updateData['autoApprovePayments'] = autoApprovePayments;
       if (autoApproveExpenses != null) updateData['autoApproveExpenses'] = autoApproveExpenses;
+      if (goalAmount != null) updateData['goalAmount'] = goalAmount;
+      if (isSettled != null) updateData['isSettled'] = isSettled;
 
       await _groups.doc(groupId).update(updateData);
     } catch (e) {

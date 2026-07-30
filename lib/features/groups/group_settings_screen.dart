@@ -51,6 +51,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final descCtrl = TextEditingController(text: group.description);
     final amtCtrl = TextEditingController(text: group.monthlyAmount.toStringAsFixed(2));
     final balCtrl = TextEditingController(text: group.initialBalance.toStringAsFixed(2));
+    final goalCtrl = TextEditingController(text: group.goalAmount > 0 ? group.goalAmount.toStringAsFixed(2) : '');
 
     final ok = await showDialog<bool>(
       context: context,
@@ -63,6 +64,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           FloatingField(controller: descCtrl, gap: 0, label: 'Description', icon: Icons.notes_outlined, maxLines: 2),
           FloatingField(controller: amtCtrl, gap: 0, label: 'Monthly amount (RM)', icon: Icons.payments_outlined, keyboardType: TextInputType.number),
           FloatingField(controller: balCtrl, gap: 0, label: 'Starting balance (RM)', icon: Icons.savings_outlined, keyboardType: TextInputType.number),
+          FloatingField(controller: goalCtrl, gap: 0, label: 'Savings goal (RM)', icon: Icons.flag_outlined, hint: 'Leave blank for open-ended', keyboardType: TextInputType.number),
         ],
       ),
     );
@@ -72,17 +74,18 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     if (name.isEmpty) { _snack('Group name cannot be empty'); return; }
     final amt = double.tryParse(amtCtrl.text.trim());
     final bal = double.tryParse(balCtrl.text.trim());
+    final goal = goalCtrl.text.trim().isEmpty ? 0.0 : double.tryParse(goalCtrl.text.trim());
 
     setState(() => _busy = true);
     try {
-      await ref.read(groupServiceProvider).updateGroup(groupId: widget.groupId, name: name, description: descCtrl.text.trim(), monthlyAmount: amt, initialBalance: bal);
+      await ref.read(groupServiceProvider).updateGroup(groupId: widget.groupId, name: name, description: descCtrl.text.trim(), monthlyAmount: amt, initialBalance: bal, goalAmount: goal);
       if (mounted) _snack('Group updated');
     } catch (e) {
       if (mounted) _snack('Error: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-    nameCtrl.dispose(); descCtrl.dispose(); amtCtrl.dispose(); balCtrl.dispose();
+    nameCtrl.dispose(); descCtrl.dispose(); amtCtrl.dispose(); balCtrl.dispose(); goalCtrl.dispose();
   }
 
   // ─── Group icon ─────────────────────────────────────────────────────────────
@@ -155,6 +158,20 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       } finally {
         if (mounted) setState(() => _busy = false);
       }
+    }
+  }
+
+  // ─── Settle / reopen ────────────────────────────────────────────────────────
+
+  Future<void> _setSettled(GroupModel group, bool value) async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(groupServiceProvider).updateGroup(groupId: widget.groupId, isSettled: value);
+      if (mounted) _snack(value ? 'Group settled — monthly collection stopped' : 'Group reopened');
+    } catch (e) {
+      if (mounted) _snack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -691,6 +708,12 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                           onTap: (isAdmin && !_busy) ? () => _setReminderDay(group) : null,
                         ),
                         _Divider(),
+                        _ValueRow(
+                          label: 'Savings goal',
+                          value: group.goalAmount > 0 ? 'RM ${group.goalAmount.toStringAsFixed(0)}' : 'None',
+                          onTap: (isAdmin && !_busy) ? () => _editGroup(group) : null,
+                        ),
+                        _Divider(),
                         const _ValueRow(label: 'Currency', value: '🇲🇾 MYR · RM', last: true),
                       ]),
 
@@ -761,6 +784,14 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                             subtitle: group.autoApproveExpenses ? 'Expenses approved instantly' : 'Requires admin review',
                             value: group.autoApproveExpenses,
                             onChanged: _busy ? null : (_) => _toggleAutoApproveExpense(group),
+                          ),
+                          _Divider(),
+                          _ToggleRow(
+                            icon: Icons.flag_circle_outlined, iconBg: DT.primarySoft, iconColor: DT.primary,
+                            label: 'Settled',
+                            subtitle: group.isSettled ? 'Goal reached — no monthly collection' : 'Still collecting monthly',
+                            value: group.isSettled,
+                            onChanged: _busy ? null : (v) => _setSettled(group, v),
                           ),
                         ]),
 

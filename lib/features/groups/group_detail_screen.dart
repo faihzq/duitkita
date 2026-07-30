@@ -135,6 +135,43 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     SharePlus.instance.share(ShareParams(text: lines.toString()));
   }
 
+  Future<void> _settleGroup(String groupName) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: DT.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(width: 40, height: 40, decoration: BoxDecoration(color: DT.successSoft, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.flag_rounded, color: DT.success, size: 20)),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Settle "$groupName"?', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: DT.text))),
+            ]),
+            const SizedBox(height: 12),
+            Text('Monthly collection stops. Members can still add expenses and loans to track where the money goes. You can reopen it anytime from settings.',
+              style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary, height: 1.4)),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: GestureDetector(onTap: () => Navigator.pop(ctx, false), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(border: Border.all(color: DT.border), borderRadius: BorderRadius.circular(12)), child: Center(child: Text('Cancel', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.textSecondary)))))),
+              const SizedBox(width: 12),
+              Expanded(child: GestureDetector(onTap: () => Navigator.pop(ctx, true), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: DT.success, borderRadius: BorderRadius.circular(12)), child: Center(child: Text('Settle', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)))))),
+            ]),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(groupServiceProvider).updateGroup(groupId: widget.groupId, isSettled: true);
+      messenger.showSnackBar(const SnackBar(content: Text('Group settled 🎉')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   // ─── Build ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -157,6 +194,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         }
         final members = membersAsync.valueOrNull ?? [];
         final isAdmin = members.any((m) => m.userId == userId && m.isAdmin);
+
+        // Cumulative savings toward the goal: starting balance + all confirmed
+        // contributions ever (not just this month).
+        final allPayments = ref.watch(groupPaymentsStreamProvider(widget.groupId)).valueOrNull ?? [];
+        final totalCollected = group.initialBalance +
+            allPayments.where((p) => p.paymentStatus == 'confirmed').fold<double>(0, (s, p) => s + p.amount);
+        final goal = group.goalAmount;
+        final settled = group.isSettled;
+        final goalReached = goal > 0 && totalCollected >= goal;
 
         return Scaffold(
           backgroundColor: DT.bg,
@@ -239,28 +285,100 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                           onPickMonth: _showMonthPicker,
                         ),
 
+                        // ── Savings goal / settled banner ────────
+                        if (settled || goal > 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: settled ? DT.successSoft : DT.catGroupsSoft,
+                                borderRadius: BorderRadius.circular(DS.cardRadius),
+                                border: Border.all(color: (settled ? DT.success : DT.catGroups).withValues(alpha: 0.25)),
+                              ),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Row(children: [
+                                  Icon(settled ? Icons.verified_rounded : Icons.flag_rounded, size: 18, color: settled ? DT.success : DT.catGroups),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(
+                                    settled
+                                        ? 'Settled · RM${totalCollected.toStringAsFixed(0)} collected'
+                                        : 'Savings goal · RM${totalCollected.toStringAsFixed(0)} of RM${goal.toStringAsFixed(0)}',
+                                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: DT.text),
+                                  )),
+                                  if (!settled)
+                                    Text('${((totalCollected / goal) * 100).clamp(0, 100).toStringAsFixed(0)}%',
+                                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: DT.catGroups)),
+                                ]),
+                                if (!settled) ...[
+                                  const SizedBox(height: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: LinearProgressIndicator(
+                                      value: (totalCollected / goal).clamp(0.0, 1.0),
+                                      minHeight: 7,
+                                      backgroundColor: Colors.white.withValues(alpha: 0.6),
+                                      valueColor: const AlwaysStoppedAnimation<Color>(DT.catGroups),
+                                    ),
+                                  ),
+                                ],
+                                if (settled)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text('No monthly collection — expenses & loans still tracked.',
+                                      style: GoogleFonts.manrope(fontSize: 11.5, color: DT.textSecondary)),
+                                  ),
+                                // Auto-suggested settle when the goal is reached.
+                                if (goalReached && !settled) ...[
+                                  const SizedBox(height: 12),
+                                  if (isAdmin)
+                                    GestureDetector(
+                                      onTap: () => _settleGroup(group.name),
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        decoration: BoxDecoration(color: DT.success, borderRadius: BorderRadius.circular(10)),
+                                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                          const Icon(Icons.flag_rounded, size: 16, color: Colors.white),
+                                          const SizedBox(width: 8),
+                                          Text('Goal reached — settle group', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                                        ]),
+                                      ),
+                                    )
+                                  else
+                                    Text('🎉 Goal reached! Waiting for an admin to settle.',
+                                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: DT.success)),
+                                ],
+                              ]),
+                            ),
+                          ),
+
                         // ── Action buttons ───────────────────────
                         if (userId != null)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                             child: Row(
                               children: [
-                                Expanded(
-                                  child: _ActionBtn(
-                                    label: 'Pay my share',
-                                    icon: Icons.qr_code_2_rounded,
-                                    primary: true,
-                                    onTap: () => Navigator.of(context).push(
-                                      AppTheme.slideRoute(AddPaymentScreen(
-                                        groupId: widget.groupId,
-                                        monthlyAmount: group.monthlyAmount,
-                                        selectedMonth: _selectedMonth,
-                                        selectedYear: _selectedYear,
-                                      )),
+                                // Monthly contribution only matters while the group
+                                // is still collecting (not settled).
+                                if (!settled) ...[
+                                  Expanded(
+                                    child: _ActionBtn(
+                                      label: 'Pay my share',
+                                      icon: Icons.qr_code_2_rounded,
+                                      primary: true,
+                                      onTap: () => Navigator.of(context).push(
+                                        AppTheme.slideRoute(AddPaymentScreen(
+                                          groupId: widget.groupId,
+                                          monthlyAmount: group.monthlyAmount,
+                                          selectedMonth: _selectedMonth,
+                                          selectedYear: _selectedYear,
+                                        )),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
+                                  const SizedBox(width: 8),
+                                ],
                                 Expanded(
                                   child: _ActionBtn(
                                     label: 'Add loan',
@@ -839,6 +957,30 @@ class _ExpensesTab extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: _ExpenseCard(expense: e),
             )),
+
+            const SizedBox(height: 4),
+            // View all / add
+            GestureDetector(
+              onTap: () => onNavigate(ExpenseListScreen(groupId: groupId, groupName: groupName)),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      expenses.length > _previewLimit
+                          ? 'View all ${expenses.length} expenses'
+                          : 'Manage expenses',
+                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -1067,34 +1209,6 @@ class _MemberCard extends StatelessWidget {
               ),
             ],
           ),
-
-          // Pay button for current user (unpaid / rejected)
-          if (isCurrentUser && status != 'confirmed' && status != 'pending') ...[
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                AppTheme.slideRoute(AddPaymentScreen(
-                  groupId: groupId,
-                  monthlyAmount: group.monthlyAmount as double,
-                  selectedMonth: selectedMonth,
-                  selectedYear: selectedYear,
-                )),
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(10)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 16, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text('Pay my share', style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-                  ],
-                ),
-              ),
-            ),
-          ],
 
           // Review button for admin + pending payment
           if (isAdmin && status == 'pending' && info.payment != null) ...[

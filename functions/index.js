@@ -423,6 +423,9 @@ exports.dailyPaymentReminder = onSchedule(
         const monthlyAmount = groupData.monthlyAmount || 0;
         const memberIds = groupData.memberIds || [];
 
+        // Settled groups have reached their goal — no more monthly collection.
+        if (groupData.isSettled === true) continue;
+
         // Get all confirmed payments for this group this month
         const paymentsSnapshot = await db
           .collection("payments")
