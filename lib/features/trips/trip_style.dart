@@ -20,29 +20,34 @@ StopTypeStyle stopTypeStyle(StopType t) => switch (t) {
 /// Glyph keys stored on a stop → Material icons. The handoff draws these as
 /// inline SVG line-icons; the closest rounded Material equivalent is used here.
 class TripGlyphs {
+  /// Outlined variants throughout: the handoff's `TIcon` set is entirely
+  /// stroke-drawn, so Material's filled `_rounded` icons read far heavier than
+  /// the frame. These are the closest line equivalents.
   static const _map = <String, IconData>{
-    'car': Icons.directions_car_rounded,
-    'ferry': Icons.directions_ferry_rounded,
-    'boat': Icons.sailing_rounded,
-    'cablecar': Icons.tram_rounded,
-    'plane': Icons.flight_rounded,
-    'train': Icons.train_rounded,
-    'food': Icons.restaurant_rounded,
-    'cafe': Icons.local_cafe_rounded,
-    'mosque': Icons.mosque_rounded,
-    'mountain': Icons.landscape_rounded,
-    'bag': Icons.shopping_bag_rounded,
-    'camera': Icons.photo_camera_rounded,
-    'wave': Icons.waves_rounded,
-    'flag': Icons.flag_rounded,
-    'pin': Icons.place_rounded,
-    'home': Icons.home_rounded,
-    'hotel': Icons.hotel_rounded,
-    'clock': Icons.schedule_rounded,
-    'beach': Icons.beach_access_rounded,
+    'car': Icons.directions_car_outlined,
+    'ferry': Icons.directions_ferry_outlined,
+    'boat': Icons.directions_boat_outlined,
+    // Material has no cable-car glyph in this Flutter version (only `cable`,
+    // an ethernet lead). A tram is the nearest hanging-cabin shape.
+    'cablecar': Icons.tram_outlined,
+    'plane': Icons.flight_outlined,
+    'train': Icons.train_outlined,
+    'food': Icons.restaurant_outlined,
+    'cafe': Icons.local_cafe_outlined,
+    'mosque': Icons.mosque_outlined,
+    'mountain': Icons.landscape_outlined,
+    'bag': Icons.shopping_bag_outlined,
+    'camera': Icons.photo_camera_outlined,
+    'wave': Icons.waves_outlined,
+    'flag': Icons.flag_outlined,
+    'pin': Icons.place_outlined,
+    'home': Icons.home_outlined,
+    'hotel': Icons.hotel_outlined,
+    'clock': Icons.schedule_outlined,
+    'beach': Icons.beach_access_outlined,
   };
 
-  static IconData icon(String key) => _map[key] ?? Icons.place_rounded;
+  static IconData icon(String key) => _map[key] ?? Icons.place_outlined;
 
   /// Glyphs offered in the Add-a-stop picker, grouped by the type they suit.
   static List<String> forType(StopType t) => switch (t) {
@@ -67,6 +72,11 @@ class TripBands {
 
   static const keys = ['navy', 'teal', 'gold', 'plum', 'sunset', 'sky'];
 
+  /// Band assigned at creation time — there is no picker in the design, so it
+  /// is derived from the trip name. Deterministic, so a given trip always keeps
+  /// the same colour, and different trips in a list vary.
+  static String autoKey(String seed) => keys[_hash(seed) % keys.length];
+
   static LinearGradient gradient(String? key) {
     final colors = _presets[key] ?? _presets['navy']!;
     return LinearGradient(
@@ -84,8 +94,21 @@ const tripHeaderGradient = LinearGradient(
   end: Alignment.bottomRight,
 );
 
-/// Emoji offered when creating a trip.
+/// Emoji pool for the trip card tile. Like the colour band, it is assigned
+/// automatically — the design has no picker for it.
 const kTripEmojis = [
   '🦅', '🌿', '🏛️', '🏝️', '⛰️', '🕌', '🚗', '✈️',
   '🛳️', '🏕️', '🎡', '🍜', '📸', '🌊', '🎿', '🗺️',
 ];
+
+String autoTripEmoji(String seed) => kTripEmojis[_hash(seed) % kTripEmojis.length];
+
+/// Stable non-negative hash — `String.hashCode` is not guaranteed stable across
+/// runs, and these values are persisted on the trip document.
+int _hash(String s) {
+  var h = 0;
+  for (final ch in s.codeUnits) {
+    h = (h * 31 + ch) & 0x7FFFFFFF;
+  }
+  return h;
+}

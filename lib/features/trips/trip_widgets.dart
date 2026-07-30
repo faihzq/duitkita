@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/models/trip_model.dart';
@@ -119,6 +120,9 @@ class TravellerAvatarStack extends StatelessWidget {
     this.max = 5,
   });
 
+  /// Design overlap between adjacent avatars.
+  static const _overlap = 10.0;
+
   @override
   Widget build(BuildContext context) {
     if (travellers.isEmpty) return const SizedBox.shrink();
@@ -126,12 +130,19 @@ class TravellerAvatarStack extends StatelessWidget {
     final extra = travellers.length - shown.length;
     final ring = onDark ? DT.headerGradientEnd : DT.surface;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < shown.length; i++)
-          Container(
-            margin: EdgeInsets.only(left: i == 0 ? 0 : -10),
+    // Avatar plus its 2px ring on each side.
+    final outer = size + 4;
+    final advance = outer - _overlap;
+    final count = shown.length + (extra > 0 ? 1 : 0);
+
+    // Laid out with a Stack, not negative margins — Container asserts that
+    // margin is non-negative, which crashed as soon as a second avatar existed.
+    final items = <Widget>[
+      for (var i = 0; i < shown.length; i++)
+        Positioned(
+          left: i * advance,
+          top: 0,
+          child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: ring, width: 2),
@@ -142,11 +153,14 @@ class TravellerAvatarStack extends StatelessWidget {
               size: size,
             ),
           ),
-        if (extra > 0)
-          Container(
-            margin: const EdgeInsets.only(left: -10),
-            width: size + 4,
-            height: size + 4,
+        ),
+      if (extra > 0)
+        Positioned(
+          left: shown.length * advance,
+          top: 0,
+          child: Container(
+            width: outer,
+            height: outer,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: onDark ? Colors.white24 : DT.primarySoft,
@@ -163,7 +177,15 @@ class TravellerAvatarStack extends StatelessWidget {
               ),
             ),
           ),
-      ],
+        ),
+    ];
+
+    return SizedBox(
+      width: outer + (count - 1) * advance,
+      height: outer,
+      // Reversed so the leftmost avatar paints on top, matching the design's
+      // descending z-index.
+      child: Stack(children: items.reversed.toList()),
     );
   }
 }
@@ -380,6 +402,47 @@ class TripInput extends StatelessWidget {
   }
 }
 
+/// Capitalises the first letter of each word as it is typed.
+///
+/// `TextCapitalization` alone is only a hint to the soft keyboard: Flutter does
+/// not transform the text, many IMEs apply it only once a word is committed
+/// with a space, and it is ignored outright when the user has auto-capitalise
+/// switched off. This enforces it regardless of keyboard.
+///
+/// Only lowercase letters at a word start are touched, so deliberate casing
+/// like "TS Duty Free" or "McDonald" survives. When nothing needs changing the
+/// incoming value is returned untouched, which keeps the IME's composing region
+/// — and therefore autocorrect and swipe typing — intact for most keystrokes.
+class TitleCaseFormatter extends TextInputFormatter {
+  const TitleCaseFormatter();
+
+  static final _lower = RegExp(r'[a-z]');
+  static const _breaks = {' ', '\n', '\t', '-', '/', '(', ',', '.'};
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.isEmpty) return newValue;
+
+    final buffer = StringBuffer();
+    var atWordStart = true;
+    for (var i = 0; i < text.length; i++) {
+      final ch = text[i];
+      buffer.write(atWordStart && _lower.hasMatch(ch) ? ch.toUpperCase() : ch);
+      atWordStart = _breaks.contains(ch);
+    }
+
+    final result = buffer.toString();
+    if (result == text) return newValue;
+
+    // Same length, so the incoming selection stays valid.
+    return TextEditingValue(text: result, selection: newValue.selection);
+  }
+}
+
 /// Borderless text field sized to sit inside a [TripInput].
 class TripTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -387,6 +450,7 @@ class TripTextField extends StatelessWidget {
   final bool big;
   final int maxLines;
   final TextCapitalization capitalization;
+  final List<TextInputFormatter>? inputFormatters;
   final ValueChanged<String>? onChanged;
 
   const TripTextField({
@@ -396,6 +460,7 @@ class TripTextField extends StatelessWidget {
     this.big = false,
     this.maxLines = 1,
     this.capitalization = TextCapitalization.sentences,
+    this.inputFormatters,
     this.onChanged,
   });
 
@@ -405,6 +470,7 @@ class TripTextField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       textCapitalization: capitalization,
+      inputFormatters: inputFormatters,
       onChanged: onChanged,
       cursorColor: DT.accent,
       style: GoogleFonts.manrope(
@@ -416,7 +482,14 @@ class TripTextField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         isDense: true,
+        // All three must be cleared, not just `border`: InputDecoration pulls
+        // any null field from the global InputDecorationTheme, which supplies
+        // an outlined enabled/focused border and a fill — that would draw a
+        // second border inside the surrounding [TripInput].
+        filled: false,
         border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
         contentPadding: EdgeInsets.symmetric(vertical: big ? 13 : 11),
         hintText: placeholder,
         hintStyle: GoogleFonts.manrope(
@@ -515,6 +588,48 @@ class TripPrimaryButton extends StatelessWidget {
   }
 }
 
+/// Rounded dashed outline — Flutter has no dashed `BoxBorder`, so anything that
+/// needs one (the "Add" destination chip, the "Add a stop" row) paints it.
+class DashedBorderPainter extends CustomPainter {
+  final double radius;
+
+  /// 1 for the "Add" destination chip, 1.5 for the "Add a stop" row.
+  final double strokeWidth;
+
+  const DashedBorderPainter({required this.radius, this.strokeWidth = 1});
+
+  static const _dash = 5.0;
+  static const _gap = 4.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = DT.borderStrong
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Offset.zero & size,
+        // A pill radius must not exceed half the height.
+        Radius.circular(radius.clamp(0, size.height / 2)),
+      ));
+
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = (distance + _dash).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance = end + _gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(DashedBorderPainter old) =>
+      old.radius != radius || old.strokeWidth != strokeWidth;
+}
+
 /// The `car/ferry · time · km` pill used above a stop card and on stop detail.
 class LegPill extends StatelessWidget {
   final String label;
@@ -524,7 +639,7 @@ class LegPill extends StatelessWidget {
   const LegPill({
     super.key,
     required this.label,
-    this.icon = Icons.directions_car_rounded,
+    this.icon = Icons.directions_car_outlined,
     this.large = false,
   });
 

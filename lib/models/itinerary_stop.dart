@@ -195,6 +195,13 @@ class TripMaps {
   static Uri directions(String destination) => Uri.parse(
       'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${Uri.encodeComponent(destination)}');
 
+  /// A single leg between two stops. Used to read off a drive time and distance
+  /// to enter by hand — Maps deep links are one-way, so nothing comes back.
+  static Uri leg(String origin, String destination) => Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+      '&origin=${Uri.encodeComponent(origin)}'
+      '&destination=${Uri.encodeComponent(destination)}');
+
   /// Chain a day's mappable stops into one driving route. Break/prayer stops are
   /// excluded — they're rest points, not places you navigate to.
   /// Returns null when nothing on the day is mappable.

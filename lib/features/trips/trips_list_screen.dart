@@ -256,7 +256,7 @@ class TripCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_rounded,
+                  const Icon(Icons.calendar_today_outlined,
                       size: 15, color: DT.textTertiary),
                   const SizedBox(width: 12),
                   Expanded(
@@ -313,7 +313,7 @@ class TripCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.route_rounded,
+                  const Icon(Icons.route_outlined,
                       size: 15, color: DT.textTertiary),
                   const SizedBox(width: 5),
                   Text(

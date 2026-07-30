@@ -204,12 +204,12 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                         ),
                         const SizedBox(width: 14),
                         _HeaderStat(
-                          icon: Icons.route_rounded,
+                          icon: Icons.route_outlined,
                           label: '${stops.length} stops',
                         ),
                         const SizedBox(width: 14),
                         _HeaderStat(
-                          icon: Icons.calendar_today_rounded,
+                          icon: Icons.calendar_today_outlined,
                           label: '${trip.dayCount} days',
                         ),
                       ],
@@ -274,13 +274,13 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                             Row(
                               children: [
                                 _TotalChip(
-                                  icon: Icons.schedule_rounded,
+                                  icon: Icons.schedule_outlined,
                                   label: formatDuration(totals.minutes),
                                 ),
                                 if (totals.km > 0) ...[
                                   const SizedBox(width: 8),
                                   _TotalChip(
-                                    icon: Icons.directions_car_rounded,
+                                    icon: Icons.directions_car_outlined,
                                     label: '${totals.km.round()} km',
                                   ),
                                 ],
@@ -326,7 +326,7 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                               color: DT.accentDeep,
                               borderRadius: BorderRadius.circular(11),
                             ),
-                            child: const Icon(Icons.route_rounded,
+                            child: const Icon(Icons.route_outlined,
                                 size: 19, color: Colors.white),
                           ),
                           const SizedBox(width: 11),
@@ -416,7 +416,7 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                       color: DT.accentSoft,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.account_balance_wallet_rounded,
+                    child: const Icon(Icons.account_balance_wallet_outlined,
                         size: 20, color: DT.accentDeep),
                   ),
                 ),
@@ -726,7 +726,7 @@ class _EmptyDay extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: DT.border),
           ),
-          child: const Icon(Icons.route_rounded, size: 28, color: DT.textTertiary),
+          child: const Icon(Icons.route_outlined, size: 28, color: DT.textTertiary),
         ),
         const SizedBox(height: 14),
         Text(
@@ -761,7 +761,7 @@ class _DashedButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: CustomPaint(
-        painter: _DashedBorderPainter(radius: 13),
+        painter: const DashedBorderPainter(radius: 13, strokeWidth: 1.5),
         child: Container(
           height: 46,
           decoration: BoxDecoration(
@@ -789,38 +789,3 @@ class _DashedButton extends StatelessWidget {
   }
 }
 
-/// Rounded dashed outline — Flutter has no dashed BoxBorder.
-class _DashedBorderPainter extends CustomPainter {
-  final double radius;
-
-  const _DashedBorderPainter({required this.radius});
-
-  static const _dash = 5.0;
-  static const _gap = 4.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = DT.borderStrong
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
-
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = (distance + _dash).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance = end + _gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) => old.radius != radius;
-}

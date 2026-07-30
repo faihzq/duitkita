@@ -9,6 +9,7 @@ import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/trip_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/trips/itinerary_screen.dart';
+import 'package:duitkita/features/trips/trip_date_picker.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
 
@@ -28,8 +29,6 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
   DateTime? _start;
   DateTime? _end;
   TripStatus _status = TripStatus.tentative;
-  String _emoji = '🗺️';
-  String _band = 'navy';
 
   bool _saving = false;
   bool _seededSelf = false;
@@ -54,11 +53,12 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
     final initial = isStart
         ? (_start ?? now)
         : (_end ?? _start ?? now);
-    final picked = await showDatePicker(
+    final picked = await showTripDatePicker(
       context: context,
       initialDate: initial,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
+      helpText: isStart ? 'TRIP STARTS' : 'TRIP ENDS',
     );
     if (picked == null) return;
     setState(() {
@@ -74,33 +74,27 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
   }
 
   Future<void> _addDestination() async {
-    final controller = TextEditingController();
     final value = await showDialog<String>(
       context: context,
-      builder: (ctx) => _TextPromptDialog(
+      builder: (_) => const _TextPromptDialog(
         title: 'Add a destination',
         hint: 'Kedah',
-        controller: controller,
       ),
     );
-    controller.dispose();
     final v = value?.trim();
     if (v == null || v.isEmpty) return;
     if (!_destinations.contains(v)) setState(() => _destinations.add(v));
   }
 
   Future<void> _addTraveller() async {
-    final controller = TextEditingController();
     final email = await showDialog<String>(
       context: context,
-      builder: (ctx) => _TextPromptDialog(
+      builder: (_) => const _TextPromptDialog(
         title: 'Add a traveller',
         hint: 'name@email.com',
         keyboardType: TextInputType.emailAddress,
-        controller: controller,
       ),
     );
-    controller.dispose();
     final v = email?.trim();
     if (v == null || v.isEmpty) return;
 
@@ -137,6 +131,9 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
       return;
     }
     setState(() => _saving = true);
+    // The design has no cover picker — the card emoji and colour band are
+    // derived from the trip name, so they stay stable and vary between trips.
+    final seed = _name.text.trim();
     try {
       final tripId = await ref.read(tripServiceProvider).createTrip(
             name: _name.text,
@@ -145,8 +142,8 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
             endDate: _end!,
             destinations: _destinations,
             status: _status,
-            emoji: _emoji,
-            bandGradient: _band,
+            emoji: autoTripEmoji(seed),
+            bandGradient: TripBands.autoKey(seed),
             travellers: _travellers,
           );
       if (!mounted) return;
@@ -198,105 +195,14 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                   TripField(
                     label: 'Trip name',
                     child: TripInput(
-                      icon: Icons.edit_rounded,
+                      icon: Icons.edit_outlined,
                       big: true,
                       child: TripTextField(
                         controller: _name,
                         placeholder: 'Langkawi Road Trip',
+                        capitalization: TextCapitalization.words,
+                        inputFormatters: const [TitleCaseFormatter()],
                         big: true,
-                      ),
-                    ),
-                  ),
-
-                  // ── Cover ───────────────────────────────────
-                  TripField(
-                    label: 'Cover',
-                    hint: 'Shown on the trip card',
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: DT.surface,
-                        borderRadius: BorderRadius.circular(13),
-                        border: Border.all(color: DT.border),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  gradient: TripBands.gradient(_band),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Center(
-                                  child: Text(_emoji,
-                                      style: const TextStyle(fontSize: 24)),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 40,
-                                  child: ListView.separated(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: kTripEmojis.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(width: 6),
-                                    itemBuilder: (_, i) {
-                                      final e = kTripEmojis[i];
-                                      final on = e == _emoji;
-                                      return GestureDetector(
-                                        onTap: () => setState(() => _emoji = e),
-                                        child: Container(
-                                          width: 40,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: on
-                                                ? DT.primarySoft
-                                                : DT.surfaceAlt,
-                                            borderRadius:
-                                                BorderRadius.circular(11),
-                                            border: on
-                                                ? Border.all(color: DT.text)
-                                                : null,
-                                          ),
-                                          child: Text(e,
-                                              style:
-                                                  const TextStyle(fontSize: 18)),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              for (final key in TripBands.keys)
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => setState(() => _band = key),
-                                    child: Container(
-                                      height: 28,
-                                      margin: const EdgeInsets.only(right: 6),
-                                      decoration: BoxDecoration(
-                                        gradient: TripBands.gradient(key),
-                                        borderRadius: BorderRadius.circular(9),
-                                        border: key == _band
-                                            ? Border.all(
-                                                color: DT.text, width: 2)
-                                            : null,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -323,7 +229,7 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.place_rounded,
+                                  const Icon(Icons.place_outlined,
                                       size: 14, color: DT.accentDeep),
                                   const SizedBox(width: 6),
                                   Text(
@@ -334,40 +240,37 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                                       color: DT.text,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.close_rounded,
-                                      size: 13, color: DT.textSecondary),
                                 ],
                               ),
                             ),
                           ),
                         GestureDetector(
                           onTap: _addDestination,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: DT.surface,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                  color: DT.borderStrong,
-                                  style: BorderStyle.solid),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.add_rounded,
-                                    size: 14, color: DT.textSecondary),
-                                const SizedBox(width: 5),
-                                Text(
-                                  'Add',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: DT.textSecondary,
+                          child: CustomPaint(
+                            painter: const DashedBorderPainter(radius: 999),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: DT.surface,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.add_rounded,
+                                      size: 14, color: DT.textSecondary),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Add',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: DT.textSecondary,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -382,8 +285,9 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                         child: TripField(
                           label: 'Start date',
                           child: TripInput(
-                            icon: Icons.calendar_today_rounded,
-                            value: _start == null ? null : formatTripDate(_start!),
+                            icon: Icons.calendar_today_outlined,
+                            value:
+                                _start == null ? null : formatTripDate(_start!),
                             placeholder: 'Pick a date',
                             onTap: () => _pickDate(isStart: true),
                           ),
@@ -394,7 +298,7 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                         child: TripField(
                           label: 'End date',
                           child: TripInput(
-                            icon: Icons.calendar_today_rounded,
+                            icon: Icons.calendar_today_outlined,
                             value: _end == null ? null : formatTripDate(_end!),
                             placeholder: 'Pick a date',
                             onTap: () => _pickDate(isStart: false),
@@ -516,21 +420,40 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
 
 // ─── Prompt dialog ────────────────────────────────────────────────────────────
 
-class _TextPromptDialog extends StatelessWidget {
+/// Owns its own controller. A caller-created controller disposed right after
+/// `showDialog` returns trips a `_dependents.isEmpty` assertion, because the
+/// field is still mounted through the dialog's exit transition.
+class _TextPromptDialog extends StatefulWidget {
   final String title;
   final String hint;
-  final TextEditingController controller;
   final TextInputType? keyboardType;
 
   const _TextPromptDialog({
     required this.title,
     required this.hint,
-    required this.controller,
     this.keyboardType,
   });
 
   @override
+  State<_TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends State<_TextPromptDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title;
+    final hint = widget.hint;
+    final keyboardType = widget.keyboardType;
+    final controller = _controller;
+
     return AlertDialog(
       backgroundColor: DT.surface,
       shape: RoundedRectangleBorder(

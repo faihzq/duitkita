@@ -2,13 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/models/itinerary_stop.dart';
 import 'package:duitkita/models/trip_model.dart';
 import 'package:duitkita/services/trip_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
+import 'package:duitkita/features/trips/trip_time_picker.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
+
+/// Where a new stop starts when its day has nothing on it yet.
+const _kFallbackTime = TimeOfDay(hour: 9, minute: 0);
+
+/// Gap left after the day's last stop. Deliberately a flat number rather than
+/// something type-aware — a predictable default is easier to correct than a
+/// clever one that guesses wrong.
+const _kGapMinutes = 30;
 
 /// Create a stop, or edit one when [editing] is supplied.
 class AddStopScreen extends ConsumerStatefulWidget {
@@ -42,6 +52,10 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
 
   bool _saving = false;
 
+  /// Set once the user picks a time themselves, after which switching days
+  /// must not overwrite their choice.
+  bool _timeTouched = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,16 +63,18 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     _day = (e?.day ?? widget.initialDay).clamp(1, widget.trip.dayCount);
     _type = e?.type ?? StopType.travel;
     _glyph = e?.icon ?? defaultGlyphFor(_type);
-    _time = e != null
-        ? _parseTime(e.time)
-        : const TimeOfDay(hour: 9, minute: 0);
+    // Editing keeps the stop's own time; a new stop picks up where the day
+    // left off, which is resolved once the stops stream is readable in build.
+    _time = e != null ? _parseTime(e.time) : _kFallbackTime;
     _title.text = e?.title ?? '';
     _place.text = e?.placeQuery ?? '';
     _note.text = e?.note ?? '';
     _about.text = e?.about ?? '';
     if ((e?.legMinutes ?? 0) > 0) _legMins.text = '${e!.legMinutes}';
     if ((e?.legKm ?? 0) > 0) _legKm.text = '${e!.legKm!.round()}';
+    // Both drive the footer CTA and the leg-lookup button's enabled state.
     _title.addListener(() => setState(() {}));
+    _place.addListener(() => setState(() {}));
   }
 
   @override
@@ -77,9 +93,62 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     return TimeOfDay(hour: m ~/ 60, minute: m % 60);
   }
 
+  /// [_kGapMinutes] after the day's last stop, or [_kFallbackTime] when the day
+  /// is empty. Clamped to 23:59 so a late stop can't push the default past
+  /// midnight and land the new stop at the top of the day.
+  static TimeOfDay _defaultTimeFor(List<ItineraryStop> stops, int day) {
+    var latest = -1;
+    for (final s in stops) {
+      if (s.day != day) continue;
+      final m = minutesFromTimeLabel(s.time);
+      if (m > latest) latest = m;
+    }
+    if (latest < 0) return _kFallbackTime;
+    final m = (latest + _kGapMinutes).clamp(0, 23 * 60 + 59);
+    return TimeOfDay(hour: m ~/ 60, minute: m % 60);
+  }
+
+  /// The stop this leg is measured from: the latest one earlier in the day.
+  /// Excludes the stop being edited, and anything with no mappable text.
+  ItineraryStop? _previousStop(List<ItineraryStop> stops) {
+    final now = _time.hour * 60 + _time.minute;
+    ItineraryStop? best;
+    var bestMinutes = -1;
+    for (final s in stops) {
+      if (s.day != _day || s.id == widget.editing?.id) continue;
+      if (s.mapQuery.trim().isEmpty) continue;
+      final m = minutesFromTimeLabel(s.time);
+      if (m <= now && m > bestMinutes) {
+        bestMinutes = m;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /// Where this stop is, for the Maps lookup — the place if given, else the
+  /// title, matching how [ItineraryStop.mapQuery] resolves on save.
+  String get _legDestination {
+    final place = _place.text.trim();
+    return place.isNotEmpty ? place : _title.text.trim();
+  }
+
+  Future<void> _openLegInMaps(ItineraryStop previous) async {
+    final url = TripMaps.leg(previous.mapQuery, _legDestination);
+    final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      showSnackBar(context, 'Could not open Google Maps', isError: true);
+    }
+  }
+
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
-    if (picked != null) setState(() => _time = picked);
+    final picked = await showTripTimePicker(context: context, initial: _time);
+    if (picked == null) return;
+    // From here the time is the user's, so switching days must leave it alone.
+    setState(() {
+      _time = picked;
+      _timeTouched = true;
+    });
   }
 
   void _selectType(StopType t) {
@@ -118,7 +187,10 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
       }
       if (mounted) {
         Navigator.of(context).pop();
-        showSnackBar(context, widget.editing != null ? 'Stop updated' : 'Stop added');
+        showSnackBar(
+          context,
+          widget.editing != null ? 'Stop updated' : 'Stop added',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -128,13 +200,23 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     }
   }
 
-  static String? _emptyToNull(String s) =>
-      s.trim().isEmpty ? null : s.trim();
+  static String? _emptyToNull(String s) => s.trim().isEmpty ? null : s.trim();
 
   @override
   Widget build(BuildContext context) {
     final editing = widget.editing != null;
     final glyphs = TripGlyphs.forType(_type);
+
+    // Resolve the default here rather than in initState: the stops stream may
+    // not have emitted yet on open, and the day chips can change _day later.
+    // Re-running while untouched is what makes switching days re-default.
+    final stops =
+        ref.watch(tripStopsStreamProvider(widget.trip.id)).valueOrNull;
+    if (!editing && !_timeTouched && stops != null) {
+      _time = _defaultTimeFor(stops, _day);
+    }
+    // Resolved after the time above, so the leg follows the chosen slot.
+    final previous = _previousStop(stops ?? const []);
 
     return Scaffold(
       backgroundColor: DT.bg,
@@ -168,12 +250,16 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                             onTap: () => setState(() => _day = n),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 13, vertical: 9),
+                                horizontal: 13,
+                                vertical: 9,
+                              ),
                               decoration: BoxDecoration(
                                 color: active ? DT.text : DT.surface,
                                 borderRadius: BorderRadius.circular(12),
                                 border:
-                                    active ? null : Border.all(color: DT.border),
+                                    active
+                                        ? null
+                                        : Border.all(color: DT.border),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -192,9 +278,10 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                                     style: GoogleFonts.manrope(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
-                                      color: active
-                                          ? Colors.white70
-                                          : DT.textTertiary,
+                                      color:
+                                          active
+                                              ? Colors.white70
+                                              : DT.textTertiary,
                                     ),
                                   ),
                                 ],
@@ -210,7 +297,7 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                   TripField(
                     label: 'Time',
                     child: TripInput(
-                      icon: Icons.schedule_rounded,
+                      icon: Icons.schedule_outlined,
                       value: formatTimeOfDay(_time),
                       onTap: _pickTime,
                     ),
@@ -234,10 +321,12 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                     label: 'Place',
                     hint: 'Add a location so everyone can navigate there',
                     child: TripInput(
-                      icon: Icons.place_rounded,
+                      icon: Icons.place_outlined,
                       child: TripTextField(
                         controller: _place,
                         placeholder: 'Jeti Kuala Perlis',
+                        capitalization: TextCapitalization.words,
+                        inputFormatters: const [TitleCaseFormatter()],
                       ),
                     ),
                   ),
@@ -273,23 +362,26 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: g == _glyph
-                                    ? stopTypeStyle(_type).soft
-                                    : DT.surface,
+                                color:
+                                    g == _glyph
+                                        ? stopTypeStyle(_type).soft
+                                        : DT.surface,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: g == _glyph
-                                      ? stopTypeStyle(_type).color
-                                      : DT.border,
+                                  color:
+                                      g == _glyph
+                                          ? stopTypeStyle(_type).color
+                                          : DT.border,
                                   width: g == _glyph ? 1.5 : 1,
                                 ),
                               ),
                               child: Icon(
                                 TripGlyphs.icon(g),
                                 size: 20,
-                                color: g == _glyph
-                                    ? stopTypeStyle(_type).color
-                                    : DT.textTertiary,
+                                color:
+                                    g == _glyph
+                                        ? stopTypeStyle(_type).color
+                                        : DT.textTertiary,
                               ),
                             ),
                           ),
@@ -300,27 +392,40 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                   // ── Drive estimate ──────────────────────────
                   TripField(
                     label: 'Drive from the previous stop (optional)',
-                    hint: 'Feeds the day totals and the leg pill on the timeline',
-                    child: Row(
+                    hint:
+                        'Feeds the day totals and the leg pill on the timeline',
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: TripInput(
-                            icon: Icons.schedule_rounded,
-                            child: _NumberField(
-                              controller: _legMins,
-                              placeholder: 'Minutes',
-                            ),
+                        if (previous != null) ...[
+                          _LegLookupButton(
+                            from: previous.title,
+                            enabled: _legDestination.isNotEmpty,
+                            onTap: () => _openLegInMaps(previous),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TripInput(
-                            icon: Icons.directions_car_rounded,
-                            child: _NumberField(
-                              controller: _legKm,
-                              placeholder: 'km',
+                          const SizedBox(height: 8),
+                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TripInput(
+                                icon: Icons.schedule_outlined,
+                                child: _NumberField(
+                                  controller: _legMins,
+                                  placeholder: 'Minutes',
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TripInput(
+                                icon: Icons.directions_car_outlined,
+                                child: _NumberField(
+                                  controller: _legKm,
+                                  placeholder: 'km',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -422,6 +527,84 @@ class _TypeChip extends StatelessWidget {
   }
 }
 
+// ─── Leg lookup ───────────────────────────────────────────────────────────────
+
+/// Opens just this leg in Google Maps so the drive time and distance can be
+/// read off and typed in. Maps deep links are one-way — nothing is returned —
+/// so the two fields stay manual by design.
+class _LegLookupButton extends StatelessWidget {
+  final String from;
+
+  /// The previous stop's time. Maps URLs have no `departure_time` parameter —
+  /// only the Directions API does — so this is surfaced for the user to set
+  /// via Maps' own "Depart at" control once the route opens.
+  // final String departAt;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _LegLookupButton({
+    required this.from,
+    // required this.departAt,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = enabled ? DT.accentDeep : DT.textTertiary;
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: enabled ? DT.accentSoft : DT.surfaceAlt,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: enabled ? DT.accent : DT.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.route_outlined, size: 18, color: fg),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    enabled ? 'Check this leg in Maps' : 'Add a place first',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    enabled
+                        ? 'From “$from” — read the time and distance, then type them below'
+                        : 'Then you can measure the drive from “$from”',
+                    style: GoogleFonts.manrope(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: fg.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (enabled) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.north_east_rounded, size: 16, color: fg),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Numeric field ────────────────────────────────────────────────────────────
 
 class _NumberField extends StatelessWidget {
@@ -445,7 +628,12 @@ class _NumberField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         isDense: true,
+        // See TripTextField — the global InputDecorationTheme fills in any
+        // border/fill left null, which double-borders the field.
+        filled: false,
         border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 11),
         hintText: placeholder,
         hintStyle: GoogleFonts.manrope(

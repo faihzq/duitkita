@@ -141,7 +141,7 @@ class StopDetailScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         TripIconButton(
-                          icon: Icons.edit_rounded,
+                          icon: Icons.edit_outlined,
                           onDark: true,
                           onTap: () => Navigator.of(context).push(
                             AppTheme.slideRoute(
@@ -212,7 +212,7 @@ class StopDetailScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Icon(Icons.schedule_rounded,
+                                  Icon(Icons.schedule_outlined,
                                       size: 14,
                                       color:
                                           Colors.white.withValues(alpha: 0.7)),
@@ -256,7 +256,7 @@ class StopDetailScreen extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.place_rounded,
+                      const Icon(Icons.place_outlined,
                           size: 18, color: DT.accentDeep),
                       const SizedBox(width: 10),
                       Expanded(
@@ -333,10 +333,13 @@ class StopDetailScreen extends ConsumerWidget {
           TripFooter(
             child: Row(
               children: [
+                // 5 : 6 is the design's `flex: 1` / `flex: 1.2`, which
+                // Expanded can't take as a fraction.
                 Expanded(
+                  flex: 5,
                   child: _FooterLink(
                     label: 'Open in Maps',
-                    icon: Icons.place_rounded,
+                    icon: Icons.place_outlined,
                     onTap: () => _open(context, TripMaps.search(s.mapQuery)),
                   ),
                 ),
@@ -345,7 +348,7 @@ class StopDetailScreen extends ConsumerWidget {
                   flex: 6,
                   child: _FooterLink(
                     label: 'Directions',
-                    icon: Icons.directions_car_rounded,
+                    icon: Icons.directions_car_outlined,
                     primary: true,
                     onTap: () =>
                         _open(context, TripMaps.directions(s.mapQuery)),
@@ -448,7 +451,7 @@ class _MapPreview extends StatelessWidget {
             const Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: 18),
-                child: Icon(Icons.place_rounded,
+                child: Icon(Icons.place_outlined,
                     size: 38, color: DT.accentDeep),
               ),
             ),
