@@ -15,6 +15,7 @@ import 'package:duitkita/features/expenses/expense_list_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/onboarding/onboarding_screen.dart';
+import 'package:duitkita/features/trips/trips_list_screen.dart';
 import 'package:duitkita/widgets/group_icon_avatar.dart';
 import 'package:duitkita/widgets/help_sheet.dart';
 
@@ -707,15 +708,8 @@ class _QuickActions extends StatelessWidget {
       _Action(Icons.add_rounded, 'Add expense', DT.accentSoft, DT.accentDeep, () {
         onTabChange?.call(1);
       }),
-      _Action(Icons.qr_code_2_rounded, 'Pay QR', DT.catDebtsSoft, DT.catDebts, () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('QR Pay coming soon', style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
-            backgroundColor: DT.text,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+      _Action(Icons.map_rounded, 'Trips', DT.catDebtsSoft, DT.catDebts, () {
+        Navigator.of(context).push(AppTheme.slideRoute(const TripsListScreen()));
       }),
       _Action(Icons.group_add_rounded, 'New group', DT.catGroupsSoft, DT.catGroups, () {
         onTabChange?.call(1);

@@ -163,6 +163,34 @@ service cloud.firestore {
                         isGroupAdmin(resource.data.groupId));
     }
 
+    // Trips collection (day-by-day itineraries)
+    match /trips/{tripId} {
+      function isTraveller() {
+        return isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.travellerIds;
+      }
+
+      allow read: if isSignedIn() &&
+                     request.auth.uid in resource.data.travellerIds;
+
+      // The creator must be on the trip they create.
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.createdBy &&
+                       request.auth.uid in request.resource.data.travellerIds;
+
+      // Any traveller can edit the trip; only the creator can delete it.
+      allow update: if isSignedIn() &&
+                       request.auth.uid in resource.data.travellerIds;
+
+      allow delete: if isSignedIn() &&
+                       request.auth.uid == resource.data.createdBy;
+
+      // Itinerary stops — every traveller can plan.
+      match /stops/{stopId} {
+        allow read, create, update, delete: if isTraveller();
+      }
+    }
+
     // App config (version check, feature flags)
     // Read: any authenticated user
     // Write: only via Firebase Console (no client writes)
