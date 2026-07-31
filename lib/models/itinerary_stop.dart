@@ -24,6 +24,52 @@ String defaultGlyphFor(StopType t) => switch (t) {
       StopType.prayer => 'mosque',
     };
 
+/// A ticket or document attached to a stop — entry tickets, booking
+/// confirmations, ferry passes.
+class StopAttachment {
+  final String url;
+  final String name;
+  final String contentType;
+  final int sizeBytes;
+  final DateTime uploadedAt;
+
+  const StopAttachment({
+    required this.url,
+    required this.name,
+    required this.contentType,
+    this.sizeBytes = 0,
+    required this.uploadedAt,
+  });
+
+  bool get isPdf => contentType == 'application/pdf';
+  bool get isImage => contentType.startsWith('image/');
+
+  /// "1.4 MB" / "820 KB"
+  String get sizeLabel {
+    if (sizeBytes <= 0) return '';
+    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).round()} KB';
+    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  factory StopAttachment.fromMap(Map<String, dynamic> data) => StopAttachment(
+        url: data['url'] ?? '',
+        name: data['name'] ?? 'Attachment',
+        contentType: data['contentType'] ?? '',
+        sizeBytes: (data['sizeBytes'] as num?)?.toInt() ?? 0,
+        uploadedAt: data['uploadedAt'] is String
+            ? DateTime.tryParse(data['uploadedAt']) ?? DateTime.now()
+            : DateTime.now(),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'url': url,
+        'name': name,
+        'contentType': contentType,
+        'sizeBytes': sizeBytes,
+        'uploadedAt': uploadedAt.toIso8601String(),
+      };
+}
+
 class ItineraryStop {
   final String id;
 
@@ -45,11 +91,21 @@ class ItineraryStop {
 
   /// Free-text place used to build Google Maps links.
   final String? placeQuery;
+
+  /// A Google Maps share link pasted by the user. Takes priority over
+  /// [placeQuery] when opening the place, because a name search can land on the
+  /// wrong branch while a share link is the exact pin.
+  final String? mapUrl;
   final String? about;
 
   /// Approximate drive from the previous stop.
   final int? legMinutes;
   final double? legKm;
+
+  /// Tickets and documents for this stop. An array on the doc rather than a
+  /// subcollection — there are only ever a few, and they are always read
+  /// together with the stop.
+  final List<StopAttachment> attachments;
 
   ItineraryStop({
     required this.id,
@@ -61,9 +117,11 @@ class ItineraryStop {
     this.type = StopType.travel,
     this.icon = 'pin',
     this.placeQuery,
+    this.mapUrl,
     this.about,
     this.legMinutes,
     this.legKm,
+    this.attachments = const [],
   });
 
   /// Text handed to Google Maps — the explicit place if set, otherwise the
@@ -82,6 +140,19 @@ class ItineraryStop {
     final n = note?.trim();
     return (n != null && n.isNotEmpty) ? n : title;
   }
+
+  /// What "Open in Maps" should launch. A share link reopens the exact pin the
+  /// user saved, so it wins over searching by name.
+  Uri get openUri {
+    final u = mapUrl?.trim();
+    if (u != null && u.isNotEmpty) {
+      final parsed = Uri.tryParse(u);
+      if (parsed != null && parsed.hasScheme) return parsed;
+    }
+    return TripMaps.search(mapQuery);
+  }
+
+  bool get hasTickets => attachments.isNotEmpty;
 
   bool get hasLeg => (legMinutes ?? 0) > 0 || (legKm ?? 0) > 0;
 
@@ -104,9 +175,14 @@ class ItineraryStop {
       type: stopTypeFrom(data['type']),
       icon: data['icon'] ?? 'pin',
       placeQuery: data['placeQuery'],
+      mapUrl: data['mapUrl'],
       about: data['about'],
       legMinutes: (data['legMinutes'] as num?)?.toInt(),
       legKm: (data['legKm'] as num?)?.toDouble(),
+      attachments: (data['attachments'] as List?)
+              ?.map((a) => StopAttachment.fromMap(Map<String, dynamic>.from(a)))
+              .toList() ??
+          const [],
     );
   }
 
@@ -119,10 +195,31 @@ class ItineraryStop {
         'type': type.name,
         'icon': icon,
         'placeQuery': placeQuery,
+        'mapUrl': mapUrl,
         'about': about,
         'legMinutes': legMinutes,
         'legKm': legKm,
+        'attachments': attachments.map((a) => a.toMap()).toList(),
       };
+
+  /// Rebinds to a Firestore-assigned id. [copyWith] deliberately keeps the
+  /// original id, but a freshly created stop only learns its id after the write.
+  ItineraryStop withId(String newId) => ItineraryStop(
+        id: newId,
+        day: day,
+        order: order,
+        time: time,
+        title: title,
+        note: note,
+        type: type,
+        icon: icon,
+        placeQuery: placeQuery,
+        mapUrl: mapUrl,
+        about: about,
+        legMinutes: legMinutes,
+        legKm: legKm,
+        attachments: attachments,
+      );
 
   ItineraryStop copyWith({
     int? day,
@@ -133,9 +230,11 @@ class ItineraryStop {
     StopType? type,
     String? icon,
     String? placeQuery,
+    String? mapUrl,
     String? about,
     int? legMinutes,
     double? legKm,
+    List<StopAttachment>? attachments,
   }) {
     return ItineraryStop(
       id: id,
@@ -147,9 +246,11 @@ class ItineraryStop {
       type: type ?? this.type,
       icon: icon ?? this.icon,
       placeQuery: placeQuery ?? this.placeQuery,
+      mapUrl: mapUrl ?? this.mapUrl,
       about: about ?? this.about,
       legMinutes: legMinutes ?? this.legMinutes,
       legKm: legKm ?? this.legKm,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

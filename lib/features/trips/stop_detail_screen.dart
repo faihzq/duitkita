@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/config/design_tokens.dart';
@@ -9,6 +10,7 @@ import 'package:duitkita/models/trip_model.dart';
 import 'package:duitkita/services/trip_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/trips/add_stop_screen.dart';
+import 'package:duitkita/features/trips/attachment_cache.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
 
@@ -322,6 +324,27 @@ class StopDetailScreen extends ConsumerWidget {
                   ),
                 ),
 
+                // Tickets & documents
+                if (s.hasTickets) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 20, 0, 8),
+                    child: Text(
+                      'TICKETS & DOCUMENTS',
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: DT.textSecondary,
+                      ),
+                    ),
+                  ),
+                  for (final a in s.attachments)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _AttachmentTile(attachment: a),
+                    ),
+                ],
+
                 // Stylised map preview — swap for a real static map later.
                 const SizedBox(height: 20),
                 _MapPreview(accent: ty.color),
@@ -340,7 +363,9 @@ class StopDetailScreen extends ConsumerWidget {
                   child: _FooterLink(
                     label: 'Open in Maps',
                     icon: Icons.place_outlined,
-                    onTap: () => _open(context, TripMaps.search(s.mapQuery)),
+                    // Uses the saved share link when there is one, so this
+                    // reopens the exact pin rather than searching by name.
+                    onTap: () => _open(context, s.openUri),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -372,6 +397,162 @@ String _fallbackAbout(StopType t) => switch (t) {
       StopType.stay => 'Tonight’s stay — tap directions to drive there.',
       StopType.prayer => 'A short break on the road.',
     };
+
+// ─── Attachment tile ──────────────────────────────────────────────────────────
+
+/// One ticket. Opens the cached copy when there is one, otherwise downloads it
+/// first and keeps it — so a ticket viewed once is available at the gate with
+/// no signal.
+class _AttachmentTile extends ConsumerStatefulWidget {
+  final StopAttachment attachment;
+  const _AttachmentTile({required this.attachment});
+
+  @override
+  ConsumerState<_AttachmentTile> createState() => _AttachmentTileState();
+}
+
+class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
+  bool _busy = false;
+  bool _offlineReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkCache();
+  }
+
+  Future<void> _checkCache() async {
+    final file =
+        await ref.read(attachmentCacheProvider).cached(widget.attachment);
+    if (mounted) setState(() => _offlineReady = file != null);
+  }
+
+  Future<void> _open() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final file = await ref.read(attachmentCacheProvider).resolve(
+            widget.attachment,
+          );
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _offlineReady = true;
+      });
+      final result = await OpenFilex.open(file.path);
+      if (result.type != ResultType.done && mounted) {
+        showSnackBar(context, 'No app on this phone can open that file',
+            isError: true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _busy = false);
+        showSnackBar(
+          context,
+          'Could not download that ticket — connect and try once, and it will '
+          'stay available offline',
+          isError: true,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.attachment;
+    return GestureDetector(
+      onTap: _open,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: DT.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: DT.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: a.isPdf ? DT.dangerSoft : DT.infoSoft,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(
+                a.isPdf
+                    ? Icons.picture_as_pdf_outlined
+                    : Icons.image_outlined,
+                size: 19,
+                color: a.isPdf ? DT.danger : DT.info,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    a.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: DT.text,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (a.sizeLabel.isNotEmpty)
+                        Text(
+                          a.sizeLabel,
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: DT.textSecondary,
+                          ),
+                        ),
+                      if (_offlineReady) ...[
+                        if (a.sizeLabel.isNotEmpty)
+                          Text(' · ',
+                              style: GoogleFonts.manrope(
+                                  fontSize: 11.5, color: DT.textTertiary)),
+                        const Icon(Icons.offline_pin_outlined,
+                            size: 13, color: DT.accentDeep),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Available offline',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: DT.accentDeep,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_busy)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child:
+                    CircularProgressIndicator(strokeWidth: 2, color: DT.accent),
+              )
+            else
+              const Icon(Icons.open_in_new_rounded,
+                  size: 17, color: DT.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // ─── Footer link ──────────────────────────────────────────────────────────────
 

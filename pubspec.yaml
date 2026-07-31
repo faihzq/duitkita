@@ -39,6 +39,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   cloud_firestore: ^5.6.6
   firebase_storage: ^12.4.10
+  cloud_functions: ^5.4.0
   image_picker: ^1.1.2
   image_cropper: ^8.0.2
   file_picker: ^8.1.4

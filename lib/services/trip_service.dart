@@ -142,6 +142,28 @@ class TripService {
     return doc.id;
   }
 
+  /// Writes many stops at once, for a pasted itinerary. One batch, so an
+  /// import either lands whole or not at all.
+  Future<int> addStops(String tripId, List<ItineraryStop> stops) async {
+    if (stops.isEmpty) return 0;
+
+    final batch = _firestore.batch();
+    final now = Timestamp.fromDate(DateTime.now());
+    for (final stop in stops) {
+      batch.set(_stops(tripId).doc(), {
+        ...stop.toMap(),
+        'order': minutesFromTimeLabel(stop.time),
+        'createdAt': now,
+      });
+    }
+    batch.update(_trips.doc(tripId), {
+      'updatedAt': now,
+      'stopCount': FieldValue.increment(stops.length),
+    });
+    await batch.commit();
+    return stops.length;
+  }
+
   Future<void> updateStop(String tripId, ItineraryStop stop) async {
     await _stops(tripId).doc(stop.id).update({
       ...stop.toMap(),

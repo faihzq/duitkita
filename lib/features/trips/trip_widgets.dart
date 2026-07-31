@@ -568,12 +568,16 @@ class TripPrimaryButton extends StatelessWidget {
                       Icon(icon, size: 18, color: Colors.white),
                       const SizedBox(width: 8),
                     ],
-                    Text(
-                      label,
-                      style: GoogleFonts.manrope(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.manrope(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     if (icon != null && trailingIcon) ...[

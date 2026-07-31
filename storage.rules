@@ -43,6 +43,24 @@ service firebase.storage {
                     && firestore.get(/databases/(default)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // Trip tickets: entry tickets and booking documents for an itinerary stop.
+    // Only travellers on the trip can read or upload.
+    match /trip_tickets/{tripId}/{stopId}/{fileName} {
+      function isTraveller() {
+        return request.auth != null
+               && request.auth.uid in firestore.get(/databases/(default)/documents/trips/$(tripId)).data.travellerIds;
+      }
+
+      allow read: if isTraveller();
+
+      allow create, update: if isTraveller()
+                    && request.resource.size < 10 * 1024 * 1024
+                    && (request.resource.contentType.matches('image/.*')
+                        || request.resource.contentType == 'application/pdf');
+
+      allow delete: if isTraveller();
+    }
+
     // Block all other paths
     match /{allPaths=**} {
       allow read, write: if false;

@@ -7,7 +7,7 @@ import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/trip_model.dart';
 import 'package:duitkita/services/trip_service.dart';
 import 'package:duitkita/features/trips/itinerary_screen.dart';
-import 'package:duitkita/features/trips/new_trip_screen.dart';
+import 'package:duitkita/features/trips/trip_form_screen.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
 
@@ -22,7 +22,7 @@ class TripsListScreen extends ConsumerWidget {
   }
 
   void _newTrip(BuildContext context) {
-    Navigator.of(context).push(AppTheme.slideRoute(const NewTripScreen()));
+    Navigator.of(context).push(AppTheme.slideRoute(const TripFormScreen()));
   }
 
   @override

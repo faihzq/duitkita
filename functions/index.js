@@ -1,8 +1,14 @@
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+
+// Google Maps Routes key — set with:
+//   firebase functions:secrets:set MAPS_API_KEY
+const MAPS_API_KEY = defineSecret("MAPS_API_KEY");
 
 initializeApp();
 
@@ -622,3 +628,110 @@ exports.dailyDebtBillReminder = onSchedule(
     }
   }
 );
+
+// ─── Trip leg estimates (Google Routes API) ──────────────────────────────────
+
+/**
+ * Drive time and distance between two consecutive itinerary stops.
+ *
+ * The API key lives here rather than in the app: Routes is a Web Service API
+ * and only supports IP restrictions, so a key shipped inside the APK could be
+ * extracted and billed to us.
+ *
+ * Request:  { origin, destination, departureTime? }
+ *           origin/destination are either "lat,lng" or free text.
+ *           departureTime is RFC3339 and must be in the future; when supplied
+ *           the estimate is traffic-aware for that moment.
+ * Response: { minutes, km }
+ */
+exports.computeLeg = onCall(
+  { region: "asia-southeast1", secrets: [MAPS_API_KEY] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to estimate drive times.");
+    }
+
+    const origin = (request.data?.origin || "").trim();
+    const destination = (request.data?.destination || "").trim();
+    if (!origin || !destination) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Both an origin and a destination are required."
+      );
+    }
+
+    // Only send a departure time we know is ahead of now — the Routes API
+    // rejects a past one, and traffic data is meaningless for it anyway.
+    let departureTime = request.data?.departureTime || null;
+    if (departureTime && new Date(departureTime) <= new Date()) {
+      departureTime = null;
+    }
+
+    const body = {
+      origin: toWaypoint(origin),
+      destination: toWaypoint(destination),
+      travelMode: "DRIVE",
+      routingPreference: departureTime ? "TRAFFIC_AWARE" : "TRAFFIC_UNAWARE",
+      ...(departureTime ? { departureTime } : {}),
+    };
+
+    let response;
+    try {
+      response = await fetch(
+        "https://routes.googleapis.com/directions/v2:computeRoutes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": MAPS_API_KEY.value(),
+            // Billed by the fields requested — ask for only these two.
+            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+          },
+          body: JSON.stringify(body),
+        }
+      );
+    } catch (error) {
+      console.error("Routes API unreachable:", error);
+      throw new HttpsError("unavailable", "Could not reach Google Maps.");
+    }
+
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("Routes API error", response.status, detail);
+      throw new HttpsError("internal", "Google Maps could not plan that route.");
+    }
+
+    const json = await response.json();
+    const route = json.routes && json.routes[0];
+    if (!route) {
+      // No drivable route — a ferry crossing, or an address that didn't resolve.
+      throw new HttpsError(
+        "not-found",
+        "No driving route between those two places."
+      );
+    }
+
+    // duration arrives as a protobuf duration string, e.g. "5400s".
+    const seconds = parseInt(String(route.duration || "0").replace("s", ""), 10);
+    return {
+      minutes: Math.round((seconds || 0) / 60),
+      km: Math.round(((route.distanceMeters || 0) / 1000) * 10) / 10,
+    };
+  }
+);
+
+/** "2.0453,102.5689" becomes a precise point; anything else is geocoded text. */
+function toWaypoint(value) {
+  const match = value.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (match) {
+    return {
+      location: {
+        latLng: {
+          latitude: parseFloat(match[1]),
+          longitude: parseFloat(match[2]),
+        },
+      },
+    };
+  }
+  return { address: value };
+}

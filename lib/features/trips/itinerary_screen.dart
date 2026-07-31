@@ -10,7 +10,9 @@ import 'package:duitkita/models/trip_model.dart';
 import 'package:duitkita/services/trip_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/trips/add_stop_screen.dart';
+import 'package:duitkita/features/trips/import_itinerary_screen.dart';
 import 'package:duitkita/features/trips/stop_detail_screen.dart';
+import 'package:duitkita/features/trips/trip_form_screen.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
 
@@ -148,10 +150,23 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
                     onBack: () => Navigator.of(context).pop(),
                     title: trip.name,
                     sub: formatTripRange(trip.startDate, trip.endDate),
-                    trailing: TripIconButton(
-                      icon: Icons.ios_share_rounded,
-                      onDark: true,
-                      onTap: () => _share(trip, stops),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TripIconButton(
+                          icon: Icons.edit_outlined,
+                          onDark: true,
+                          onTap: () => Navigator.of(context).push(
+                            AppTheme.slideRoute(TripFormScreen(editing: trip)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TripIconButton(
+                          icon: Icons.ios_share_rounded,
+                          onDark: true,
+                          onTap: () => _share(trip, stops),
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
@@ -365,7 +380,17 @@ class _ItineraryScreenState extends ConsumerState<ItineraryScreen> {
 
                 // Timeline
                 if (dayStops.isEmpty)
-                  _EmptyDay(onAdd: () => _addStop(trip, activeDay))
+                  _EmptyDay(
+                    onAdd: () => _addStop(trip, activeDay),
+                    onImport: () => Navigator.of(context).push(
+                      AppTheme.slideRoute(
+                        ImportItineraryScreen(
+                          trip: trip,
+                          initialDay: activeDay,
+                        ),
+                      ),
+                    ),
+                  )
                 else
                   for (var i = 0; i < dayStops.length; i++)
                     _StopRow(
@@ -687,6 +712,29 @@ class _StopRow extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                                // Shows at a glance which stops need a ticket
+                                // in hand.
+                                if (stop.hasTickets) ...[
+                                  const SizedBox(height: 5),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.attach_file_rounded,
+                                          size: 12, color: DT.accentDeep),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        stop.attachments.length == 1
+                                            ? 'Ticket attached'
+                                            : '${stop.attachments.length} tickets',
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: DT.accentDeep,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -711,7 +759,8 @@ class _StopRow extends StatelessWidget {
 
 class _EmptyDay extends StatelessWidget {
   final VoidCallback onAdd;
-  const _EmptyDay({required this.onAdd});
+  final VoidCallback onImport;
+  const _EmptyDay({required this.onAdd, required this.onImport});
 
   @override
   Widget build(BuildContext context) {
@@ -744,6 +793,40 @@ class _EmptyDay extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _DashedButton(label: 'Add a stop', onTap: onAdd),
+        const SizedBox(height: 10),
+        // The moment you'd rather paste a written plan than type it out.
+        GestureDetector(
+          onTap: onImport,
+          child: Container(
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: DT.accentSoft,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: DT.accent),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.content_paste_rounded,
+                    size: 17, color: DT.accentDeep),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Paste a written itinerary',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: DT.accentDeep,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -62,6 +62,61 @@ class StorageService {
     }
   }
 
+  /// Upload a ticket or document for an itinerary stop.
+  /// Path: trip_tickets/{tripId}/{stopId}/{timestamp}_{name}
+  Future<Map<String, dynamic>> uploadTripAttachment({
+    required String tripId,
+    required String stopId,
+    required File file,
+    required String fileName,
+  }) async {
+    try {
+      final fileSize = await file.length();
+      if (fileSize > maxFileSizeBytes) {
+        throw Exception('File too large. Maximum size is 10MB.');
+      }
+
+      final extension = fileName.split('.').last.toLowerCase();
+      if (!allowedExtensions.contains(extension)) {
+        throw Exception(
+            'Invalid file type. Allowed: ${allowedExtensions.join(", ")}');
+      }
+
+      final contentType = extension == 'pdf'
+          ? 'application/pdf'
+          : 'image/${extension == 'jpg' ? 'jpeg' : extension}';
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      // Storage object names cannot contain '/', and spaces make for awkward
+      // URLs, so the display name is kept in Firestore instead.
+      final safeName = fileName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final path = 'trip_tickets/$tripId/$stopId/${timestamp}_$safeName';
+
+      final ref = _storage.ref().child(path);
+      final task =
+          await ref.putFile(file, SettableMetadata(contentType: contentType));
+      final url = await task.ref.getDownloadURL();
+
+      return {
+        'url': url,
+        'name': fileName,
+        'contentType': contentType,
+        'sizeBytes': fileSize,
+        'uploadedAt': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      throw Exception('Failed to upload attachment: $e');
+    }
+  }
+
+  Future<void> deleteTripAttachment(String url) async {
+    try {
+      await _storage.refFromURL(url).delete();
+    } catch (_) {
+      // Already gone, or no permission — the Firestore entry is what matters.
+    }
+  }
+
   // Upload profile image and return download URL
   Future<String> uploadProfileImage({
     required String userId,

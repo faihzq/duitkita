@@ -13,15 +13,20 @@ import 'package:duitkita/features/trips/trip_date_picker.dart';
 import 'package:duitkita/features/trips/trip_style.dart';
 import 'package:duitkita/features/trips/trip_widgets.dart';
 
-/// Creates the trip shell — the itinerary is filled in on the next screen.
-class NewTripScreen extends ConsumerStatefulWidget {
-  const NewTripScreen({super.key});
+/// Creates a trip, or edits one when [editing] is supplied.
+///
+/// One screen for both: the fields are identical, and creation only differs in
+/// where it goes afterwards.
+class TripFormScreen extends ConsumerStatefulWidget {
+  final TripModel? editing;
+
+  const TripFormScreen({super.key, this.editing});
 
   @override
-  ConsumerState<NewTripScreen> createState() => _NewTripScreenState();
+  ConsumerState<TripFormScreen> createState() => _TripFormScreenState();
 }
 
-class _NewTripScreenState extends ConsumerState<NewTripScreen> {
+class _TripFormScreenState extends ConsumerState<TripFormScreen> {
   final _name = TextEditingController();
   final _destinations = <String>[];
   final _travellers = <TripTraveller>[];
@@ -33,9 +38,22 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
   bool _saving = false;
   bool _seededSelf = false;
 
+  bool get _isEditing => widget.editing != null;
+
   @override
   void initState() {
     super.initState();
+    final e = widget.editing;
+    if (e != null) {
+      _name.text = e.name;
+      _destinations.addAll(e.destinations);
+      _travellers.addAll(e.travellers);
+      _start = e.startDate;
+      _end = e.endDate;
+      _status = e.status;
+      // The travellers came from the trip, so don't add the current user again.
+      _seededSelf = true;
+    }
     _name.addListener(() => setState(() {}));
   }
 
@@ -45,8 +63,14 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
     super.dispose();
   }
 
-  bool get _canCreate =>
+  bool get _canSave =>
       _name.text.trim().isNotEmpty && _start != null && _end != null;
+
+  /// Who owns the trip — the creator when editing, otherwise whoever is filling
+  /// the form in. They cannot be removed from their own trip.
+  String? get _organiserId =>
+      widget.editing?.createdBy ??
+      ref.read(authControllerProvider.notifier).currentUser?.uid;
 
   Future<void> _pickDate({required bool isStart}) async {
     final now = DateTime.now();
@@ -123,8 +147,64 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
     }
   }
 
-  Future<void> _create() async {
-    if (!_canCreate || _saving) return;
+  /// Shortening a trip can push existing stops past the last day, where the day
+  /// tabs no longer reach them. Warn before that happens rather than silently
+  /// hiding someone's planning.
+  Future<bool> _confirmShortening() async {
+    final trip = widget.editing;
+    if (trip == null) return true;
+
+    final newDayCount =
+        DateTime(_end!.year, _end!.month, _end!.day)
+                .difference(DateTime(_start!.year, _start!.month, _start!.day))
+                .inDays +
+            1;
+
+    final stops =
+        ref.read(tripStopsStreamProvider(trip.id)).valueOrNull ?? const [];
+    final orphaned = stops.where((s) => s.day > newDayCount).length;
+    if (orphaned == 0) return true;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: DT.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.cardRadius)),
+        title: Text(
+          'Shorten the trip?',
+          style: GoogleFonts.manrope(
+              fontSize: 16, fontWeight: FontWeight.w800, color: DT.text),
+        ),
+        content: Text(
+          '$orphaned stop${orphaned == 1 ? '' : 's'} sit after the new end '
+          'date. They stay saved, but you will not see them until you extend '
+          'the trip again.',
+          style: GoogleFonts.manrope(fontSize: 13.5, color: DT.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700, color: DT.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Shorten anyway',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700, color: DT.danger)),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  Future<void> _save() async {
+    if (!_canSave || _saving) return;
+    if (_isEditing) return _update();
+
     final me = ref.read(authControllerProvider.notifier).currentUser;
     if (me == null) {
       showSnackBar(context, 'You are not signed in', isError: true);
@@ -158,6 +238,36 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
     }
   }
 
+  Future<void> _update() async {
+    final trip = widget.editing!;
+    if (!await _confirmShortening()) return;
+    if (!mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(tripServiceProvider).updateTrip(
+            trip.copyWith(
+              name: _name.text.trim(),
+              destinations: _destinations,
+              startDate: _start,
+              endDate: _end,
+              status: _status,
+              travellerIds: _travellers.map((t) => t.userId).toList(),
+              travellers: _travellers,
+            ),
+          );
+      if (mounted) {
+        Navigator.of(context).pop();
+        showSnackBar(context, 'Trip updated');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showSnackBar(context, 'Could not save the trip: $e', isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // The creator is always traveller #1 — seed them as soon as the profile
@@ -184,7 +294,8 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
         child: Column(
           children: [
             TripBackHeader(
-              title: 'New trip',
+              title: _isEditing ? 'Edit trip' : 'New trip',
+              sub: _isEditing ? widget.editing!.name : null,
               onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -353,6 +464,30 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
                     ),
                   ),
 
+                  // Named list, so travellers can be removed individually —
+                  // the avatar stack alone gives nothing to tap. Always shown
+                  // when editing, so it doesn't vanish as you remove people.
+                  if (_isEditing || _travellers.length > 1)
+                    TripField(
+                      label: 'On this trip',
+                      child: Column(
+                        children: [
+                          for (final t in _travellers)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _TravellerRow(
+                                traveller: t,
+                                // The organiser stays: they own the trip, and
+                                // removing them would orphan it.
+                                isOrganiser: t.userId == _organiserId,
+                                onRemove: () =>
+                                    setState(() => _travellers.remove(t)),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
                   // ── Status ──────────────────────────────────
                   TripField(
                     label: 'Status',
@@ -404,15 +539,91 @@ class _NewTripScreenState extends ConsumerState<NewTripScreen> {
             ),
             TripFooter(
               child: TripPrimaryButton(
-                label: 'Create & add itinerary',
-                icon: Icons.arrow_forward_rounded,
-                trailingIcon: true,
+                label: _isEditing ? 'Save changes' : 'Create & add itinerary',
+                icon: _isEditing
+                    ? Icons.check_rounded
+                    : Icons.arrow_forward_rounded,
+                trailingIcon: !_isEditing,
                 busy: _saving,
-                onTap: _canCreate ? _create : null,
+                onTap: _canSave ? _save : null,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Traveller row ────────────────────────────────────────────────────────────
+
+class _TravellerRow extends StatelessWidget {
+  final TripTraveller traveller;
+  final bool isOrganiser;
+  final VoidCallback onRemove;
+
+  const _TravellerRow({
+    required this.traveller,
+    required this.isOrganiser,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: DT.surface,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: DT.border),
+      ),
+      child: Row(
+        children: [
+          TripAvatar(
+            name: traveller.name,
+            imageUrl: traveller.photoUrl,
+            size: 32,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              traveller.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: DT.text,
+              ),
+            ),
+          ),
+          if (isOrganiser)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: DT.primarySoft,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                'Organiser',
+                style: GoogleFonts.manrope(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: DT.textSecondary,
+                ),
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: onRemove,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child:
+                    Icon(Icons.close_rounded, size: 17, color: DT.textSecondary),
+              ),
+            ),
+        ],
       ),
     );
   }
