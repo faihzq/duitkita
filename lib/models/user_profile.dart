@@ -5,6 +5,10 @@ class UserProfile {
   final String? name;
   final String? email;
   final String? phoneNumber;
+
+  /// Lowercase handle, unique across accounts. The `usernames` collection is
+  /// what actually enforces that; this is the readable copy.
+  final String? username;
   final String? profileImageUrl;
   final bool showJdtMatches;
   final DateTime createdAt;
@@ -15,6 +19,7 @@ class UserProfile {
     this.name,
     this.email,
     this.phoneNumber,
+    this.username,
     this.profileImageUrl,
     this.showJdtMatches = false,
     required this.createdAt,
@@ -28,6 +33,7 @@ class UserProfile {
       name: data['name'],
       email: data['email'],
       phoneNumber: data['phoneNumber'],
+      username: data['username'],
       profileImageUrl: data['profileImageUrl'],
       showJdtMatches: data['showJdtMatches'] ?? false,
       createdAt:
@@ -47,6 +53,7 @@ class UserProfile {
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
+      'username': username,
       'profileImageUrl': profileImageUrl,
       'showJdtMatches': showJdtMatches,
       'createdAt': createdAt,
@@ -59,6 +66,7 @@ class UserProfile {
     String? name,
     String? email,
     String? phoneNumber,
+    String? username,
     String? profileImageUrl,
     bool? showJdtMatches,
   }) {
@@ -67,6 +75,7 @@ class UserProfile {
       name: name ?? this.name,
       email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      username: username ?? this.username,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       showJdtMatches: showJdtMatches ?? this.showJdtMatches,
       createdAt: createdAt,

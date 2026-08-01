@@ -74,9 +74,7 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
 
   Future<void> _pickDate({required bool isStart}) async {
     final now = DateTime.now();
-    final initial = isStart
-        ? (_start ?? now)
-        : (_end ?? _start ?? now);
+    final initial = isStart ? (_start ?? now) : (_end ?? _start ?? now);
     final picked = await showTripDatePicker(
       context: context,
       initialDate: initial,
@@ -100,10 +98,11 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
   Future<void> _addDestination() async {
     final value = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextPromptDialog(
-        title: 'Add a destination',
-        hint: 'Kedah',
-      ),
+      builder:
+          (_) => const _TextPromptDialog(
+            title: 'Add a destination',
+            hint: 'Kedah',
+          ),
     );
     final v = value?.trim();
     if (v == null || v.isEmpty) return;
@@ -113,18 +112,19 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
   Future<void> _addTraveller() async {
     final email = await showDialog<String>(
       context: context,
-      builder: (_) => const _TextPromptDialog(
-        title: 'Add a traveller',
-        hint: 'name@email.com',
-        keyboardType: TextInputType.emailAddress,
-      ),
+      builder:
+          (_) => const _TextPromptDialog(
+            title: 'Add a traveller',
+            hint: '@username or email',
+            keyboardType: TextInputType.emailAddress,
+          ),
     );
     final v = email?.trim();
     if (v == null || v.isEmpty) return;
 
     final profiles = ref.read(profileServiceProvider);
     try {
-      final uid = await profiles.getUserIdByEmail(v);
+      final uid = await profiles.findUserId(v);
       if (uid == null) {
         if (mounted) {
           showSnackBar(context, 'No DuitKita account for $v', isError: true);
@@ -137,13 +137,19 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
       }
       final p = await profiles.getUserProfile(uid);
       if (!mounted) return;
-      setState(() => _travellers.add(TripTraveller(
+      setState(
+        () => _travellers.add(
+          TripTraveller(
             userId: uid,
             name: p?.name ?? v.split('@').first,
             photoUrl: p?.profileImageUrl,
-          )));
+          ),
+        ),
+      );
     } catch (e) {
-      if (mounted) showSnackBar(context, 'Could not add them: $e', isError: true);
+      if (mounted) {
+        showSnackBar(context, 'Could not add them: $e', isError: true);
+      }
     }
   }
 
@@ -156,9 +162,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
 
     final newDayCount =
         DateTime(_end!.year, _end!.month, _end!.day)
-                .difference(DateTime(_start!.year, _start!.month, _start!.day))
-                .inDays +
-            1;
+            .difference(DateTime(_start!.year, _start!.month, _start!.day))
+            .inDays +
+        1;
 
     final stops =
         ref.read(tripStopsStreamProvider(trip.id)).valueOrNull ?? const [];
@@ -167,36 +173,52 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: DT.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DS.cardRadius)),
-        title: Text(
-          'Shorten the trip?',
-          style: GoogleFonts.manrope(
-              fontSize: 16, fontWeight: FontWeight.w800, color: DT.text),
-        ),
-        content: Text(
-          '$orphaned stop${orphaned == 1 ? '' : 's'} sit after the new end '
-          'date. They stay saved, but you will not see them until you extend '
-          'the trip again.',
-          style: GoogleFonts.manrope(fontSize: 13.5, color: DT.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel',
-                style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w700, color: DT.textSecondary)),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: DT.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DS.cardRadius),
+            ),
+            title: Text(
+              'Shorten the trip?',
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: DT.text,
+              ),
+            ),
+            content: Text(
+              '$orphaned stop${orphaned == 1 ? '' : 's'} sit after the new end '
+              'date. They stay saved, but you will not see them until you extend '
+              'the trip again.',
+              style: GoogleFonts.manrope(
+                fontSize: 13.5,
+                color: DT.textSecondary,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: DT.textSecondary,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(
+                  'Shorten anyway',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: DT.danger,
+                  ),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Shorten anyway',
-                style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w700, color: DT.danger)),
-          ),
-        ],
-      ),
     );
     return ok ?? false;
   }
@@ -215,7 +237,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
     // derived from the trip name, so they stay stable and vary between trips.
     final seed = _name.text.trim();
     try {
-      final tripId = await ref.read(tripServiceProvider).createTrip(
+      final tripId = await ref
+          .read(tripServiceProvider)
+          .createTrip(
             name: _name.text,
             createdBy: me.uid,
             startDate: _start!,
@@ -227,9 +251,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
             travellers: _travellers,
           );
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        AppTheme.slideRoute(ItineraryScreen(tripId: tripId)),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(AppTheme.slideRoute(ItineraryScreen(tripId: tripId)));
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
@@ -245,7 +269,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(tripServiceProvider).updateTrip(
+      await ref
+          .read(tripServiceProvider)
+          .updateTrip(
             trip.copyWith(
               name: _name.text.trim(),
               destinations: _destinations,
@@ -275,16 +301,19 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
     final me = ref.watch(authControllerProvider.notifier).currentUser;
     if (!_seededSelf && me != null) {
       final profile = ref.watch(userProfileStreamProvider(me.uid)).valueOrNull;
-      final name = profile?.name ??
+      final name =
+          profile?.name ??
           me.displayName ??
           me.email?.split('@').first ??
           'You';
       _seededSelf = true;
-      _travellers.add(TripTraveller(
-        userId: me.uid,
-        name: name,
-        photoUrl: profile?.profileImageUrl,
-      ));
+      _travellers.add(
+        TripTraveller(
+          userId: me.uid,
+          name: name,
+          photoUrl: profile?.profileImageUrl,
+        ),
+      );
     }
 
     return Scaffold(
@@ -328,11 +357,13 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                       children: [
                         for (final d in _destinations)
                           GestureDetector(
-                            onTap: () =>
-                                setState(() => _destinations.remove(d)),
+                            onTap:
+                                () => setState(() => _destinations.remove(d)),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: DT.primarySoft,
                                 borderRadius: BorderRadius.circular(999),
@@ -340,8 +371,11 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.place_outlined,
-                                      size: 14, color: DT.accentDeep),
+                                  const Icon(
+                                    Icons.place_outlined,
+                                    size: 14,
+                                    color: DT.accentDeep,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     d,
@@ -361,7 +395,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                             painter: const DashedBorderPainter(radius: 999),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: DT.surface,
                                 borderRadius: BorderRadius.circular(999),
@@ -369,8 +405,11 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.add_rounded,
-                                      size: 14, color: DT.textSecondary),
+                                  const Icon(
+                                    Icons.add_rounded,
+                                    size: 14,
+                                    color: DT.textSecondary,
+                                  ),
                                   const SizedBox(width: 5),
                                   Text(
                                     'Add',
@@ -425,7 +464,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                     hint: "They'll see the itinerary and share trip costs",
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 11),
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
                       decoration: BoxDecoration(
                         color: DT.surface,
                         borderRadius: BorderRadius.circular(13),
@@ -434,7 +475,9 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                       child: Row(
                         children: [
                           TravellerAvatarStack(
-                              travellers: _travellers, size: 34),
+                            travellers: _travellers,
+                            size: 34,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -455,8 +498,11 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                                 color: DT.accentSoft,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.add_rounded,
-                                  size: 18, color: DT.accentDeep),
+                              child: const Icon(
+                                Icons.add_rounded,
+                                size: 18,
+                                color: DT.accentDeep,
+                              ),
                             ),
                           ),
                         ],
@@ -480,8 +526,8 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                                 // The organiser stays: they own the trip, and
                                 // removing them would orphan it.
                                 isOrganiser: t.userId == _organiserId,
-                                onRemove: () =>
-                                    setState(() => _travellers.remove(t)),
+                                onRemove:
+                                    () => setState(() => _travellers.remove(t)),
                               ),
                             ),
                         ],
@@ -496,24 +542,26 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                       children: [
                         for (final s in [
                           TripStatus.tentative,
-                          TripStatus.confirmed
+                          TripStatus.confirmed,
                         ])
                           Expanded(
                             child: Padding(
                               padding: EdgeInsets.only(
-                                  right: s == TripStatus.tentative ? 8 : 0),
+                                right: s == TripStatus.tentative ? 8 : 0,
+                              ),
                               child: GestureDetector(
                                 onTap: () => setState(() => _status = s),
                                 child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color:
-                                        s == _status ? DT.text : DT.surface,
+                                    color: s == _status ? DT.text : DT.surface,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: s == _status
-                                        ? null
-                                        : Border.all(color: DT.border),
+                                    border:
+                                        s == _status
+                                            ? null
+                                            : Border.all(color: DT.border),
                                   ),
                                   child: Center(
                                     child: Text(
@@ -521,9 +569,10 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
                                       style: GoogleFonts.manrope(
                                         fontSize: 13.5,
                                         fontWeight: FontWeight.w700,
-                                        color: s == _status
-                                            ? Colors.white
-                                            : DT.textSecondary,
+                                        color:
+                                            s == _status
+                                                ? Colors.white
+                                                : DT.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -540,9 +589,10 @@ class _TripFormScreenState extends ConsumerState<TripFormScreen> {
             TripFooter(
               child: TripPrimaryButton(
                 label: _isEditing ? 'Save changes' : 'Create & add itinerary',
-                icon: _isEditing
-                    ? Icons.check_rounded
-                    : Icons.arrow_forward_rounded,
+                icon:
+                    _isEditing
+                        ? Icons.check_rounded
+                        : Icons.arrow_forward_rounded,
                 trailingIcon: !_isEditing,
                 busy: _saving,
                 onTap: _canSave ? _save : null,
@@ -619,8 +669,11 @@ class _TravellerRow extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child:
-                    Icon(Icons.close_rounded, size: 17, color: DT.textSecondary),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 17,
+                  color: DT.textSecondary,
+                ),
               ),
             ),
         ],
@@ -668,45 +721,66 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
     return AlertDialog(
       backgroundColor: DT.surface,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DS.cardRadius)),
+        borderRadius: BorderRadius.circular(DS.cardRadius),
+      ),
       title: Text(
         title,
         style: GoogleFonts.manrope(
-            fontSize: 16, fontWeight: FontWeight.w800, color: DT.text),
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: DT.text,
+        ),
       ),
       content: TextField(
         controller: controller,
         autofocus: true,
         keyboardType: keyboardType,
-        textCapitalization: keyboardType == TextInputType.emailAddress
-            ? TextCapitalization.none
-            : TextCapitalization.words,
+        textCapitalization:
+            keyboardType == TextInputType.emailAddress
+                ? TextCapitalization.none
+                : TextCapitalization.words,
         cursorColor: DT.accent,
         style: GoogleFonts.manrope(
-            fontSize: 15, fontWeight: FontWeight.w700, color: DT.text),
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: DT.text,
+        ),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.manrope(
-              fontSize: 15, fontWeight: FontWeight.w500, color: DT.textTertiary),
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: DT.textTertiary,
+          ),
           enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: DT.border)),
+            borderSide: BorderSide(color: DT.border),
+          ),
           focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: DT.accent)),
+            borderSide: BorderSide(color: DT.accent),
+          ),
         ),
         onSubmitted: (v) => Navigator.of(context).pop(v),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel',
-              style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700, color: DT.textSecondary)),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.manrope(
+              fontWeight: FontWeight.w700,
+              color: DT.textSecondary,
+            ),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(controller.text),
-          child: Text('Add',
-              style: GoogleFonts.manrope(
-                  fontWeight: FontWeight.w700, color: DT.accentDeep)),
+          child: Text(
+            'Add',
+            style: GoogleFonts.manrope(
+              fontWeight: FontWeight.w700,
+              color: DT.accentDeep,
+            ),
+          ),
         ),
       ],
     );

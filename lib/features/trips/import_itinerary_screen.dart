@@ -80,7 +80,10 @@ class _ImportItineraryScreenState extends ConsumerState<ImportItineraryScreen> {
     try {
       final count = await ref
           .read(tripServiceProvider)
-          .addStops(widget.trip.id, _importable.map((s) => s.toStop()).toList());
+          .addStops(
+            widget.trip.id,
+            _importable.map((s) => s.toStop()).toList(),
+          );
       if (mounted) {
         Navigator.of(context).pop();
         showSnackBar(context, 'Added $count stop${count == 1 ? '' : 's'}');
@@ -104,30 +107,32 @@ class _ImportItineraryScreenState extends ConsumerState<ImportItineraryScreen> {
             TripBackHeader(
               title: _reviewing ? 'Review import' : 'Paste itinerary',
               sub: widget.trip.name,
-              onBack: () => _reviewing
-                  ? setState(() => _reviewing = false)
-                  : Navigator.of(context).pop(),
+              onBack:
+                  () =>
+                      _reviewing
+                          ? setState(() => _reviewing = false)
+                          : Navigator.of(context).pop(),
             ),
-            Expanded(
-              child: _reviewing ? _buildReview() : _buildPaste(),
-            ),
+            Expanded(child: _reviewing ? _buildReview() : _buildPaste()),
             TripFooter(
-              child: _reviewing
-                  ? TripPrimaryButton(
-                      label: _importable.isEmpty
-                          ? 'Nothing to import'
-                          : 'Add ${_importable.length} stop'
-                              '${_importable.length == 1 ? '' : 's'}',
-                      icon: Icons.check_rounded,
-                      busy: _saving,
-                      onTap: _importable.isEmpty ? null : _import,
-                    )
-                  : TripPrimaryButton(
-                      label: 'Read itinerary',
-                      icon: Icons.arrow_forward_rounded,
-                      trailingIcon: true,
-                      onTap: _text.text.trim().isEmpty ? null : _parse,
-                    ),
+              child:
+                  _reviewing
+                      ? TripPrimaryButton(
+                        label:
+                            _importable.isEmpty
+                                ? 'Nothing to import'
+                                : 'Add ${_importable.length} stop'
+                                    '${_importable.length == 1 ? '' : 's'}',
+                        icon: Icons.check_rounded,
+                        busy: _saving,
+                        onTap: _importable.isEmpty ? null : _import,
+                      )
+                      : TripPrimaryButton(
+                        label: 'Read itinerary',
+                        icon: Icons.arrow_forward_rounded,
+                        trailingIcon: true,
+                        onTap: _text.text.trim().isEmpty ? null : _parse,
+                      ),
             ),
           ],
         ),
@@ -143,7 +148,8 @@ class _ImportItineraryScreenState extends ConsumerState<ImportItineraryScreen> {
       children: [
         TripField(
           label: 'Your itinerary',
-          hint: 'One stop per line, each starting with a time. '
+          hint:
+              'One stop per line, each starting with a time. '
               '"Day 2" on its own line moves to the next day.',
           child: TripInput(
             child: TripTextField(
@@ -214,7 +220,10 @@ class _ImportItineraryScreenState extends ConsumerState<ImportItineraryScreen> {
                 'The type of each stop is guessed from the wording — you can '
                 'change any of it afterwards.',
                 style: GoogleFonts.manrope(
-                    fontSize: 11.5, color: DT.textTertiary, height: 1.4),
+                  fontSize: 11.5,
+                  color: DT.textTertiary,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -237,13 +246,15 @@ class _ImportItineraryScreenState extends ConsumerState<ImportItineraryScreen> {
       children: [
         if (_beyondTrip > 0)
           _Warning(
-            text: '$_beyondTrip stop${_beyondTrip == 1 ? '' : 's'} fall beyond '
+            text:
+                '$_beyondTrip stop${_beyondTrip == 1 ? '' : 's'} fall beyond '
                 'day ${widget.trip.dayCount}, the last day of this trip, and '
                 'will not be imported. Extend the trip first to keep them.',
           ),
         if (_result.skipped.isNotEmpty)
           _Warning(
-            text: '${_result.skipped.length} line'
+            text:
+                '${_result.skipped.length} line'
                 '${_result.skipped.length == 1 ? '' : 's'} had no time and were '
                 'skipped: ${_result.skipped.take(3).map((s) => '"${s.text}"').join(', ')}'
                 '${_result.skipped.length > 3 ? '…' : ''}',
@@ -308,8 +319,11 @@ class _PreviewRow extends StatelessWidget {
               color: ty.soft,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(TripGlyphs.icon(defaultGlyphFor(stop.type)),
-                size: 17, color: ty.color),
+            child: Icon(
+              TripGlyphs.icon(defaultGlyphFor(stop.type)),
+              size: 17,
+              color: ty.color,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(

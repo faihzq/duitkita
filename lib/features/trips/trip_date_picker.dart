@@ -21,25 +21,28 @@ Future<DateTime?> showTripDatePicker({
     firstDate: firstDate,
     lastDate: lastDate,
     helpText: helpText,
-    builder: (context, child) => Theme(
-      data: Theme.of(context).copyWith(
-        colorScheme: Theme.of(context).colorScheme.copyWith(
+    builder:
+        (context, child) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: DT.text,
               onPrimary: Colors.white,
               surface: DT.surface,
               onSurface: DT.text,
             ),
-        datePickerTheme: _theme,
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: DT.accentDeep,
-            textStyle: GoogleFonts.manrope(
-                fontSize: 14, fontWeight: FontWeight.w700),
+            datePickerTheme: _theme,
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: DT.accentDeep,
+                textStyle: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
+          child: child!,
         ),
-      ),
-      child: child!,
-    ),
   );
 }
 

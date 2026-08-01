@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,8 +35,17 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   }
 
   Future<void> _onReady() async {
+    // Accounts predating usernames get one derived from their name or email, so
+    // they can be found by handle without having to visit Profile first. It is
+    // a no-op once set, and never blocks startup.
+    final uid = ref.read(authControllerProvider.notifier).currentUser?.uid;
+    if (uid != null) {
+      unawaited(ref.read(profileServiceProvider).ensureUsername(uid));
+    }
+
     // Reminders and activity notifications are now sent server-side by Cloud
     // Functions (see functions/index.js), so no local scheduling here.
+    if (!mounted) return;
     await UpdateService.checkForUpdate(context);
   }
 

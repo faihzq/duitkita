@@ -7,6 +7,7 @@ import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/utils/username.dart';
 
 class ManageMembersScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -47,15 +48,20 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
   }
 
   Future<void> _addMember() async {
-    final email = _emailCtrl.text.trim();
-    if (email.isEmpty || !isValidEmail(email)) {
-      _snack('Please enter a valid email', isError: true);
+    final input = _emailCtrl.text.trim();
+    // Either identifier works: a handle resolves in one read, an email keeps
+    // working for accounts that predate usernames.
+    final looksLikeEmail = input.contains('@') && input.contains('.');
+    if (input.isEmpty ||
+        (looksLikeEmail ? !isValidEmail(input) : !isValidUsername(input))) {
+      _snack('Enter a username or email address', isError: true);
       return;
     }
+    final email = input;
     setState(() => _isLoading = true);
     try {
       final profileService = ref.read(profileServiceProvider);
-      final userId = await profileService.getUserIdByEmail(email);
+      final userId = await profileService.findUserId(input);
       if (userId == null) {
         if (!mounted) return;
         setState(() => _isLoading = false);

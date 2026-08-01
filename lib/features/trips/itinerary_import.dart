@@ -38,16 +38,16 @@ class ParsedStop {
   });
 
   ItineraryStop toStop() => ItineraryStop(
-        id: '',
-        day: day,
-        order: minutesFromTimeLabel(time),
-        time: time,
-        title: title,
-        note: note,
-        placeQuery: place,
-        type: type,
-        icon: defaultGlyphFor(type),
-      );
+    id: '',
+    day: day,
+    order: minutesFromTimeLabel(time),
+    time: time,
+    title: title,
+    note: note,
+    placeQuery: place,
+    type: type,
+    icon: defaultGlyphFor(type),
+  );
 }
 
 /// A line that carried no recognisable time.
@@ -63,12 +63,16 @@ class ImportResult {
   const ImportResult({required this.stops, required this.skipped});
 
   bool get isEmpty => stops.isEmpty;
-  int get dayCount => stops.isEmpty
-      ? 0
-      : stops.map((s) => s.day).reduce((a, b) => a > b ? a : b);
+  int get dayCount =>
+      stops.isEmpty
+          ? 0
+          : stops.map((s) => s.day).reduce((a, b) => a > b ? a : b);
 }
 
-final _dayHeader = RegExp(r'^\s*day\s*(\d+)\s*[:.\-–—]?\s*$', caseSensitive: false);
+final _dayHeader = RegExp(
+  r'^\s*day\s*(\d+)\s*[:.\-–—]?\s*$',
+  caseSensitive: false,
+);
 
 /// Leading time: `9:00 AM`, `09:00`, `8.45am`, `8am`. Bullets and dashes ahead
 /// of it are stripped first.
@@ -144,15 +148,17 @@ ImportResult parseItinerary(String text, {int startDay = 1}) {
       continue;
     }
 
-    stops.add(ParsedStop(
-      day: day,
-      time: _formatTime(hour, minute),
-      title: rest,
-      note: (note?.isEmpty ?? true) ? null : note,
-      place: (place?.isEmpty ?? true) ? null : place,
-      type: inferType('$rest ${note ?? ''}'),
-      source: trimmed,
-    ));
+    stops.add(
+      ParsedStop(
+        day: day,
+        time: _formatTime(hour, minute),
+        title: rest,
+        note: (note?.isEmpty ?? true) ? null : note,
+        place: (place?.isEmpty ?? true) ? null : place,
+        type: inferType('$rest ${note ?? ''}'),
+        source: trimmed,
+      ),
+    );
   }
 
   return ImportResult(stops: stops, skipped: skipped);
@@ -173,26 +179,87 @@ StopType inferType(String text) {
 
   // Whole words only. A substring match makes "Breakfast" contain "break" and
   // land every meal under the prayer/rest type.
-  bool has(List<String> words) => words.any(
-      (w) => RegExp('\\b${RegExp.escape(w)}\\b').hasMatch(t));
+  bool has(List<String> words) =>
+      words.any((w) => RegExp('\\b${RegExp.escape(w)}\\b').hasMatch(t));
 
-  if (has(['solat', 'prayer', 'subuh', 'zohor', 'asar', 'maghrib', 'isyak',
-           'masjid', 'mosque', 'surau', 'rehat', 'rest stop', 'break'])) {
+  if (has([
+    'solat',
+    'prayer',
+    'subuh',
+    'zohor',
+    'asar',
+    'maghrib',
+    'isyak',
+    'masjid',
+    'mosque',
+    'surau',
+    'rehat',
+    'rest stop',
+    'break',
+  ])) {
     return StopType.prayer;
   }
-  if (has(['breakfast', 'lunch', 'dinner', 'supper', 'makan', 'sarapan',
-           'brunch', 'cafe', 'kopi', 'coffee', 'nasi', 'mee', 'restoran',
-           'restaurant', 'food', 'eat', 'snack', 'ais', 'dessert'])) {
+  if (has([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'supper',
+    'makan',
+    'sarapan',
+    'brunch',
+    'cafe',
+    'kopi',
+    'coffee',
+    'nasi',
+    'mee',
+    'restoran',
+    'restaurant',
+    'food',
+    'eat',
+    'snack',
+    'ais',
+    'dessert',
+  ])) {
     return StopType.food;
   }
-  if (has(['check in', 'check-in', 'checkin', 'homestay', 'hotel', 'resort',
-           'airbnb', 'chalet', 'penginapan', 'stay', 'lodge'])) {
+  if (has([
+    'check in',
+    'check-in',
+    'checkin',
+    'homestay',
+    'hotel',
+    'resort',
+    'airbnb',
+    'chalet',
+    'penginapan',
+    'stay',
+    'lodge',
+  ])) {
     return StopType.stay;
   }
-  if (has(['drive', 'depart', 'bertolak', 'gerak', 'ferry', 'feri', 'flight',
-           'terbang', 'jeti', 'jetty', 'airport', 'lapangan', 'arrive',
-           'sampai', 'tiba', 'pick up', 'transit', 'balik', 'head home',
-           'perjalanan', 'menuju'])) {
+  if (has([
+    'drive',
+    'depart',
+    'bertolak',
+    'gerak',
+    'ferry',
+    'feri',
+    'flight',
+    'terbang',
+    'jeti',
+    'jetty',
+    'airport',
+    'lapangan',
+    'arrive',
+    'sampai',
+    'tiba',
+    'pick up',
+    'transit',
+    'balik',
+    'head home',
+    'perjalanan',
+    'menuju',
+  ])) {
     return StopType.travel;
   }
   return StopType.sight;

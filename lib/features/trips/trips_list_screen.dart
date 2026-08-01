@@ -16,9 +16,9 @@ class TripsListScreen extends ConsumerWidget {
   const TripsListScreen({super.key});
 
   void _openTrip(BuildContext context, String tripId) {
-    Navigator.of(context).push(
-      AppTheme.slideRoute(ItineraryScreen(tripId: tripId)),
-    );
+    Navigator.of(
+      context,
+    ).push(AppTheme.slideRoute(ItineraryScreen(tripId: tripId)));
   }
 
   void _newTrip(BuildContext context) {
@@ -33,10 +33,12 @@ class TripsListScreen extends ConsumerWidget {
     final tripsAsync = ref.watch(tripsStreamProvider(userId));
     final trips = tripsAsync.valueOrNull ?? const <TripModel>[];
 
-    final upcoming = trips.where((t) => !t.isPast).toList()
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
-    final past = trips.where((t) => t.isPast).toList()
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    final upcoming =
+        trips.where((t) => !t.isPast).toList()
+          ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    final past =
+        trips.where((t) => t.isPast).toList()
+          ..sort((a, b) => b.startDate.compareTo(a.startDate));
 
     return Scaffold(
       backgroundColor: DT.bg,
@@ -88,8 +90,11 @@ class TripsListScreen extends ConsumerWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.add_rounded,
-                              size: 17, color: Colors.white),
+                          const Icon(
+                            Icons.add_rounded,
+                            size: 17,
+                            color: Colors.white,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'New',
@@ -109,48 +114,52 @@ class TripsListScreen extends ConsumerWidget {
 
             // ── List ────────────────────────────────────────────
             Expanded(
-              child: tripsAsync.isLoading && trips.isEmpty
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                          color: DT.accent, strokeWidth: 2),
-                    )
-                  : trips.isEmpty
+              child:
+                  tripsAsync.isLoading && trips.isEmpty
+                      ? const Center(
+                        child: CircularProgressIndicator(
+                          color: DT.accent,
+                          strokeWidth: 2,
+                        ),
+                      )
+                      : trips.isEmpty
                       ? _EmptyState(onCreate: () => _newTrip(context))
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(DS.xl, 4, DS.xl, 24),
-                          children: [
-                            if (upcoming.isNotEmpty) ...[
-                              const _SectionHead('Upcoming', topGap: 8),
-                              for (final t in upcoming)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: TripCard(
-                                    trip: t,
-                                    onTap: () => _openTrip(context, t.id),
-                                  ),
-                                ),
-                            ],
-                            if (past.isNotEmpty) ...[
-                              const _SectionHead('Past trips', topGap: 22),
-                              Opacity(
-                                opacity: 0.85,
-                                child: Column(
-                                  children: [
-                                    for (final t in past)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 12),
-                                        child: TripCard(
-                                          trip: t,
-                                          onTap: () => _openTrip(context, t.id),
-                                        ),
-                                      ),
-                                  ],
+                        padding: const EdgeInsets.fromLTRB(DS.xl, 4, DS.xl, 24),
+                        children: [
+                          if (upcoming.isNotEmpty) ...[
+                            const _SectionHead('Upcoming', topGap: 8),
+                            for (final t in upcoming)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: TripCard(
+                                  trip: t,
+                                  onTap: () => _openTrip(context, t.id),
                                 ),
                               ),
-                            ],
                           ],
-                        ),
+                          if (past.isNotEmpty) ...[
+                            const _SectionHead('Past trips', topGap: 22),
+                            Opacity(
+                              opacity: 0.85,
+                              child: Column(
+                                children: [
+                                  for (final t in past)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: TripCard(
+                                        trip: t,
+                                        onTap: () => _openTrip(context, t.id),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
             ),
           ],
         ),
@@ -256,8 +265,11 @@ class TripCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_outlined,
-                      size: 15, color: DT.textTertiary),
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 15,
+                    color: DT.textTertiary,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -271,7 +283,9 @@ class TripCard extends StatelessWidget {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 9, vertical: 4),
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: pillBg,
                       borderRadius: BorderRadius.circular(999),
@@ -313,8 +327,11 @@ class TripCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.route_outlined,
-                      size: 15, color: DT.textTertiary),
+                  const Icon(
+                    Icons.route_outlined,
+                    size: 15,
+                    color: DT.textTertiary,
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     '${trip.stopCount} stops',
@@ -379,8 +396,11 @@ class _EmptyState extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: DT.border),
             ),
-            child: const Icon(Icons.map_outlined,
-                size: 38, color: DT.textTertiary),
+            child: const Icon(
+              Icons.map_outlined,
+              size: 38,
+              color: DT.textTertiary,
+            ),
           ),
           const SizedBox(height: 20),
           Text(

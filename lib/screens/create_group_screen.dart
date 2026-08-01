@@ -155,7 +155,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       final notFound = <String>[];
       for (final email in _invites) {
         try {
-          final uid = await profileService.getUserIdByEmail(email);
+          final uid = await profileService.findUserId(email);
           if (uid == null) { notFound.add(email); continue; }
           final p = await profileService.getUserProfile(uid);
           await groupService.addMemberToGroup(

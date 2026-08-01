@@ -126,8 +126,10 @@ class _TripTimePickerSheetState extends State<_TripTimePickerSheet> {
                 ),
                 // Live preview of the selection.
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: DT.accentSoft,
                     borderRadius: BorderRadius.circular(999),
@@ -310,17 +312,18 @@ class _Wheel extends StatelessWidget {
       },
       childDelegate: ListWheelChildBuilderDelegate(
         childCount: count,
-        builder: (_, i) => Center(
-          child: Text(
-            label(i),
-            style: GoogleFonts.manrope(
-              fontSize: i == selected ? 24 : 20,
-              fontWeight: i == selected ? FontWeight.w800 : FontWeight.w600,
-              color: i == selected ? DT.text : DT.textSecondary,
-              letterSpacing: -0.4,
+        builder:
+            (_, i) => Center(
+              child: Text(
+                label(i),
+                style: GoogleFonts.manrope(
+                  fontSize: i == selected ? 24 : 20,
+                  fontWeight: i == selected ? FontWeight.w800 : FontWeight.w600,
+                  color: i == selected ? DT.text : DT.textSecondary,
+                  letterSpacing: -0.4,
+                ),
+              ),
             ),
-          ),
-        ),
       ),
     );
   }

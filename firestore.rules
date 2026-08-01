@@ -31,6 +31,26 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
+    // Username reservations — the uniqueness index for handles.
+    // The document id IS the lowercase handle, so creating it is the claim;
+    // Firestore has no unique constraint, and a query-then-write would race.
+    match /usernames/{handle} {
+      // Anyone signed in can resolve a handle when adding a member/traveller.
+      allow read: if isSignedIn();
+
+      // You may only ever claim a handle for yourself.
+      allow create: if isSignedIn() &&
+                       request.resource.data.uid == request.auth.uid;
+
+      // Re-claiming your own handle (same transaction rewrites it).
+      allow update: if isSignedIn() &&
+                       resource.data.uid == request.auth.uid &&
+                       request.resource.data.uid == request.auth.uid;
+
+      // Only the holder can release it, when changing to a new handle.
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // Groups collection
     match /groups/{groupId} {
       allow read: if isSignedIn() &&
@@ -163,11 +183,20 @@ service cloud.firestore {
                         isGroupAdmin(resource.data.groupId));
     }
 
-    // Trips collection (day-by-day itineraries)
+    // Trips collection (day-by-day itineraries).
+    // The organiser (createdBy) owns the plan and is the only one who may
+    // change it; other travellers have read access.
     match /trips/{tripId} {
+      function tripData() {
+        return get(/databases/$(database)/documents/trips/$(tripId)).data;
+      }
+
       function isTraveller() {
-        return isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.travellerIds;
+        return isSignedIn() && request.auth.uid in tripData().travellerIds;
+      }
+
+      function isOrganiser() {
+        return isSignedIn() && request.auth.uid == tripData().createdBy;
       }
 
       allow read: if isSignedIn() &&
@@ -178,16 +207,19 @@ service cloud.firestore {
                        request.auth.uid == request.resource.data.createdBy &&
                        request.auth.uid in request.resource.data.travellerIds;
 
-      // Any traveller can edit the trip; only the creator can delete it.
+      // Only the organiser can edit or delete the trip. createdBy is immutable,
+      // so ownership cannot be handed off (or stolen) by an update.
       allow update: if isSignedIn() &&
-                       request.auth.uid in resource.data.travellerIds;
+                       request.auth.uid == resource.data.createdBy &&
+                       request.resource.data.createdBy == resource.data.createdBy;
 
       allow delete: if isSignedIn() &&
                        request.auth.uid == resource.data.createdBy;
 
-      // Itinerary stops — every traveller can plan.
+      // Itinerary stops — travellers read, the organiser plans.
       match /stops/{stopId} {
-        allow read, create, update, delete: if isTraveller();
+        allow read: if isTraveller();
+        allow create, update, delete: if isOrganiser();
       }
     }
 

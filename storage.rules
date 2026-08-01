@@ -51,14 +51,21 @@ service firebase.storage {
                && request.auth.uid in firestore.get(/databases/(default)/documents/trips/$(tripId)).data.travellerIds;
       }
 
+      // Attaching a ticket edits the stop, so it follows the same rule as the
+      // itinerary itself: travellers read, the organiser changes.
+      function isOrganiser() {
+        return request.auth != null
+               && request.auth.uid == firestore.get(/databases/(default)/documents/trips/$(tripId)).data.createdBy;
+      }
+
       allow read: if isTraveller();
 
-      allow create, update: if isTraveller()
+      allow create, update: if isOrganiser()
                     && request.resource.size < 10 * 1024 * 1024
                     && (request.resource.contentType.matches('image/.*')
                         || request.resource.contentType == 'application/pdf');
 
-      allow delete: if isTraveller();
+      allow delete: if isOrganiser();
     }
 
     // Block all other paths

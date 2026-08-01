@@ -5,6 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/models/itinerary_stop.dart';
 import 'package:duitkita/models/trip_model.dart';
 import 'package:duitkita/services/trip_service.dart';
@@ -19,11 +20,7 @@ class StopDetailScreen extends ConsumerWidget {
   final TripModel trip;
   final String stopId;
 
-  const StopDetailScreen({
-    super.key,
-    required this.trip,
-    required this.stopId,
-  });
+  const StopDetailScreen({super.key, required this.trip, required this.stopId});
 
   Future<void> _open(BuildContext context, Uri url) async {
     final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -33,37 +30,56 @@ class StopDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, ItineraryStop stop) async {
+    BuildContext context,
+    WidgetRef ref,
+    ItineraryStop stop,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: DT.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DS.cardRadius)),
-        title: Text(
-          'Remove this stop?',
-          style: GoogleFonts.manrope(
-              fontSize: 16, fontWeight: FontWeight.w800, color: DT.text),
-        ),
-        content: Text(
-          '“${stop.title}” will be removed from the itinerary.',
-          style: GoogleFonts.manrope(fontSize: 13.5, color: DT.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel',
-                style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w700, color: DT.textSecondary)),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: DT.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DS.cardRadius),
+            ),
+            title: Text(
+              'Remove this stop?',
+              style: GoogleFonts.manrope(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: DT.text,
+              ),
+            ),
+            content: Text(
+              '“${stop.title}” will be removed from the itinerary.',
+              style: GoogleFonts.manrope(
+                fontSize: 13.5,
+                color: DT.textSecondary,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: DT.textSecondary,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(
+                  'Remove',
+                  style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: DT.danger,
+                  ),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Remove',
-                style: GoogleFonts.manrope(
-                    fontWeight: FontWeight.w700, color: DT.danger)),
-          ),
-        ],
-      ),
     );
     if (ok != true || !context.mounted) return;
 
@@ -92,29 +108,34 @@ class StopDetailScreen extends ConsumerWidget {
       return Scaffold(
         backgroundColor: DT.bg,
         body: SafeArea(
-          child: stops == null
-              ? const Center(
-                  child: CircularProgressIndicator(
-                      color: DT.accent, strokeWidth: 2))
-              : Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'This stop is no longer on the trip',
-                        style: GoogleFonts.manrope(
+          child:
+              stops == null
+                  ? const Center(
+                    child: CircularProgressIndicator(
+                      color: DT.accent,
+                      strokeWidth: 2,
+                    ),
+                  )
+                  : Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'This stop is no longer on the trip',
+                          style: GoogleFonts.manrope(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: DT.text),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Back to itinerary'),
-                      ),
-                    ],
+                            color: DT.text,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Back to itinerary'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
         ),
       );
     }
@@ -139,30 +160,42 @@ class StopDetailScreen extends ConsumerWidget {
                     onBack: () => Navigator.of(context).pop(),
                     title: 'Stop details',
                     sub: trip.name,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TripIconButton(
-                          icon: Icons.edit_outlined,
-                          onDark: true,
-                          onTap: () => Navigator.of(context).push(
-                            AppTheme.slideRoute(
-                              AddStopScreen(
-                                trip: trip,
-                                initialDay: s.day,
-                                editing: s,
-                              ),
+                    // Only the organiser changes the plan; everyone else reads
+                    // it. Enforced in firestore.rules — this just hides the
+                    // controls rather than offering an action that would fail.
+                    trailing:
+                        !trip.isOrganiser(
+                              ref
+                                  .watch(authControllerProvider.notifier)
+                                  .currentUser
+                                  ?.uid,
+                            )
+                            ? null
+                            : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TripIconButton(
+                                  icon: Icons.edit_outlined,
+                                  onDark: true,
+                                  onTap:
+                                      () => Navigator.of(context).push(
+                                        AppTheme.slideRoute(
+                                          AddStopScreen(
+                                            trip: trip,
+                                            initialDay: s.day,
+                                            editing: s,
+                                          ),
+                                        ),
+                                      ),
+                                ),
+                                const SizedBox(width: 8),
+                                TripIconButton(
+                                  icon: Icons.delete_outline_rounded,
+                                  onDark: true,
+                                  onTap: () => _confirmDelete(context, ref, s),
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        TripIconButton(
-                          icon: Icons.delete_outline_rounded,
-                          onDark: true,
-                          onTap: () => _confirmDelete(context, ref, s),
-                        ),
-                      ],
-                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
@@ -175,8 +208,11 @@ class StopDetailScreen extends ConsumerWidget {
                             color: Colors.white.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Icon(TripGlyphs.icon(s.icon),
-                              size: 28, color: Colors.white),
+                          child: Icon(
+                            TripGlyphs.icon(s.icon),
+                            size: 28,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -198,10 +234,13 @@ class StopDetailScreen extends ConsumerWidget {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 9, vertical: 3),
+                                      horizontal: 9,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.18),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -214,18 +253,20 @@ class StopDetailScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Icon(Icons.schedule_outlined,
-                                      size: 14,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.7)),
+                                  Icon(
+                                    Icons.schedule_outlined,
+                                    size: 14,
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                  ),
                                   const SizedBox(width: 5),
                                   Text(
                                     s.time,
                                     style: GoogleFonts.manrope(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w700,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.85),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -248,8 +289,10 @@ class StopDetailScreen extends ConsumerWidget {
               children: [
                 // Location card
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
                   decoration: BoxDecoration(
                     color: DT.surface,
                     borderRadius: BorderRadius.circular(14),
@@ -258,8 +301,11 @@ class StopDetailScreen extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.place_outlined,
-                          size: 18, color: DT.accentDeep),
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 18,
+                        color: DT.accentDeep,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -292,7 +338,8 @@ class StopDetailScreen extends ConsumerWidget {
                           label: s.legLabel,
                           large: true,
                           icon: TripGlyphs.icon(
-                              s.icon == 'ferry' ? 'ferry' : 'car'),
+                            s.icon == 'ferry' ? 'ferry' : 'car',
+                          ),
                         ),
                       ],
                     ],
@@ -375,8 +422,8 @@ class StopDetailScreen extends ConsumerWidget {
                     label: 'Directions',
                     icon: Icons.directions_car_outlined,
                     primary: true,
-                    onTap: () =>
-                        _open(context, TripMaps.directions(s.mapQuery)),
+                    onTap:
+                        () => _open(context, TripMaps.directions(s.mapQuery)),
                   ),
                 ),
               ],
@@ -389,14 +436,13 @@ class StopDetailScreen extends ConsumerWidget {
 }
 
 String _fallbackAbout(StopType t) => switch (t) {
-      StopType.travel =>
-        'A leg of the journey — open the map to navigate and gauge drive time.',
-      StopType.food => 'A food stop on the route — tap directions to find it.',
-      StopType.sight =>
-        'A stop worth a visit — open the map to see what’s around.',
-      StopType.stay => 'Tonight’s stay — tap directions to drive there.',
-      StopType.prayer => 'A short break on the road.',
-    };
+  StopType.travel =>
+    'A leg of the journey — open the map to navigate and gauge drive time.',
+  StopType.food => 'A food stop on the route — tap directions to find it.',
+  StopType.sight => 'A stop worth a visit — open the map to see what’s around.',
+  StopType.stay => 'Tonight’s stay — tap directions to drive there.',
+  StopType.prayer => 'A short break on the road.',
+};
 
 // ─── Attachment tile ──────────────────────────────────────────────────────────
 
@@ -422,8 +468,9 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
   }
 
   Future<void> _checkCache() async {
-    final file =
-        await ref.read(attachmentCacheProvider).cached(widget.attachment);
+    final file = await ref
+        .read(attachmentCacheProvider)
+        .cached(widget.attachment);
     if (mounted) setState(() => _offlineReady = file != null);
   }
 
@@ -431,9 +478,9 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final file = await ref.read(attachmentCacheProvider).resolve(
-            widget.attachment,
-          );
+      final file = await ref
+          .read(attachmentCacheProvider)
+          .resolve(widget.attachment);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -441,8 +488,11 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
       });
       final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done && mounted) {
-        showSnackBar(context, 'No app on this phone can open that file',
-            isError: true);
+        showSnackBar(
+          context,
+          'No app on this phone can open that file',
+          isError: true,
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -479,9 +529,7 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(
-                a.isPdf
-                    ? Icons.picture_as_pdf_outlined
-                    : Icons.image_outlined,
+                a.isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
                 size: 19,
                 color: a.isPdf ? DT.danger : DT.info,
               ),
@@ -516,11 +564,18 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
                         ),
                       if (_offlineReady) ...[
                         if (a.sizeLabel.isNotEmpty)
-                          Text(' · ',
-                              style: GoogleFonts.manrope(
-                                  fontSize: 11.5, color: DT.textTertiary)),
-                        const Icon(Icons.offline_pin_outlined,
-                            size: 13, color: DT.accentDeep),
+                          Text(
+                            ' · ',
+                            style: GoogleFonts.manrope(
+                              fontSize: 11.5,
+                              color: DT.textTertiary,
+                            ),
+                          ),
+                        const Icon(
+                          Icons.offline_pin_outlined,
+                          size: 13,
+                          color: DT.accentDeep,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           'Available offline',
@@ -541,12 +596,17 @@ class _AttachmentTileState extends ConsumerState<_AttachmentTile> {
               const SizedBox(
                 width: 18,
                 height: 18,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2, color: DT.accent),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: DT.accent,
+                ),
               )
             else
-              const Icon(Icons.open_in_new_rounded,
-                  size: 17, color: DT.textTertiary),
+              const Icon(
+                Icons.open_in_new_rounded,
+                size: 17,
+                color: DT.textTertiary,
+              ),
           ],
         ),
       ),
@@ -632,16 +692,18 @@ class _MapPreview extends StatelessWidget {
             const Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: 18),
-                child: Icon(Icons.place_outlined,
-                    size: 38, color: DT.accentDeep),
+                child: Icon(
+                  Icons.place_outlined,
+                  size: 38,
+                  color: DT.accentDeep,
+                ),
               ),
             ),
             Positioned(
               left: 12,
               bottom: 10,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(8),
@@ -684,28 +746,58 @@ class _RoadsPainter extends CustomPainter {
     road(
       Path()
         ..moveTo(-10 * sx, 40 * sy)
-        ..cubicTo(p(60, 20).dx, p(60, 20).dy, p(90, 70).dx, p(90, 70).dy,
-            p(160, 55).dx, p(160, 55).dy)
-        ..cubicTo(p(230, 40).dx, p(230, 40).dy, p(300, 20).dx, p(300, 20).dy,
-            p(380, 46).dx, p(380, 46).dy),
+        ..cubicTo(
+          p(60, 20).dx,
+          p(60, 20).dy,
+          p(90, 70).dx,
+          p(90, 70).dy,
+          p(160, 55).dx,
+          p(160, 55).dy,
+        )
+        ..cubicTo(
+          p(230, 40).dx,
+          p(230, 40).dy,
+          p(300, 20).dx,
+          p(300, 20).dy,
+          p(380, 46).dx,
+          p(380, 46).dy,
+        ),
       DT.borderStrong,
       6,
     );
     road(
       Path()
         ..moveTo(-10 * sx, 95 * sy)
-        ..cubicTo(p(80, 80).dx, p(80, 80).dy, p(120, 110).dx, p(120, 110).dy,
-            p(200, 92).dx, p(200, 92).dy)
-        ..cubicTo(p(280, 74).dx, p(280, 74).dy, p(320, 70).dx, p(320, 70).dy,
-            p(380, 96).dx, p(380, 96).dy),
+        ..cubicTo(
+          p(80, 80).dx,
+          p(80, 80).dy,
+          p(120, 110).dx,
+          p(120, 110).dy,
+          p(200, 92).dx,
+          p(200, 92).dy,
+        )
+        ..cubicTo(
+          p(280, 74).dx,
+          p(280, 74).dy,
+          p(320, 70).dx,
+          p(320, 70).dy,
+          p(380, 96).dx,
+          p(380, 96).dy,
+        ),
       DT.border,
       10,
     );
     road(
       Path()
         ..moveTo(110 * sx, -10 * sy)
-        ..cubicTo(p(120, 40).dx, p(120, 40).dy, p(90, 80).dx, p(90, 80).dy,
-            p(130, 138).dx, p(130, 138).dy),
+        ..cubicTo(
+          p(120, 40).dx,
+          p(120, 40).dy,
+          p(90, 80).dx,
+          p(90, 80).dy,
+          p(130, 138).dx,
+          p(130, 138).dy,
+        ),
       DT.border,
       5,
     );

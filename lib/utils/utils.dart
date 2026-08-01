@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:duitkita/services/auth_service.dart';
+import 'package:duitkita/widgets/dk_toast.dart';
 
-// Show snackbar utility
+/// Shows a branded toast. Kept as `showSnackBar` so every existing call site
+/// works unchanged; see [DkToast] for the richer forms (body copy, actions).
 void showSnackBar(
   BuildContext context,
   String message, {
   bool isError = false,
 }) {
-  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: isError ? Colors.red : Colors.green,
-      duration: const Duration(seconds: 3),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ),
-  );
+  // Toasts mount into the root overlay rather than a ScaffoldMessenger, so a
+  // context that has just been popped has nothing to attach to. Several call
+  // sites report success immediately after Navigator.pop.
+  if (!context.mounted) return;
+
+  if (isError) {
+    DkToast.error(context, message);
+  } else {
+    DkToast.success(context, message);
+  }
 }
 
 // Get error message from AuthError

@@ -159,7 +159,9 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     if (_estimatingLeg) return;
     setState(() => _estimatingLeg = true);
     try {
-      final estimate = await ref.read(routeServiceProvider).computeLeg(
+      final estimate = await ref
+          .read(routeServiceProvider)
+          .computeLeg(
             origin: previous.mapQuery,
             destination: _legDestination,
             departAt: RouteService.departureAt(
@@ -198,21 +200,26 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     if (url.isEmpty || _resolvingLink) return;
 
     setState(() => _resolvingLink = true);
-    final coords = await resolveMapLink(url);
+    final resolved = await resolveMapLink(url);
     if (!mounted) return;
     setState(() => _resolvingLink = false);
 
-    if (coords == null) {
+    if (resolved == null) {
       showSnackBar(
         context,
         'Could not read a location from that link — it still opens fine, but '
-        'directions will use the place name',
+        'directions will use the stop title',
         isError: true,
       );
       return;
     }
-    _place.text = coords;
-    showSnackBar(context, 'Pinned to $coords');
+    _place.text = resolved.query;
+    showSnackBar(
+      context,
+      resolved.isCoordinates
+          ? 'Pinned to ${resolved.query}'
+          : 'Using “${resolved.query}”',
+    );
   }
 
   Future<void> _pickAttachments() async {
@@ -274,8 +281,11 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
     }
     if (uploaded.length < _pendingFiles.length && mounted) {
       final failed = _pendingFiles.length - uploaded.length;
-      showSnackBar(context, '$failed attachment(s) failed to upload',
-          isError: true);
+      showSnackBar(
+        context,
+        '$failed attachment(s) failed to upload',
+        isError: true,
+      );
     }
     return [..._attachments, ...uploaded];
   }
@@ -328,7 +338,9 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
         final all = await _uploadPending(stop.id);
         if (all.length != _attachments.length) {
           await service.updateStop(
-              widget.trip.id, stop.copyWith(attachments: all));
+            widget.trip.id,
+            stop.copyWith(attachments: all),
+          );
         }
       } else {
         final newId = await service.addStop(widget.trip.id, stop);
@@ -474,7 +486,8 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                   // ── Place ───────────────────────────────────
                   TripField(
                     label: 'Place',
-                    hint: 'A name, an address, or coordinates like '
+                    hint:
+                        'A name, an address, or coordinates like '
                         '2.0453, 102.5689 copied from a dropped pin',
                     child: TripInput(
                       icon: Icons.place_outlined,
@@ -490,7 +503,8 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                   // ── Map link ────────────────────────────────
                   TripField(
                     label: 'Map link (optional)',
-                    hint: 'Share a place from Google Maps and paste it here — '
+                    hint:
+                        'Share a place from Google Maps and paste it here — '
                         'more exact than a name, which can match the wrong spot',
                     child: Column(
                       children: [
@@ -636,7 +650,8 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                   // ── Tickets ─────────────────────────────────
                   TripField(
                     label: 'Tickets & documents (optional)',
-                    hint: 'Entry tickets, bookings, ferry passes. Images and '
+                    hint:
+                        'Entry tickets, bookings, ferry passes. Images and '
                         'PDFs up to 10MB — opened once, they stay available '
                         'offline.',
                     child: Column(
@@ -658,15 +673,17 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                               name: f.name,
                               detail: 'Uploads when you save',
                               isPdf: f.extension?.toLowerCase() == 'pdf',
-                              onRemove: () =>
-                                  setState(() => _pendingFiles.remove(f)),
+                              onRemove:
+                                  () => setState(() => _pendingFiles.remove(f)),
                             ),
                           ),
                         GestureDetector(
                           onTap: _pickAttachments,
                           child: CustomPaint(
-                            painter:
-                                const DashedBorderPainter(radius: 13, strokeWidth: 1.5),
+                            painter: const DashedBorderPainter(
+                              radius: 13,
+                              strokeWidth: 1.5,
+                            ),
                             child: Container(
                               height: 46,
                               width: double.infinity,
@@ -677,8 +694,11 @@ class _AddStopScreenState extends ConsumerState<AddStopScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.attach_file_rounded,
-                                      size: 17, color: DT.textSecondary),
+                                  const Icon(
+                                    Icons.attach_file_rounded,
+                                    size: 17,
+                                    color: DT.textSecondary,
+                                  ),
                                   const SizedBox(width: 7),
                                   Text(
                                     'Attach a ticket',
@@ -809,11 +829,16 @@ class _PinFromLinkButton extends StatelessWidget {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: DT.accentDeep),
+                  strokeWidth: 2,
+                  color: DT.accentDeep,
+                ),
               )
             else
-              const Icon(Icons.my_location_rounded,
-                  size: 17, color: DT.accentDeep),
+              const Icon(
+                Icons.my_location_rounded,
+                size: 17,
+                color: DT.accentDeep,
+              ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -907,7 +932,11 @@ class _AttachmentRow extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(Icons.close_rounded, size: 17, color: DT.textSecondary),
+              child: Icon(
+                Icons.close_rounded,
+                size: 17,
+                color: DT.textSecondary,
+              ),
             ),
           ),
         ],
@@ -951,12 +980,17 @@ class _AutoFillLegButton extends StatelessWidget {
               const SizedBox(
                 width: 16,
                 height: 16,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             else
-              Icon(Icons.auto_awesome_outlined,
-                  size: 17, color: on ? Colors.white : DT.textTertiary),
+              Icon(
+                Icons.auto_awesome_outlined,
+                size: 17,
+                color: on ? Colors.white : DT.textTertiary,
+              ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(

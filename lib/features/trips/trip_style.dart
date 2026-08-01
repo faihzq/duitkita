@@ -10,12 +10,12 @@ class StopTypeStyle {
 }
 
 StopTypeStyle stopTypeStyle(StopType t) => switch (t) {
-      StopType.travel => const StopTypeStyle(DT.info, DT.infoSoft),
-      StopType.food => const StopTypeStyle(DT.warning, DT.warningSoft),
-      StopType.sight => const StopTypeStyle(DT.catGroups, DT.catGroupsSoft),
-      StopType.stay => const StopTypeStyle(DT.accentDeep, DT.accentSoft),
-      StopType.prayer => const StopTypeStyle(DT.textSecondary, DT.surfaceAlt),
-    };
+  StopType.travel => const StopTypeStyle(DT.info, DT.infoSoft),
+  StopType.food => const StopTypeStyle(DT.warning, DT.warningSoft),
+  StopType.sight => const StopTypeStyle(DT.catGroups, DT.catGroupsSoft),
+  StopType.stay => const StopTypeStyle(DT.accentDeep, DT.accentSoft),
+  StopType.prayer => const StopTypeStyle(DT.textSecondary, DT.surfaceAlt),
+};
 
 /// Glyph keys stored on a stop → Material icons. The handoff draws these as
 /// inline SVG line-icons; the closest rounded Material equivalent is used here.
@@ -51,12 +51,27 @@ class TripGlyphs {
 
   /// Glyphs offered in the Add-a-stop picker, grouped by the type they suit.
   static List<String> forType(StopType t) => switch (t) {
-        StopType.travel => ['car', 'ferry', 'boat', 'plane', 'train', 'flag', 'pin'],
-        StopType.food => ['food', 'cafe'],
-        StopType.sight => ['camera', 'mountain', 'bag', 'wave', 'beach', 'cablecar'],
-        StopType.stay => ['home', 'hotel'],
-        StopType.prayer => ['mosque', 'clock'],
-      };
+    StopType.travel => [
+      'car',
+      'ferry',
+      'boat',
+      'plane',
+      'train',
+      'flag',
+      'pin',
+    ],
+    StopType.food => ['food', 'cafe'],
+    StopType.sight => [
+      'camera',
+      'mountain',
+      'bag',
+      'wave',
+      'beach',
+      'cablecar',
+    ],
+    StopType.stay => ['home', 'hotel'],
+    StopType.prayer => ['mosque', 'clock'],
+  };
 }
 
 /// Preset colour bands for a trip card. Stored on the trip as `bandGradient`.
@@ -97,11 +112,26 @@ const tripHeaderGradient = LinearGradient(
 /// Emoji pool for the trip card tile. Like the colour band, it is assigned
 /// automatically — the design has no picker for it.
 const kTripEmojis = [
-  '🦅', '🌿', '🏛️', '🏝️', '⛰️', '🕌', '🚗', '✈️',
-  '🛳️', '🏕️', '🎡', '🍜', '📸', '🌊', '🎿', '🗺️',
+  '🦅',
+  '🌿',
+  '🏛️',
+  '🏝️',
+  '⛰️',
+  '🕌',
+  '🚗',
+  '✈️',
+  '🛳️',
+  '🏕️',
+  '🎡',
+  '🍜',
+  '📸',
+  '🌊',
+  '🎿',
+  '🗺️',
 ];
 
-String autoTripEmoji(String seed) => kTripEmojis[_hash(seed) % kTripEmojis.length];
+String autoTripEmoji(String seed) =>
+    kTripEmojis[_hash(seed) % kTripEmojis.length];
 
 /// Stable non-negative hash — `String.hashCode` is not guaranteed stable across
 /// runs, and these values are persisted on the trip document.

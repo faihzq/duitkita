@@ -6,8 +6,20 @@ import 'package:duitkita/models/trip_model.dart';
 
 // ─── Date formatting ──────────────────────────────────────────────────────────
 
-const tripMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const tripMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 const tripWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /// "8 Aug 2026"
@@ -65,12 +77,13 @@ class TripAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = (name.trim().isEmpty ? '?' : name.trim())
-        .split(RegExp(r'\s+'))
-        .take(2)
-        .map((s) => s.isNotEmpty ? s[0] : '')
-        .join()
-        .toUpperCase();
+    final initials =
+        (name.trim().isEmpty ? '?' : name.trim())
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((s) => s.isNotEmpty ? s[0] : '')
+            .join()
+            .toUpperCase();
 
     int h = 0;
     for (final ch in name.codeUnits) {
@@ -84,23 +97,28 @@ class TripAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: pair[1],
-        image: imageUrl != null
-            ? DecorationImage(image: NetworkImage(imageUrl!), fit: BoxFit.cover)
-            : null,
+        image:
+            imageUrl != null
+                ? DecorationImage(
+                  image: NetworkImage(imageUrl!),
+                  fit: BoxFit.cover,
+                )
+                : null,
       ),
-      child: imageUrl == null
-          ? Center(
-              child: Text(
-                initials,
-                style: GoogleFonts.manrope(
-                  fontSize: size * 0.4,
-                  fontWeight: FontWeight.w700,
-                  color: pair[0],
-                  letterSpacing: -0.3,
+      child:
+          imageUrl == null
+              ? Center(
+                child: Text(
+                  initials,
+                  style: GoogleFonts.manrope(
+                    fontSize: size * 0.4,
+                    fontWeight: FontWeight.w700,
+                    color: pair[0],
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-            )
-          : null,
+              )
+              : null,
     );
   }
 }
@@ -188,6 +206,140 @@ class TravellerAvatarStack extends StatelessWidget {
       child: Stack(children: items.reversed.toList()),
     );
   }
+}
+
+/// Who is on the trip. Opened from the avatar stack, which otherwise shows
+/// faces with no way to find out whose they are.
+Future<void> showTravellersSheet(
+  BuildContext context, {
+  required List<TripTraveller> travellers,
+  required String organiserId,
+  String? currentUserId,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder:
+        (_) => Container(
+          decoration: const BoxDecoration(
+            color: DT.bg,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: DT.borderStrong,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(DS.xl, 14, DS.xl, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Travellers',
+                        style: GoogleFonts.manrope(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: DT.text,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${travellers.length} on this trip',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: DT.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(DS.xl, 12, DS.xl, 20),
+                  children: [
+                    for (final t in travellers)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: DT.surface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: DT.border),
+                          ),
+                          child: Row(
+                            children: [
+                              TripAvatar(
+                                name: t.name,
+                                imageUrl: t.photoUrl,
+                                size: 38,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  t.userId == currentUserId
+                                      ? '${t.name} (you)'
+                                      : t.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: DT.text,
+                                  ),
+                                ),
+                              ),
+                              if (t.userId == organiserId)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 9,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: DT.primarySoft,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'Organiser',
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: DT.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+  );
 }
 
 // ─── Chrome ───────────────────────────────────────────────────────────────────
@@ -331,7 +483,10 @@ class TripField extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               hint!,
-              style: GoogleFonts.manrope(fontSize: 11.5, color: DT.textTertiary),
+              style: GoogleFonts.manrope(
+                fontSize: 11.5,
+                color: DT.textTertiary,
+              ),
             ),
           ],
         ],
@@ -382,7 +537,8 @@ class TripInput extends StatelessWidget {
               const SizedBox(width: 10),
             ],
             Expanded(
-              child: child ??
+              child:
+                  child ??
                   Text(
                     filled ? value! : (placeholder ?? ''),
                     maxLines: 1,
@@ -512,7 +668,10 @@ class TripFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        DS.xl, 12, DS.xl, 12 + MediaQuery.of(context).padding.bottom,
+        DS.xl,
+        12,
+        DS.xl,
+        12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: const BoxDecoration(
         color: DT.surface,
@@ -554,38 +713,41 @@ class TripPrimaryButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(15),
         ),
         child: Center(
-          child: busy
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2),
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null && !trailingIcon) ...[
-                      Icon(icon, size: 18, color: Colors.white),
-                      const SizedBox(width: 8),
-                    ],
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.manrope(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+          child:
+              busy
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null && !trailingIcon) ...[
+                        Icon(icon, size: 18, color: Colors.white),
+                        const SizedBox(width: 8),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                    if (icon != null && trailingIcon) ...[
-                      const SizedBox(width: 8),
-                      Icon(icon, size: 18, color: Colors.white),
+                      if (icon != null && trailingIcon) ...[
+                        const SizedBox(width: 8),
+                        Icon(icon, size: 18, color: Colors.white),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
         ),
       ),
     );
@@ -607,17 +769,20 @@ class DashedBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = DT.borderStrong
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
+    final paint =
+        Paint()
+          ..color = DT.borderStrong
+          ..strokeWidth = strokeWidth
+          ..style = PaintingStyle.stroke;
 
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        // A pill radius must not exceed half the height.
-        Radius.circular(radius.clamp(0, size.height / 2)),
-      ));
+    final path =
+        Path()..addRRect(
+          RRect.fromRectAndRadius(
+            Offset.zero & size,
+            // A pill radius must not exceed half the height.
+            Radius.circular(radius.clamp(0, size.height / 2)),
+          ),
+        );
 
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
@@ -651,7 +816,9 @@ class LegPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: large ? 10 : 9, vertical: large ? 5 : 3),
+        horizontal: large ? 10 : 9,
+        vertical: large ? 5 : 3,
+      ),
       decoration: BoxDecoration(
         color: DT.surfaceAlt,
         borderRadius: BorderRadius.circular(999),

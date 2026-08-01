@@ -100,5 +100,6 @@ class AttachmentCache {
   }
 }
 
-final attachmentCacheProvider =
-    Provider<AttachmentCache>((ref) => AttachmentCache());
+final attachmentCacheProvider = Provider<AttachmentCache>(
+  (ref) => AttachmentCache(),
+);

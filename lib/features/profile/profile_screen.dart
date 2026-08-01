@@ -12,6 +12,7 @@ import 'package:duitkita/features/onboarding/onboarding_screen.dart';
 import 'package:duitkita/models/user_profile.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/storage_service.dart';
+import 'package:duitkita/utils/username.dart';
 import 'package:duitkita/widgets/help_sheet.dart';
 import 'package:duitkita/widgets/floating_field.dart';
 
@@ -170,7 +171,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showEditProfile(UserProfile profile) {
     final nameCtrl = TextEditingController(text: profile.name ?? '');
     final phoneCtrl = TextEditingController(text: profile.phoneNumber ?? '');
+    final usernameCtrl = TextEditingController(text: profile.username ?? '');
     bool saving = false;
+    String? usernameProblem;
 
     showModalBottomSheet(
       context: context,
@@ -196,6 +199,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 FloatingField(controller: nameCtrl, gap: 0, label: 'Full name', icon: Icons.person_outline_rounded, hint: 'Your full name', capitalization: TextCapitalization.words),
                 const SizedBox(height: 12),
                 FloatingField(controller: phoneCtrl, gap: 0, label: 'Phone number', icon: Icons.phone_outlined, hint: 'e.g. 012-3456789', keyboardType: TextInputType.phone),
+                const SizedBox(height: 12),
+                FloatingField(
+                  controller: usernameCtrl,
+                  gap: 0,
+                  label: 'Username',
+                  icon: Icons.alternate_email_rounded,
+                  hint: 'e.g. fairulhaziq',
+                  error: usernameProblem,
+                  helper: 'How others add you to groups and trips',
+                  onChanged: (_) {
+                    if (usernameProblem != null) {
+                      setSheetState(() => usernameProblem = null);
+                    }
+                  },
+                ),
                 const SizedBox(height: 20),
                 GestureDetector(
                   onTap: saving ? null : () async {
@@ -203,6 +221,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     final messenger = ScaffoldMessenger.of(context);
                     final nav = Navigator.of(sheetCtx);
                     try {
+                      // The handle is claimed separately: it needs the
+                      // transaction that guarantees no two accounts share one.
+                      final wanted = normaliseUsername(usernameCtrl.text);
+                      if (wanted.isNotEmpty && wanted != profile.username) {
+                        final problem = usernameError(wanted);
+                        if (problem != null) {
+                          setSheetState(() {
+                            usernameProblem = problem;
+                            saving = false;
+                          });
+                          return;
+                        }
+                        await ref.read(profileServiceProvider).setUsername(
+                              uid: profile.uid,
+                              username: wanted,
+                            );
+                      }
                       final updated = profile.copyWith(
                         name: nameCtrl.text.trim(),
                         phoneNumber: phoneCtrl.text.trim(),
@@ -211,6 +246,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       if (!mounted) return;
                       nav.pop();
                       messenger.showSnackBar(const SnackBar(content: Text('Profile updated')));
+                    } on UsernameTakenException {
+                      setSheetState(() {
+                        usernameProblem = 'That username is taken';
+                        saving = false;
+                      });
+                      return;
                     } catch (e) {
                       if (!mounted) return;
                       messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
@@ -381,6 +422,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 profile?.name ?? 'Set your name',
                                 style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.3),
                               ),
+                              // The handle sits above the email: it is what
+                              // people share to be added to a group or trip.
+                              if (profile?.username?.isNotEmpty == true) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  '@${profile!.username}',
+                                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.accentDeep),
+                                ),
+                              ],
                               const SizedBox(height: 2),
                               Text(
                                 userEmail ?? profile?.email ?? 'No email',

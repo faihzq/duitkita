@@ -95,6 +95,12 @@ class TripModel {
   /// "Perlis · Kedah · Penang"
   String get where => destinations.join(' · ');
 
+  /// The organiser owns the plan: only they may change the trip or its stops.
+  /// Everyone else on [travellerIds] can see it. Mirrored in firestore.rules —
+  /// this getter only decides what to show, the rules are what enforce it.
+  bool isOrganiser(String? userId) =>
+      userId != null && userId.isNotEmpty && userId == createdBy;
+
   bool get isPast => endDate.isBefore(
         DateTime.now().subtract(const Duration(days: 1)),
       );
