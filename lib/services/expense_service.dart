@@ -29,10 +29,14 @@ class ExpenseService {
         'title': title,
         'description': description,
         'amount': amount,
-        'status': autoApprove ? ExpenseStatus.approved.name : ExpenseStatus.pending.name,
+        'status':
+            autoApprove
+                ? ExpenseStatus.approved.name
+                : ExpenseStatus.pending.name,
         'receiptUrl': receiptUrl,
         'approvedBy': autoApprove ? requestedBy : null,
-        'approvedByName': autoApprove ? (approvedByName ?? requestedByName) : null,
+        'approvedByName':
+            autoApprove ? (approvedByName ?? requestedByName) : null,
         'approvedAt': autoApprove ? now : null,
         'rejectedBy': null,
         'rejectedByName': null,
@@ -122,7 +126,9 @@ class ExpenseService {
   }
 
   // Get pending expenses for multiple groups (admin review)
-  Stream<List<ExpenseModel>> getPendingExpensesForGroupsStream(List<String> groupIds) {
+  Stream<List<ExpenseModel>> getPendingExpensesForGroupsStream(
+    List<String> groupIds,
+  ) {
     if (groupIds.isEmpty) return Stream.value([]);
 
     final limitedIds = groupIds.take(30).toList();
@@ -132,9 +138,17 @@ class ExpenseService {
         .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ExpenseModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) => ExpenseModel.fromMap(
+                      doc.data() as Map<String, dynamic>,
+                      doc.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 
   // Approve all pending expenses for a group
@@ -143,10 +157,11 @@ class ExpenseService {
     required String approvedBy,
     required String approvedByName,
   }) async {
-    final snapshot = await _expenses
-        .where('groupId', isEqualTo: groupId)
-        .where('status', isEqualTo: ExpenseStatus.pending.name)
-        .get();
+    final snapshot =
+        await _expenses
+            .where('groupId', isEqualTo: groupId)
+            .where('status', isEqualTo: ExpenseStatus.pending.name)
+            .get();
 
     if (snapshot.docs.isEmpty) return 0;
 

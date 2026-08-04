@@ -52,32 +52,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (!_validateInputs()) return;
     setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final response = await ref.read(authControllerProvider.notifier).signIn(
+    final response = await ref
+        .read(authControllerProvider.notifier)
+        .signIn(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (!response.isSuccess) {
-      messenger.showSnackBar(errorSnack(
+      showSnackBar(
+        context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
-      ));
+        isError: true,
+      );
     }
   }
 
   Future<void> _loginWithGoogle() async {
     setState(() => _isGoogleLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
     final response =
         await ref.read(authControllerProvider.notifier).signInWithGoogle();
     if (!mounted) return;
     setState(() => _isGoogleLoading = false);
     // Dismissing the account picker isn't an error — stay quiet.
     if (!response.isSuccess && !response.cancelled) {
-      messenger.showSnackBar(errorSnack(
+      showSnackBar(
+        context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
-      ));
+        isError: true,
+      );
     }
   }
 
@@ -94,40 +98,66 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(DS.screenPad, DS.xxl, DS.screenPad, DS.xl),
+              padding: const EdgeInsets.fromLTRB(
+                DS.screenPad,
+                DS.xxl,
+                DS.screenPad,
+                DS.xl,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FloatingField(
-                    controller: _emailController, gap: 0,
+                    controller: _emailController,
+                    gap: 0,
                     label: 'Email',
                     icon: Icons.mail_outline_rounded,
                     keyboardType: TextInputType.emailAddress,
                     error: _emailError,
-                    onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },
+                    onChanged: (_) {
+                      if (_emailError != null) {
+                        setState(() => _emailError = null);
+                      }
+                    },
                   ),
                   const SizedBox(height: DS.md),
                   FloatingField(
-                    controller: _passwordController, gap: 0,
+                    controller: _passwordController,
+                    gap: 0,
                     label: 'Password',
                     icon: Icons.lock_outline_rounded,
                     isPassword: true,
                     error: _passwordError,
-                    onChanged: (_) { if (_passwordError != null) setState(() => _passwordError = null); },
+                    onChanged: (_) {
+                      if (_passwordError != null) {
+                        setState(() => _passwordError = null);
+                      }
+                    },
                   ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                      ),
+                      onPressed:
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
+                            ),
+                          ),
                       style: TextButton.styleFrom(
                         foregroundColor: DT.text,
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: DS.sm),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: DS.sm,
+                        ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: Text('Forgot password?', style: GoogleFonts.manrope(
-                        fontSize: 13, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Forgot password?',
+                        style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: DS.md),
@@ -151,19 +181,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('New to DuitKita?', style: GoogleFonts.manrope(
-                        fontSize: 14, color: DT.textSecondary)),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const SignupScreen()),
+                      Text(
+                        'New to DuitKita?',
+                        style: GoogleFonts.manrope(
+                          fontSize: 14,
+                          color: DT.textSecondary,
                         ),
+                      ),
+                      TextButton(
+                        onPressed:
+                            () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SignupScreen(),
+                              ),
+                            ),
                         style: TextButton.styleFrom(
                           foregroundColor: DT.text,
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: Text('Create account', style: GoogleFonts.manrope(
-                          fontSize: 14, fontWeight: FontWeight.w800)),
+                        child: Text(
+                          'Create account',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ],
                   ),

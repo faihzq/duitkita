@@ -26,15 +26,17 @@ class DebtPaymentModel {
       id: id,
       debtId: data['debtId'] ?? '',
       amount: (data['amount'] ?? 0.0).toDouble(),
-      paymentDate: data['paymentDate'] != null
-          ? (data['paymentDate'] as Timestamp).toDate()
-          : DateTime.now(),
+      paymentDate:
+          data['paymentDate'] != null
+              ? (data['paymentDate'] as Timestamp).toDate()
+              : DateTime.now(),
       month: (data['month'] as int?) ?? 1,
       year: (data['year'] as int?) ?? DateTime.now().year,
       notes: data['notes'],
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
+      createdAt:
+          data['createdAt'] != null
+              ? (data['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
     );
   }
 

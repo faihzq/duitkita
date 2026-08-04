@@ -49,9 +49,17 @@ class DebtService {
         .where('isActive', isEqualTo: true)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => DebtModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (doc) => DebtModel.fromMap(
+                      doc.data() as Map<String, dynamic>,
+                      doc.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 
   // Get all debts (including completed) for a user
@@ -60,9 +68,17 @@ class DebtService {
         .where('userId', isEqualTo: userId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => DebtModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (doc) => DebtModel.fromMap(
+                      doc.data() as Map<String, dynamic>,
+                      doc.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 
   // Get single debt stream
@@ -143,9 +159,12 @@ class DebtService {
         .collection('payments')
         .orderBy('paymentDate', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => DebtPaymentModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map((doc) => DebtPaymentModel.fromMap(doc.data(), doc.id))
+                  .toList(),
+        );
   }
 
   // Check if payment exists for a specific month/year
@@ -155,13 +174,14 @@ class DebtService {
     required int year,
   }) async {
     try {
-      final snapshot = await _debts
-          .doc(debtId)
-          .collection('payments')
-          .where('month', isEqualTo: month)
-          .where('year', isEqualTo: year)
-          .limit(1)
-          .get();
+      final snapshot =
+          await _debts
+              .doc(debtId)
+              .collection('payments')
+              .where('month', isEqualTo: month)
+              .where('year', isEqualTo: year)
+              .limit(1)
+              .get();
       return snapshot.docs.isNotEmpty;
     } catch (e) {
       return false;
@@ -187,25 +207,36 @@ class DebtService {
 // Providers
 final debtServiceProvider = Provider<DebtService>((ref) => DebtService());
 
-final userDebtsStreamProvider = StreamProvider.family<List<DebtModel>, String>((ref, userId) {
+final userDebtsStreamProvider = StreamProvider.family<List<DebtModel>, String>((
+  ref,
+  userId,
+) {
   return ref.watch(debtServiceProvider).getUserDebtsStream(userId);
 });
 
-final allUserDebtsStreamProvider = StreamProvider.family<List<DebtModel>, String>((ref, userId) {
-  return ref.watch(debtServiceProvider).getAllUserDebtsStream(userId);
-});
+final allUserDebtsStreamProvider =
+    StreamProvider.family<List<DebtModel>, String>((ref, userId) {
+      return ref.watch(debtServiceProvider).getAllUserDebtsStream(userId);
+    });
 
-final debtStreamProvider = StreamProvider.family<DebtModel?, String>((ref, debtId) {
+final debtStreamProvider = StreamProvider.family<DebtModel?, String>((
+  ref,
+  debtId,
+) {
   return ref.watch(debtServiceProvider).getDebtStream(debtId);
 });
 
-final debtPaymentsStreamProvider = StreamProvider.family<List<DebtPaymentModel>, String>((ref, debtId) {
-  return ref.watch(debtServiceProvider).getDebtPaymentsStream(debtId);
-});
+final debtPaymentsStreamProvider =
+    StreamProvider.family<List<DebtPaymentModel>, String>((ref, debtId) {
+      return ref.watch(debtServiceProvider).getDebtPaymentsStream(debtId);
+    });
 
 // Stream provider for current month payment status of a debt/bill
 // Uses a stream so the UI updates in real-time when payments are added/deleted.
-final debtMonthPaidProvider = StreamProvider.family<bool, String>((ref, debtId) {
+final debtMonthPaidProvider = StreamProvider.family<bool, String>((
+  ref,
+  debtId,
+) {
   final debtService = ref.watch(debtServiceProvider);
   final now = DateTime.now();
   return debtService.getDebtPaymentsStream(debtId).map((payments) {

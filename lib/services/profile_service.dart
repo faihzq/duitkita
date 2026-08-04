@@ -1,5 +1,6 @@
 // lib/services/profile_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/models/user_profile.dart';
@@ -97,8 +98,16 @@ class ProfileService {
 
       final previous =
           (profile.data() as Map<String, dynamic>?)?['username'] as String?;
+
+      // Read the old reservation before deciding to release it. Issuing a
+      // delete blind fails the rules when the document is missing: `resource`
+      // is null there, so `resource.data.uid` cannot be evaluated and the whole
+      // write is denied — which reads as "permission denied" for the rename.
       if (previous != null && previous.isNotEmpty && previous != handle) {
-        tx.delete(_usernames.doc(previous));
+        final old = await tx.get(_usernames.doc(previous));
+        final ownedByUs =
+            old.exists && (old.data() as Map<String, dynamic>?)?['uid'] == uid;
+        if (ownedByUs) tx.delete(_usernames.doc(previous));
       }
 
       tx.set(claimRef, {'uid': uid});
@@ -107,6 +116,35 @@ class ProfileService {
         'updatedAt': DateTime.now(),
       });
     });
+  }
+
+  /// Recreates the profile document when it is missing.
+  ///
+  /// Sign-up writes it, but that write can fail — offline, or a rules hiccup —
+  /// after the credential has already been created. Rather than strand the new
+  /// account, sign-up carries on and this repairs the gap on next launch.
+  /// A no-op when the document is already there.
+  Future<void> ensureProfile(User user) async {
+    try {
+      final doc = await _users.doc(user.uid).get();
+      if (doc.exists) return;
+
+      // Null fields are omitted, never written. Sign-up queues its own profile
+      // write and Firestore flushes in order, so this can land *after* it —
+      // and an email sign-up has no displayName or phoneNumber on the auth
+      // user, which would otherwise blank out the real ones.
+      await _users.doc(user.uid).set({
+        if (user.displayName != null) 'name': user.displayName,
+        if (user.email != null) 'email': user.email,
+        if (user.phoneNumber != null) 'phoneNumber': user.phoneNumber,
+        if (user.photoURL != null) 'profileImageUrl': user.photoURL,
+        'showJdtMatches': false,
+        'createdAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Could not restore the profile document: $e');
+    }
   }
 
   /// Gives an account a username if it has none, deriving one from the name or

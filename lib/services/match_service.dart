@@ -33,7 +33,9 @@ class MatchService {
 
   // --- Web Scraping Methods ---
 
-  Future<List<MatchModel>> fetchUpcomingMatches({bool forceRefresh = false}) async {
+  Future<List<MatchModel>> fetchUpcomingMatches({
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _isCacheValid && _cachedUpcoming != null) {
       return _cachedUpcoming!;
     }
@@ -58,7 +60,9 @@ class MatchService {
     }
   }
 
-  Future<List<MatchModel>> fetchRecentResults({bool forceRefresh = false}) async {
+  Future<List<MatchModel>> fetchRecentResults({
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _isCacheValid && _cachedResults != null) {
       return _cachedResults!;
     }
@@ -279,8 +283,18 @@ class MatchService {
   /// For results, dates are in the past. For upcoming, dates are in the future.
   DateTime _parseDateText(String text, {bool isPast = false}) {
     final months = {
-      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-      'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+      'jan': 1,
+      'feb': 2,
+      'mar': 3,
+      'apr': 4,
+      'may': 5,
+      'jun': 6,
+      'jul': 7,
+      'aug': 8,
+      'sep': 9,
+      'oct': 10,
+      'nov': 11,
+      'dec': 12,
     };
 
     final parts = text.split(RegExp(r'\s+'));
@@ -315,8 +329,10 @@ class MatchService {
     int? minute;
 
     // Try 12h format first: "2:00pm", "8:15pm", "12:15am"
-    final time12Match = RegExp(r'(\d{1,2}):(\d{2})\s*(am|pm)', caseSensitive: false)
-        .firstMatch(timeText);
+    final time12Match = RegExp(
+      r'(\d{1,2}):(\d{2})\s*(am|pm)',
+      caseSensitive: false,
+    ).firstMatch(timeText);
 
     if (time12Match != null) {
       hour = int.parse(time12Match.group(1)!);
@@ -336,7 +352,13 @@ class MatchService {
 
     if (hour != null && minute != null) {
       // Website times are UTC — create as UTC then convert to local
-      final utcTime = DateTime.utc(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+      final utcTime = DateTime.utc(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        hour,
+        minute,
+      );
       return utcTime.toLocal();
     }
 
@@ -346,31 +368,37 @@ class MatchService {
   // --- Firestore Methods (Manual Matches) ---
 
   Future<List<MatchModel>> _fetchManualUpcomingMatches() async {
-    final snapshot = await _matches
-        .where('matchDate', isGreaterThan: DateTime.now())
-        .orderBy('matchDate')
-        .get();
+    final snapshot =
+        await _matches
+            .where('matchDate', isGreaterThan: DateTime.now())
+            .orderBy('matchDate')
+            .get();
 
     return snapshot.docs
-        .map((doc) => MatchModel.fromFirestoreMap(
-              doc.data() as Map<String, dynamic>,
-              doc.id,
-            ))
+        .map(
+          (doc) => MatchModel.fromFirestoreMap(
+            doc.data() as Map<String, dynamic>,
+            doc.id,
+          ),
+        )
         .toList();
   }
 
   Future<List<MatchModel>> _fetchManualPastMatches() async {
-    final snapshot = await _matches
-        .where('matchDate', isLessThanOrEqualTo: DateTime.now())
-        .orderBy('matchDate', descending: true)
-        .limit(10)
-        .get();
+    final snapshot =
+        await _matches
+            .where('matchDate', isLessThanOrEqualTo: DateTime.now())
+            .orderBy('matchDate', descending: true)
+            .limit(10)
+            .get();
 
     return snapshot.docs
-        .map((doc) => MatchModel.fromFirestoreMap(
-              doc.data() as Map<String, dynamic>,
-              doc.id,
-            ))
+        .map(
+          (doc) => MatchModel.fromFirestoreMap(
+            doc.data() as Map<String, dynamic>,
+            doc.id,
+          ),
+        )
         .toList();
   }
 

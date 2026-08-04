@@ -3,26 +3,26 @@
 enum StopType { travel, food, sight, stay, prayer }
 
 StopType stopTypeFrom(String? s) => StopType.values.firstWhere(
-      (e) => e.name == s,
-      orElse: () => StopType.travel,
-    );
+  (e) => e.name == s,
+  orElse: () => StopType.travel,
+);
 
 String stopTypeLabel(StopType t) => switch (t) {
-      StopType.travel => 'Travel',
-      StopType.food => 'Food',
-      StopType.sight => 'Activity',
-      StopType.stay => 'Stay',
-      StopType.prayer => 'Break',
-    };
+  StopType.travel => 'Travel',
+  StopType.food => 'Food',
+  StopType.sight => 'Activity',
+  StopType.stay => 'Stay',
+  StopType.prayer => 'Break',
+};
 
 /// Default glyph key for a type — used when a stop is created without one.
 String defaultGlyphFor(StopType t) => switch (t) {
-      StopType.travel => 'car',
-      StopType.food => 'food',
-      StopType.sight => 'camera',
-      StopType.stay => 'home',
-      StopType.prayer => 'mosque',
-    };
+  StopType.travel => 'car',
+  StopType.food => 'food',
+  StopType.sight => 'camera',
+  StopType.stay => 'home',
+  StopType.prayer => 'mosque',
+};
 
 /// A ticket or document attached to a stop — entry tickets, booking
 /// confirmations, ferry passes.
@@ -52,22 +52,23 @@ class StopAttachment {
   }
 
   factory StopAttachment.fromMap(Map<String, dynamic> data) => StopAttachment(
-        url: data['url'] ?? '',
-        name: data['name'] ?? 'Attachment',
-        contentType: data['contentType'] ?? '',
-        sizeBytes: (data['sizeBytes'] as num?)?.toInt() ?? 0,
-        uploadedAt: data['uploadedAt'] is String
+    url: data['url'] ?? '',
+    name: data['name'] ?? 'Attachment',
+    contentType: data['contentType'] ?? '',
+    sizeBytes: (data['sizeBytes'] as num?)?.toInt() ?? 0,
+    uploadedAt:
+        data['uploadedAt'] is String
             ? DateTime.tryParse(data['uploadedAt']) ?? DateTime.now()
             : DateTime.now(),
-      );
+  );
 
   Map<String, dynamic> toMap() => {
-        'url': url,
-        'name': name,
-        'contentType': contentType,
-        'sizeBytes': sizeBytes,
-        'uploadedAt': uploadedAt.toIso8601String(),
-      };
+    'url': url,
+    'name': name,
+    'contentType': contentType,
+    'sizeBytes': sizeBytes,
+    'uploadedAt': uploadedAt.toIso8601String(),
+  };
 }
 
 class ItineraryStop {
@@ -179,7 +180,8 @@ class ItineraryStop {
       about: data['about'],
       legMinutes: (data['legMinutes'] as num?)?.toInt(),
       legKm: (data['legKm'] as num?)?.toDouble(),
-      attachments: (data['attachments'] as List?)
+      attachments:
+          (data['attachments'] as List?)
               ?.map((a) => StopAttachment.fromMap(Map<String, dynamic>.from(a)))
               .toList() ??
           const [],
@@ -187,39 +189,39 @@ class ItineraryStop {
   }
 
   Map<String, dynamic> toMap() => {
-        'day': day,
-        'order': order,
-        'time': time,
-        'title': title,
-        'note': note,
-        'type': type.name,
-        'icon': icon,
-        'placeQuery': placeQuery,
-        'mapUrl': mapUrl,
-        'about': about,
-        'legMinutes': legMinutes,
-        'legKm': legKm,
-        'attachments': attachments.map((a) => a.toMap()).toList(),
-      };
+    'day': day,
+    'order': order,
+    'time': time,
+    'title': title,
+    'note': note,
+    'type': type.name,
+    'icon': icon,
+    'placeQuery': placeQuery,
+    'mapUrl': mapUrl,
+    'about': about,
+    'legMinutes': legMinutes,
+    'legKm': legKm,
+    'attachments': attachments.map((a) => a.toMap()).toList(),
+  };
 
   /// Rebinds to a Firestore-assigned id. [copyWith] deliberately keeps the
   /// original id, but a freshly created stop only learns its id after the write.
   ItineraryStop withId(String newId) => ItineraryStop(
-        id: newId,
-        day: day,
-        order: order,
-        time: time,
-        title: title,
-        note: note,
-        type: type,
-        icon: icon,
-        placeQuery: placeQuery,
-        mapUrl: mapUrl,
-        about: about,
-        legMinutes: legMinutes,
-        legKm: legKm,
-        attachments: attachments,
-      );
+    id: newId,
+    day: day,
+    order: order,
+    time: time,
+    title: title,
+    note: note,
+    type: type,
+    icon: icon,
+    placeQuery: placeQuery,
+    mapUrl: mapUrl,
+    about: about,
+    legMinutes: legMinutes,
+    legKm: legKm,
+    attachments: attachments,
+  );
 
   ItineraryStop copyWith({
     int? day,
@@ -266,8 +268,9 @@ String formatDuration(int minutes) {
 /// Minutes from midnight for a "10:00 AM" / "22:15" string. Returns 0 when the
 /// string can't be parsed, which sorts the stop to the top of its day.
 int minutesFromTimeLabel(String time) {
-  final m = RegExp(r'^\s*(\d{1,2})[:.](\d{2})\s*([AaPp][Mm])?')
-      .firstMatch(time.trim());
+  final m = RegExp(
+    r'^\s*(\d{1,2})[:.](\d{2})\s*([AaPp][Mm])?',
+  ).firstMatch(time.trim());
   if (m == null) return 0;
   var hour = int.parse(m.group(1)!);
   final minute = int.parse(m.group(2)!);
@@ -291,33 +294,40 @@ int minutesFromTimeLabel(String time) {
 /// Google Maps deep links — open with `url_launcher`, mode externalApplication.
 class TripMaps {
   static Uri search(String query) => Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
+    'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}',
+  );
 
   static Uri directions(String destination) => Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${Uri.encodeComponent(destination)}');
+    'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${Uri.encodeComponent(destination)}',
+  );
 
   /// A single leg between two stops. Used to read off a drive time and distance
   /// to enter by hand — Maps deep links are one-way, so nothing comes back.
   static Uri leg(String origin, String destination) => Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&travelmode=driving'
-      '&origin=${Uri.encodeComponent(origin)}'
-      '&destination=${Uri.encodeComponent(destination)}');
+    'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+    '&origin=${Uri.encodeComponent(origin)}'
+    '&destination=${Uri.encodeComponent(destination)}',
+  );
 
   /// Chain a day's mappable stops into one driving route. Break/prayer stops are
   /// excluded — they're rest points, not places you navigate to.
   /// Returns null when nothing on the day is mappable.
   static Uri? dayRoute(List<ItineraryStop> stops) {
-    final pts = stops
-        .where((s) => s.type != StopType.prayer && s.mapQuery.trim().isNotEmpty)
-        .map((s) => s.mapQuery)
-        .toList();
+    final pts =
+        stops
+            .where(
+              (s) => s.type != StopType.prayer && s.mapQuery.trim().isNotEmpty,
+            )
+            .map((s) => s.mapQuery)
+            .toList();
     if (pts.isEmpty) return null;
     if (pts.length < 2) return directions(pts.first);
 
     final origin = pts.first;
     final destination = pts.last;
     final waypoints = pts.sublist(1, pts.length - 1);
-    var url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+    var url =
+        'https://www.google.com/maps/dir/?api=1&travelmode=driving'
         '&origin=${Uri.encodeComponent(origin)}'
         '&destination=${Uri.encodeComponent(destination)}';
     if (waypoints.isNotEmpty) {

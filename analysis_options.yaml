@@ -14,6 +14,8 @@ analyzer:
     # Design handoff reference snippets — paste-ready fragments, not app code.
     # They intentionally don't compile on their own (bare methods, no imports).
     - design_handoff_duitkita_redesign/**
+    - design_handoff_home_focus/**
+    - duitkita_toast/**
 
 linter:
   # The lint rules applied to this project can be customized in the

@@ -15,7 +15,8 @@ class SignupScreen extends ConsumerStatefulWidget {
 }
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
-  int _step = 1; // 1 = about you · 2 = security (KYC handled elsewhere = step 3)
+  int _step =
+      1; // 1 = about you · 2 = security (KYC handled elsewhere = step 3)
 
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -53,9 +54,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _validateStep1() {
     bool ok = true;
     if (_nameController.text.trim().length < 2) {
-      setState(() => _nameError = _nameController.text.trim().isEmpty
-          ? 'Full name is required'
-          : 'Name must be at least 2 characters');
+      setState(
+        () =>
+            _nameError =
+                _nameController.text.trim().isEmpty
+                    ? 'Full name is required'
+                    : 'Name must be at least 2 characters',
+      );
       ok = false;
     } else {
       setState(() => _nameError = null);
@@ -67,9 +72,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       setState(() => _emailError = null);
     }
     if (_phoneController.text.trim().length < 9) {
-      setState(() => _phoneError = _phoneController.text.trim().isEmpty
-          ? 'Phone number is required'
-          : 'Please enter a valid phone number');
+      setState(
+        () =>
+            _phoneError =
+                _phoneController.text.trim().isEmpty
+                    ? 'Phone number is required'
+                    : 'Please enter a valid phone number',
+      );
       ok = false;
     } else {
       setState(() => _phoneError = null);
@@ -80,7 +89,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _validateStep2() {
     bool ok = true;
     if (!isValidPassword(_passwordController.text) || _strength < 2) {
-      setState(() => _passwordError = 'Choose a stronger password (min 8 chars)');
+      setState(
+        () => _passwordError = 'Choose a stronger password (min 8 chars)',
+      );
       ok = false;
     } else {
       setState(() => _passwordError = null);
@@ -94,7 +105,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _signupWithGoogle() async {
     setState(() => _isGoogleLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     final response =
         await ref.read(authControllerProvider.notifier).signInWithGoogle();
@@ -104,9 +114,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       nav.pop(); // AuthWrapper routes to home
     } else if (!response.cancelled) {
       // Dismissing the account picker isn't an error — stay quiet.
-      messenger.showSnackBar(errorSnack(
+      showSnackBar(
+        context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
-      ));
+        isError: true,
+      );
     }
   }
 
@@ -115,10 +127,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (!_agreed) return;
     setState(() => _isLoading = true);
 
-    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
 
-    final response = await ref.read(authControllerProvider.notifier).signUp(
+    final response = await ref
+        .read(authControllerProvider.notifier)
+        .signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           name: _nameController.text.trim(),
@@ -129,9 +142,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _isLoading = false);
 
     if (!response.isSuccess) {
-      messenger.showSnackBar(errorSnack(
+      showSnackBar(
+        context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
-      ));
+        isError: true,
+      );
     } else {
       nav.pop(); // AuthWrapper routes to KYC / home
     }
@@ -146,21 +161,33 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         children: [
           AuthHero(
             title: _step == 1 ? "Let's get you set up" : 'Almost there',
-            subtitle: _step == 1
-                ? "Takes 30 seconds. You'll need an email and a Malaysian phone number."
-                : "Pick a strong password. We'll verify your identity right after.",
+            subtitle:
+                _step == 1
+                    ? "Takes 30 seconds. You'll need an email and a Malaysian phone number."
+                    : "Pick a strong password. We'll verify your identity right after.",
             leading: IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
-              onPressed: () => _step == 2
-                  ? setState(() => _step = 1)
-                  : Navigator.of(context).pop(),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              onPressed:
+                  () =>
+                      _step == 2
+                          ? setState(() => _step = 1)
+                          : Navigator.of(context).pop(),
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(DS.screenPad, DS.xl, DS.screenPad, DS.xl),
+              padding: const EdgeInsets.fromLTRB(
+                DS.screenPad,
+                DS.xl,
+                DS.screenPad,
+                DS.xl,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -184,8 +211,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   Text(
                     'STEP $_step OF 3 · ${_step == 1 ? 'ABOUT YOU' : 'SECURITY'}',
                     style: GoogleFonts.manrope(
-                      fontSize: 11, fontWeight: FontWeight.w700,
-                      color: DT.textSecondary, letterSpacing: 0.4),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: DT.textSecondary,
+                      letterSpacing: 0.4,
+                    ),
                   ),
                   const SizedBox(height: DS.lg),
 
@@ -218,8 +248,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Already have an account?', style: GoogleFonts.manrope(
-                          fontSize: 14, color: DT.textSecondary)),
+                        Text(
+                          'Already have an account?',
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            color: DT.textSecondary,
+                          ),
+                        ),
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: TextButton.styleFrom(
@@ -227,8 +262,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 6),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: Text('Sign in', style: GoogleFonts.manrope(
-                            fontSize: 14, fontWeight: FontWeight.w800)),
+                          child: Text(
+                            'Sign in',
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -242,41 +282,62 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   List<Widget> _step1() => [
-        FloatingField(
-          controller: _nameController, gap: 0,
-          label: 'Full name',
-          icon: Icons.person_outline_rounded,
-          capitalization: TextCapitalization.words,
-          helper: 'As shown on your IC / passport',
-          error: _nameError,
-          onChanged: (_) { if (_nameError != null) setState(() => _nameError = null); },
+    FloatingField(
+      controller: _nameController,
+      gap: 0,
+      label: 'Full name',
+      icon: Icons.person_outline_rounded,
+      capitalization: TextCapitalization.words,
+      helper: 'As shown on your IC / passport',
+      error: _nameError,
+      onChanged: (_) {
+        if (_nameError != null) setState(() => _nameError = null);
+      },
+    ),
+    const SizedBox(height: DS.md),
+    FloatingField(
+      controller: _emailController,
+      gap: 0,
+      label: 'Email',
+      icon: Icons.mail_outline_rounded,
+      keyboardType: TextInputType.emailAddress,
+      error: _emailError,
+      onChanged: (_) {
+        if (_emailError != null) setState(() => _emailError = null);
+      },
+    ),
+    const SizedBox(height: DS.md),
+    FloatingField(
+      controller: _phoneController,
+      gap: 0,
+      label: 'Mobile number',
+      icon: Icons.phone_outlined,
+      keyboardType: TextInputType.phone,
+      error: _phoneError,
+      leadingOverride: Text(
+        '🇲🇾 +60',
+        style: GoogleFonts.manrope(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: DT.text,
         ),
-        const SizedBox(height: DS.md),
-        FloatingField(
-          controller: _emailController, gap: 0,
-          label: 'Email',
-          icon: Icons.mail_outline_rounded,
-          keyboardType: TextInputType.emailAddress,
-          error: _emailError,
-          onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },
-        ),
-        const SizedBox(height: DS.md),
-        FloatingField(
-          controller: _phoneController, gap: 0,
-          label: 'Mobile number',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
-          error: _phoneError,
-          leadingOverride: Text('🇲🇾 +60', style: GoogleFonts.manrope(
-            fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
-          onChanged: (_) { if (_phoneError != null) setState(() => _phoneError = null); },
-        ),
-      ];
+      ),
+      onChanged: (_) {
+        if (_phoneError != null) setState(() => _phoneError = null);
+      },
+    ),
+  ];
 
   List<Widget> _step2() {
     final p = _passwordController.text;
     const labels = ['Too short', 'Weak', 'Okay', 'Good', 'Strong'];
-    const colors = [DT.textTertiary, DT.danger, DT.warning, DT.accent, DT.success];
+    const colors = [
+      DT.textTertiary,
+      DT.danger,
+      DT.warning,
+      DT.accent,
+      DT.success,
+    ];
     final reqs = [
       ('At least 8 characters', p.length >= 8),
       ('One uppercase letter', RegExp(r'[A-Z]').hasMatch(p)),
@@ -285,14 +346,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     ];
     return [
       FloatingField(
-        controller: _passwordController, gap: 0,
+        controller: _passwordController,
+        gap: 0,
         label: 'Password',
         icon: Icons.lock_outline_rounded,
         isPassword: true,
         error: _passwordError,
-        onChanged: (_) => setState(() {
-          if (_passwordError != null) _passwordError = null;
-        }),
+        onChanged:
+            (_) => setState(() {
+              if (_passwordError != null) _passwordError = null;
+            }),
       ),
       if (p.isNotEmpty) ...[
         const SizedBox(height: DS.md),
@@ -311,8 +374,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           }),
         ),
         const SizedBox(height: 6),
-        Text(labels[_strength], style: GoogleFonts.manrope(
-          fontSize: 11, fontWeight: FontWeight.w700, color: colors[_strength])),
+        Text(
+          labels[_strength],
+          style: GoogleFonts.manrope(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: colors[_strength],
+          ),
+        ),
       ],
       const SizedBox(height: DS.lg),
       // Requirements checklist
@@ -326,32 +395,50 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('PASSWORD MUST HAVE', style: GoogleFonts.manrope(
-              fontSize: 11, fontWeight: FontWeight.w700,
-              color: DT.textSecondary, letterSpacing: 0.4)),
+            Text(
+              'PASSWORD MUST HAVE',
+              style: GoogleFonts.manrope(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: DT.textSecondary,
+                letterSpacing: 0.4,
+              ),
+            ),
             const SizedBox(height: 8),
-            ...reqs.map((r) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 16, height: 16,
-                        decoration: BoxDecoration(
-                          color: r.$2 ? DT.successSoft : DT.surfaceAlt,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: r.$2
-                            ? const Icon(Icons.check, size: 10, color: DT.success)
-                            : null,
+            ...reqs.map(
+              (r) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: r.$2 ? DT.successSoft : DT.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 8),
-                      Text(r.$1, style: GoogleFonts.manrope(
+                      child:
+                          r.$2
+                              ? const Icon(
+                                Icons.check,
+                                size: 10,
+                                color: DT.success,
+                              )
+                              : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      r.$1,
+                      style: GoogleFonts.manrope(
                         fontSize: 12,
                         fontWeight: r.$2 ? FontWeight.w600 : FontWeight.w500,
-                        color: r.$2 ? DT.text : DT.textSecondary)),
-                    ],
-                  ),
-                )),
+                        color: r.$2 ? DT.text : DT.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -370,29 +457,48 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 20, height: 20,
+                width: 20,
+                height: 20,
                 margin: const EdgeInsets.only(top: 1),
                 decoration: BoxDecoration(
                   color: _agreed ? DT.accent : Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
-                  border: _agreed ? null : Border.all(color: DT.borderStrong, width: 1.5),
+                  border:
+                      _agreed
+                          ? null
+                          : Border.all(color: DT.borderStrong, width: 1.5),
                 ),
-                child: _agreed
-                    ? const Icon(Icons.check, size: 12, color: DT.primary)
-                    : null,
+                child:
+                    _agreed
+                        ? const Icon(Icons.check, size: 12, color: DT.primary)
+                        : null,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text.rich(
                   TextSpan(
-                    style: GoogleFonts.manrope(fontSize: 12, height: 1.45, color: DT.text),
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: DT.text,
+                    ),
                     children: [
                       const TextSpan(text: 'I agree to the '),
-                      TextSpan(text: 'Terms of Service', style: GoogleFonts.manrope(
-                        fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+                      TextSpan(
+                        text: 'Terms of Service',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                       const TextSpan(text: ' and '),
-                      TextSpan(text: 'Privacy Policy', style: GoogleFonts.manrope(
-                        fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+                      TextSpan(
+                        text: 'Privacy Policy',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                       const TextSpan(text: '.'),
                     ],
                   ),

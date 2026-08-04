@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:duitkita/config/design_tokens.dart';
 
@@ -20,53 +22,96 @@ class DkToast {
   static const int _maxStack = 3;
   static final List<_DkToastEntry> _entries = <_DkToastEntry>[];
 
+  /// Wire this into `MaterialApp.navigatorKey`.
+  ///
+  /// Toasts live in the root overlay, so a screen that reports success and then
+  /// pops itself has no usable context left. This gives [show] somewhere to
+  /// attach regardless, which is what the old `final messenger = ...` captures
+  /// were working around.
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  /// The overlay to mount into: the caller's if it is still alive, otherwise
+  /// the app's. Null only before the first frame.
+  static OverlayState? _overlayFor(BuildContext? context) {
+    if (context != null && context.mounted) {
+      final overlay = Overlay.maybeOf(context, rootOverlay: true);
+      if (overlay != null) return overlay;
+    }
+    return navigatorKey.currentState?.overlay;
+  }
+
   // ── Public API ─────────────────────────────────────────────────────────────
-  static void success(BuildContext context, String title,
-          {String? message,
-          String? actionLabel,
-          VoidCallback? onAction,
-          Duration? duration}) =>
-      show(context, DkToastType.success, title,
-          message: message,
-          actionLabel: actionLabel,
-          onAction: onAction,
-          duration: duration);
+  static void success(
+    BuildContext? context,
+    String title, {
+    String? message,
+    String? actionLabel,
+    VoidCallback? onAction,
+    Duration? duration,
+  }) => show(
+    context,
+    DkToastType.success,
+    title,
+    message: message,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    duration: duration,
+  );
 
-  static void error(BuildContext context, String title,
-          {String? message,
-          String? actionLabel,
-          VoidCallback? onAction,
-          Duration? duration}) =>
-      show(context, DkToastType.danger, title,
-          message: message,
-          actionLabel: actionLabel,
-          onAction: onAction,
-          duration: duration);
+  static void error(
+    BuildContext? context,
+    String title, {
+    String? message,
+    String? actionLabel,
+    VoidCallback? onAction,
+    Duration? duration,
+  }) => show(
+    context,
+    DkToastType.danger,
+    title,
+    message: message,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    duration: duration,
+  );
 
-  static void warning(BuildContext context, String title,
-          {String? message,
-          String? actionLabel,
-          VoidCallback? onAction,
-          Duration? duration}) =>
-      show(context, DkToastType.warning, title,
-          message: message,
-          actionLabel: actionLabel,
-          onAction: onAction,
-          duration: duration);
+  static void warning(
+    BuildContext? context,
+    String title, {
+    String? message,
+    String? actionLabel,
+    VoidCallback? onAction,
+    Duration? duration,
+  }) => show(
+    context,
+    DkToastType.warning,
+    title,
+    message: message,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    duration: duration,
+  );
 
-  static void info(BuildContext context, String title,
-          {String? message,
-          String? actionLabel,
-          VoidCallback? onAction,
-          Duration? duration}) =>
-      show(context, DkToastType.info, title,
-          message: message,
-          actionLabel: actionLabel,
-          onAction: onAction,
-          duration: duration);
+  static void info(
+    BuildContext? context,
+    String title, {
+    String? message,
+    String? actionLabel,
+    VoidCallback? onAction,
+    Duration? duration,
+  }) => show(
+    context,
+    DkToastType.info,
+    title,
+    message: message,
+    actionLabel: actionLabel,
+    onAction: onAction,
+    duration: duration,
+  );
 
   static void show(
-    BuildContext context,
+    BuildContext? context,
     DkToastType type,
     String title, {
     String? message,
@@ -74,7 +119,11 @@ class DkToast {
     VoidCallback? onAction,
     Duration? duration,
   }) {
-    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlay = _overlayFor(context);
+    // Nothing mounted yet (or already torn down) — drop it rather than throw;
+    // a missed confirmation must never crash the action that succeeded.
+    if (overlay == null) return;
+
     final entry = _DkToastEntry(
       type: type,
       title: title,
@@ -86,11 +135,15 @@ class DkToast {
 
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
-      builder: (ctx) => _DkToastHost(entry: entry, onDismiss: () {
-        _entries.remove(entry);
-        overlayEntry.remove();
-        _relayout();
-      }),
+      builder:
+          (ctx) => _DkToastHost(
+            entry: entry,
+            onDismiss: () {
+              _entries.remove(entry);
+              overlayEntry.remove();
+              _relayout();
+            },
+          ),
     );
     entry.overlayEntry = overlayEntry;
 
@@ -187,7 +240,9 @@ class _DkToastHostState extends State<_DkToastHost>
   void initState() {
     super.initState();
     _enter = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 340));
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+    );
     _timer = AnimationController(vsync: this, duration: widget.entry.duration);
     widget.entry.bindDismiss(_dismiss);
     _enter.forward();
@@ -222,9 +277,16 @@ class _DkToastHostState extends State<_DkToastHost>
       builder: (context, _) {
         final t = Curves.easeOutCubic.transform(_enter.value);
         final idx = e.indexFromBottom.value;
+        // Sit above the keyboard when one is open, otherwise above the system
+        // gesture bar. Without the viewInsets term a toast raised from a form
+        // — a validation error, "email already in use" — renders underneath the
+        // keyboard and the user sees no feedback at all.
+        final safeBottom = math.max(
+          media.viewInsets.bottom,
+          media.padding.bottom,
+        );
         // Stack: each older toast lifts up ~74px and scales/fades back slightly.
-        final bottom =
-            media.padding.bottom + 16 + idx * 74.0;
+        final bottom = safeBottom + 16 + idx * 74.0;
         final scale = (1 - idx * 0.05) * (0.98 + 0.02 * t);
         final opacity = (idx >= DkToast._maxStack ? 0.0 : 1.0) * t;
 
@@ -266,13 +328,15 @@ class _DkToastHostState extends State<_DkToastHost>
           border: Border.all(color: DT.border),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x1F0B1F3A),
-                blurRadius: 24,
-                offset: Offset(0, 6)),
+              color: Color(0x1F0B1F3A),
+              blurRadius: 24,
+              offset: Offset(0, 6),
+            ),
             BoxShadow(
-                color: Color(0x0F0B1F3A),
-                blurRadius: 6,
-                offset: Offset(0, 2)),
+              color: Color(0x0F0B1F3A),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
@@ -288,15 +352,18 @@ class _DkToastHostState extends State<_DkToastHost>
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                        color: pal.soft,
-                        borderRadius: BorderRadius.circular(11)),
+                      color: pal.soft,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
                     child: Icon(_iconFor(e.type), size: 19, color: pal.fg),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Padding(
-                      padding:
-                          EdgeInsets.only(top: hasMsg ? 0 : 6, bottom: hasMsg ? 0 : 6),
+                      padding: EdgeInsets.only(
+                        top: hasMsg ? 0 : 6,
+                        bottom: hasMsg ? 0 : 6,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -304,21 +371,23 @@ class _DkToastHostState extends State<_DkToastHost>
                           Text(
                             e.title,
                             style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700,
-                                height: 1.3,
-                                letterSpacing: -0.2,
-                                color: DT.text),
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              height: 1.3,
+                              letterSpacing: -0.2,
+                              color: DT.text,
+                            ),
                           ),
                           if (hasMsg) ...[
                             const SizedBox(height: 2),
                             Text(
                               e.message!,
                               style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.4,
-                                  color: DT.textSecondary),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                                color: DT.textSecondary,
+                              ),
                             ),
                           ],
                         ],
@@ -347,13 +416,14 @@ class _DkToastHostState extends State<_DkToastHost>
                   Positioned.fill(
                     child: AnimatedBuilder(
                       animation: _timer,
-                      builder: (context, _) => Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: (1 - _timer.value).clamp(0.0, 1.0),
-                          child: ColoredBox(color: pal.fg),
-                        ),
-                      ),
+                      builder:
+                          (context, _) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: (1 - _timer.value).clamp(0.0, 1.0),
+                              child: ColoredBox(color: pal.fg),
+                            ),
+                          ),
                     ),
                   ),
                 ],
@@ -381,9 +451,10 @@ class _ActionButton extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: DT.accentDeep),
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: DT.accentDeep,
+          ),
         ),
       ),
     );

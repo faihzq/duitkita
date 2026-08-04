@@ -16,7 +16,8 @@ class AuthController extends StateNotifier<AuthState> {
     _authSubscription = _authService.authStateChanges.listen((user) {
       // Don't override loading state (sign-in/sign-up in progress)
       if (state == AuthState.loading) return;
-      state = user != null ? AuthState.authenticated : AuthState.unauthenticated;
+      state =
+          user != null ? AuthState.authenticated : AuthState.unauthenticated;
     });
   }
 
@@ -74,9 +75,10 @@ class AuthController extends StateNotifier<AuthState> {
     final response = await _authService.signInWithGoogle();
 
     // A cancelled picker leaves the user exactly where they were.
-    state = response.isSuccess
-        ? AuthState.authenticated
-        : response.cancelled
+    state =
+        response.isSuccess
+            ? AuthState.authenticated
+            : response.cancelled
             ? AuthState.unauthenticated
             : AuthState.error;
 

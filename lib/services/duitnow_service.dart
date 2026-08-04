@@ -53,8 +53,11 @@ class DuitNowService {
 
     // Merchant Account Information - DuitNow
     // Tag 26: Merchant Account Information
-    final merchantInfo = '0016MY.DUITNOW.MOBILE01${recipientId.length.toString().padLeft(2, '0')}$recipientId';
-    buffer.write('26${merchantInfo.length.toString().padLeft(2, '0')}$merchantInfo');
+    final merchantInfo =
+        '0016MY.DUITNOW.MOBILE01${recipientId.length.toString().padLeft(2, '0')}$recipientId';
+    buffer.write(
+      '26${merchantInfo.length.toString().padLeft(2, '0')}$merchantInfo',
+    );
 
     // Transaction Currency (458 = MYR)
     buffer.write('5303458');

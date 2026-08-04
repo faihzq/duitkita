@@ -10,6 +10,7 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/screens/add_debt_screen.dart';
+import 'package:duitkita/utils/utils.dart';
 
 enum _EntryType { group, bill, loan, personal }
 
@@ -27,7 +28,8 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   final _notesCtrl = TextEditingController();
   GroupModel? _selectedGroup;
   DateTime _paymentMonth = DateTime.now();
-  String _paymentTiming = 'current'; // 'previous' | 'current' | 'advance' | 'custom'
+  String _paymentTiming =
+      'current'; // 'previous' | 'current' | 'advance' | 'custom'
   bool _submitting = false;
 
   @override
@@ -44,7 +46,8 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   };
 
   bool get _isGroupAutoApprove =>
-      _type == _EntryType.group && (_selectedGroup?.autoApprovePayments ?? false);
+      _type == _EntryType.group &&
+      (_selectedGroup?.autoApprovePayments ?? false);
 
   String get _ctaLabel {
     if (_step == 1) return 'Continue';
@@ -54,7 +57,9 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   }
 
   IconData get _ctaIcon {
-    if (_step == 3 || (_step == 2 && _isGroupAutoApprove)) return Icons.check_rounded;
+    if (_step == 3 || (_step == 2 && _isGroupAutoApprove)) {
+      return Icons.check_rounded;
+    }
     return Icons.arrow_forward_rounded;
   }
 
@@ -64,8 +69,8 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
       _paymentTiming = timing;
       _paymentMonth = switch (timing) {
         'previous' => DateTime(now.year, now.month - 1),
-        'advance'  => DateTime(now.year, now.month + 1),
-        _          => DateTime(now.year, now.month),
+        'advance' => DateTime(now.year, now.month + 1),
+        _ => DateTime(now.year, now.month),
       };
     });
   }
@@ -94,12 +99,12 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     if (_step == 2) {
       if (_type == _EntryType.group) {
         if (_selectedGroup == null) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a group')));
+          showSnackBar(context, 'Please select a group');
           return;
         }
         final amount = double.tryParse(_amountCtrl.text.replaceAll(',', ''));
         if (amount == null || amount <= 0) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+          showSnackBar(context, 'Enter a valid amount');
           return;
         }
         if (_isGroupAutoApprove) {
@@ -117,7 +122,6 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   }
 
   Future<void> _submit(String userId) async {
-    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
 
     if (_type == _EntryType.bill || _type == _EntryType.loan) {
@@ -127,7 +131,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     }
     if (_type == _EntryType.personal) {
       nav.pop();
-      messenger.showSnackBar(const SnackBar(content: Text('Personal tracking coming soon')));
+      showSnackBar(context, 'Personal tracking coming soon');
       return;
     }
 
@@ -138,39 +142,56 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
 
     setState(() => _submitting = true);
     try {
-      final profile = await ref.read(profileServiceProvider).getUserProfile(userId);
-      await ref.read(paymentServiceProvider).addPayment(
-        groupId: group.id,
-        userId: userId,
-        userName: profile?.name ?? 'Me',
-        amount: amount,
-        paymentDate: _paymentMonth,
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-        autoApprove: group.autoApprovePayments,
-      );
-      await ref.read(groupServiceProvider).updateMemberStats(
-        groupId: group.id,
-        userId: userId,
-        amount: amount,
-      );
+      final profile = await ref
+          .read(profileServiceProvider)
+          .getUserProfile(userId);
+      await ref
+          .read(paymentServiceProvider)
+          .addPayment(
+            groupId: group.id,
+            userId: userId,
+            userName: profile?.name ?? 'Me',
+            amount: amount,
+            paymentDate: _paymentMonth,
+            notes:
+                _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+            autoApprove: group.autoApprovePayments,
+          );
+      await ref
+          .read(groupServiceProvider)
+          .updateMemberStats(groupId: group.id, userId: userId, amount: amount);
       if (!mounted) return;
       nav.pop();
       final label = _monthLabel(_paymentMonth);
-      messenger.showSnackBar(SnackBar(content: Text(
+      showSnackBar(
+        context,
         group.autoApprovePayments
             ? 'Payment confirmed for $label!'
             : 'Payment submitted — awaiting approval',
-      )));
+      );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: DT.danger));
+      showSnackBar(context, 'Failed: $e', isError: true);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
   static String _monthLabel(DateTime d) {
-    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const m = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${m[d.month - 1]} ${d.year}';
   }
 
@@ -179,7 +200,9 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
       decoration: const BoxDecoration(
         color: DT.bg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -190,23 +213,53 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
           // ── Drag handle ───────────────────────────────────────
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: DT.borderStrong, borderRadius: BorderRadius.circular(2)))),
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: DT.borderStrong,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
           ),
 
           // ── Header ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 16, 0),
-            child: Row(children: [
-              Expanded(child: Text(_stepTitle, style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.3))),
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: DT.border)),
-                  child: const Icon(Icons.close_rounded, size: 18, color: DT.textSecondary),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _stepTitle,
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: DT.text,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
                 ),
-              ),
-            ]),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: DT.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: DT.border),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: DT.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
 
           // ── Step progress ─────────────────────────────────────
@@ -234,30 +287,34 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: switch (_step) {
-                1 => _Step1(selected: _type, onSelect: (t) => setState(() => _type = t)),
+                1 => _Step1(
+                  selected: _type,
+                  onSelect: (t) => setState(() => _type = t),
+                ),
                 2 => _Step2(
-                    type: _type,
-                    amountCtrl: _amountCtrl,
-                    notesCtrl: _notesCtrl,
-                    userId: userId,
-                    selectedGroup: _selectedGroup,
-                    paymentMonth: _paymentMonth,
-                    paymentTiming: _paymentTiming,
-                    onGroupSelected: (g) => setState(() {
-                      _selectedGroup = g;
-                      if (g.monthlyAmount > 0) {
-                        _amountCtrl.text = g.monthlyAmount.toStringAsFixed(2);
-                      }
-                    }),
-                    onTimingChanged: _onTimingChanged,
-                    onMonthTap: _pickMonth,
-                  ),
+                  type: _type,
+                  amountCtrl: _amountCtrl,
+                  notesCtrl: _notesCtrl,
+                  userId: userId,
+                  selectedGroup: _selectedGroup,
+                  paymentMonth: _paymentMonth,
+                  paymentTiming: _paymentTiming,
+                  onGroupSelected:
+                      (g) => setState(() {
+                        _selectedGroup = g;
+                        if (g.monthlyAmount > 0) {
+                          _amountCtrl.text = g.monthlyAmount.toStringAsFixed(2);
+                        }
+                      }),
+                  onTimingChanged: _onTimingChanged,
+                  onMonthTap: _pickMonth,
+                ),
                 _ => _Step3(
-                    group: _selectedGroup,
-                    amount: _amountCtrl.text,
-                    paymentMonth: _paymentMonth,
-                    notes: _notesCtrl.text,
-                  ),
+                  group: _selectedGroup,
+                  amount: _amountCtrl.text,
+                  paymentMonth: _paymentMonth,
+                  notes: _notesCtrl.text,
+                ),
               },
             ),
           ),
@@ -271,45 +328,93 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
             ),
             child: SafeArea(
               top: false,
-              child: Row(children: [
-                if (_step > 1) ...[
-                  GestureDetector(
-                    onTap: () => setState(() => _step--),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: DT.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: DT.border),
+              child: Row(
+                children: [
+                  if (_step > 1) ...[
+                    GestureDetector(
+                      onTap: () => setState(() => _step--),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: DT.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: DT.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.chevron_left_rounded,
+                              size: 16,
+                              color: DT.text,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Back',
+                              style: GoogleFonts.manrope(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: DT.text,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(children: [
-                        const Icon(Icons.chevron_left_rounded, size: 16, color: DT.text),
-                        const SizedBox(width: 4),
-                        Text('Back', style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text)),
-                      ]),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: GestureDetector(
+                      onTap:
+                          _submitting
+                              ? null
+                              : () {
+                                if (userId != null) _handleCta(userId);
+                              },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: DT.text,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child:
+                              _submitting
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                  : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _ctaLabel,
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        _ctaIcon,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
                 ],
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _submitting ? null : () { if (userId != null) _handleCta(userId); },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(color: DT.text, borderRadius: BorderRadius.circular(12)),
-                      child: Center(
-                        child: _submitting
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(_ctaLabel, style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-                              const SizedBox(width: 6),
-                              Icon(_ctaIcon, size: 16, color: Colors.white),
-                            ]),
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
+              ),
             ),
           ),
         ],
@@ -328,16 +433,52 @@ class _Step1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final types = [
-      (type: _EntryType.group,    icon: Icons.receipt_outlined,        label: 'Group payment',       sub: 'Monthly contribution',  bg: DT.catGroupsSoft, fg: DT.catGroups),
-      (type: _EntryType.bill,     icon: Icons.receipt_long_outlined,   label: 'Bill / subscription', sub: 'Recurring payment',     bg: DT.catBillsSoft,  fg: DT.catBills),
-      (type: _EntryType.loan,     icon: Icons.account_balance_outlined, label: 'Loan payment',       sub: 'Pay down a debt',       bg: DT.catDebtsSoft,  fg: DT.catDebts),
-      (type: _EntryType.personal, icon: Icons.person_outline_rounded,  label: 'Personal',            sub: 'Just for you',          bg: DT.surfaceAlt,    fg: DT.textSecondary),
+      (
+        type: _EntryType.group,
+        icon: Icons.receipt_outlined,
+        label: 'Group payment',
+        sub: 'Monthly contribution',
+        bg: DT.catGroupsSoft,
+        fg: DT.catGroups,
+      ),
+      (
+        type: _EntryType.bill,
+        icon: Icons.receipt_long_outlined,
+        label: 'Bill / subscription',
+        sub: 'Recurring payment',
+        bg: DT.catBillsSoft,
+        fg: DT.catBills,
+      ),
+      (
+        type: _EntryType.loan,
+        icon: Icons.account_balance_outlined,
+        label: 'Loan payment',
+        sub: 'Pay down a debt',
+        bg: DT.catDebtsSoft,
+        fg: DT.catDebts,
+      ),
+      (
+        type: _EntryType.personal,
+        icon: Icons.person_outline_rounded,
+        label: 'Personal',
+        sub: 'Just for you',
+        bg: DT.surfaceAlt,
+        fg: DT.textSecondary,
+      ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('WHAT KIND OF ENTRY?', style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.8)),
+        Text(
+          'WHAT KIND OF ENTRY?',
+          style: GoogleFonts.manrope(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: DT.textSecondary,
+            letterSpacing: 0.8,
+          ),
+        ),
         const SizedBox(height: 10),
         GridView.count(
           crossAxisCount: 2,
@@ -347,31 +488,52 @@ class _Step1 extends StatelessWidget {
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           childAspectRatio: 1.4,
-          children: types.map((t) {
-            final active = selected == t.type;
-            return GestureDetector(
-              onTap: () => onSelect(t.type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: active ? DT.accentSoft : DT.surface,
-                  borderRadius: BorderRadius.circular(DS.cardRadius),
-                  border: Border.all(color: active ? DT.accent : DT.border, width: active ? 1.5 : 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(t.icon, size: 22, color: active ? DT.accentDeep : t.fg),
-                    const Spacer(),
-                    Text(t.label, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.text)),
-                    const SizedBox(height: 2),
-                    Text(t.sub, style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary)),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+          children:
+              types.map((t) {
+                final active = selected == t.type;
+                return GestureDetector(
+                  onTap: () => onSelect(t.type),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: active ? DT.accentSoft : DT.surface,
+                      borderRadius: BorderRadius.circular(DS.cardRadius),
+                      border: Border.all(
+                        color: active ? DT.accent : DT.border,
+                        width: active ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          t.icon,
+                          size: 22,
+                          color: active ? DT.accentDeep : t.fg,
+                        ),
+                        const Spacer(),
+                        Text(
+                          t.label,
+                          style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: DT.text,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          t.sub,
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: DT.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
         ),
       ],
     );
@@ -411,7 +573,8 @@ class _Step2 extends ConsumerWidget {
       return _NonGroupPlaceholder(type: type);
     }
 
-    final groupsAsync = userId != null ? ref.watch(userGroupsStreamProvider(userId!)) : null;
+    final groupsAsync =
+        userId != null ? ref.watch(userGroupsStreamProvider(userId!)) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,57 +586,113 @@ class _Step2 extends ConsumerWidget {
           const SizedBox.shrink()
         else
           groupsAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: DT.accent))),
-            ),
+            loading:
+                () => const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: DT.accent,
+                      ),
+                    ),
+                  ),
+                ),
             error: (_, __) => const SizedBox.shrink(),
             data: (groups) {
               if (groups.isEmpty) {
                 return Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(DS.cardRadius), border: Border.all(color: DT.border)),
-                  child: Text('No groups yet — create one first', style: GoogleFonts.manrope(fontSize: 13, color: DT.textTertiary)),
+                  decoration: BoxDecoration(
+                    color: DT.surface,
+                    borderRadius: BorderRadius.circular(DS.cardRadius),
+                    border: Border.all(color: DT.border),
+                  ),
+                  child: Text(
+                    'No groups yet — create one first',
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      color: DT.textTertiary,
+                    ),
+                  ),
                 );
               }
               return Column(
-                children: groups.map((g) {
-                  final isSelected = selectedGroup?.id == g.id;
-                  return GestureDetector(
-                    onTap: () => onGroupSelected(g),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? DT.accentSoft : DT.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isSelected ? DT.accent : DT.border, width: isSelected ? 1.5 : 1),
-                      ),
-                      child: Row(children: [
-                        Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(color: DT.catGroupsSoft, borderRadius: BorderRadius.circular(10)),
-                          child: Center(child: Text(_initials(g.name), style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: DT.catGroups))),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(g.name, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.text)),
-                            Text(
-                              g.monthlyAmount > 0
-                                  ? 'RM${g.monthlyAmount.toStringAsFixed(2)}/month · ${g.memberCount} members'
-                                  : '${g.memberCount} members',
-                              style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary),
+                children:
+                    groups.map((g) {
+                      final isSelected = selectedGroup?.id == g.id;
+                      return GestureDetector(
+                        onTap: () => onGroupSelected(g),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? DT.accentSoft : DT.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? DT.accent : DT.border,
+                              width: isSelected ? 1.5 : 1,
                             ),
-                          ]),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: DT.catGroupsSoft,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _initials(g.name),
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: DT.catGroups,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      g.name,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: DT.text,
+                                      ),
+                                    ),
+                                    Text(
+                                      g.monthlyAmount > 0
+                                          ? 'RM${g.monthlyAmount.toStringAsFixed(2)}/month · ${g.memberCount} members'
+                                          : '${g.memberCount} members',
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 11,
+                                        color: DT.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 18,
+                                  color: DT.accentDeep,
+                                ),
+                            ],
+                          ),
                         ),
-                        if (isSelected)
-                          const Icon(Icons.check_circle_rounded, size: 18, color: DT.accentDeep),
-                      ]),
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
               );
             },
           ),
@@ -494,17 +713,36 @@ class _Step2 extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text('RM', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w700, color: DT.textTertiary)),
+                Text(
+                  'RM',
+                  style: GoogleFonts.manrope(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: DT.textTertiary,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: amountCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     autofocus: true,
-                    style: GoogleFonts.manrope(fontSize: 30, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.8),
+                    style: GoogleFonts.manrope(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: DT.text,
+                      letterSpacing: -0.8,
+                    ),
                     decoration: InputDecoration(
                       hintText: '0.00',
-                      hintStyle: GoogleFonts.manrope(fontSize: 30, fontWeight: FontWeight.w800, color: DT.border, letterSpacing: -0.8),
+                      hintStyle: GoogleFonts.manrope(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: DT.border,
+                        letterSpacing: -0.8,
+                      ),
                       filled: false,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -530,20 +768,45 @@ class _Step2 extends ConsumerWidget {
             onTap: onMonthTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: DT.border)),
-              child: Row(children: [
-                const Icon(Icons.calendar_month_outlined, size: 16, color: DT.textSecondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _monthLabel(paymentMonth),
-                    style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: DT.text),
+              decoration: BoxDecoration(
+                color: DT.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: DT.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_month_outlined,
+                    size: 16,
+                    color: DT.textSecondary,
                   ),
-                ),
-                Text('Change', style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: DT.accent)),
-                const SizedBox(width: 2),
-                const Icon(Icons.chevron_right_rounded, size: 16, color: DT.accent),
-              ]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _monthLabel(paymentMonth),
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: DT.text,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Change',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: DT.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: DT.accent,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -572,7 +835,20 @@ class _Step2 extends ConsumerWidget {
   }
 
   static String _monthLabel(DateTime d) {
-    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const m = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${m[d.month - 1]} ${d.year}';
   }
 }
@@ -584,7 +860,12 @@ class _Step3 extends StatelessWidget {
   final String amount;
   final DateTime paymentMonth;
   final String notes;
-  const _Step3({required this.group, required this.amount, required this.paymentMonth, required this.notes});
+  const _Step3({
+    required this.group,
+    required this.amount,
+    required this.paymentMonth,
+    required this.notes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -597,38 +878,77 @@ class _Step3 extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: DT.primary, borderRadius: BorderRadius.circular(DS.cardRadius)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Payment for', style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.6), letterSpacing: 0.4)),
-            const SizedBox(height: 4),
-            Text(monthLabel, style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.accent, letterSpacing: 0.2)),
-            const SizedBox(height: 8),
-            Text(
-              'RM ${amount.isEmpty ? '0.00' : amount}',
-              style: GoogleFonts.manrope(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -1),
-            ),
-            if (group != null) ...[
-              const SizedBox(height: 6),
-              Text(group!.name, style: GoogleFonts.manrope(fontSize: 13, color: Colors.white.withValues(alpha: 0.65))),
+          decoration: BoxDecoration(
+            color: DT.primary,
+            borderRadius: BorderRadius.circular(DS.cardRadius),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Payment for',
+                style: GoogleFonts.manrope(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                monthLabel,
+                style: GoogleFonts.manrope(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: DT.accent,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'RM ${amount.isEmpty ? '0.00' : amount}',
+                style: GoogleFonts.manrope(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -1,
+                ),
+              ),
+              if (group != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  group!.name,
+                  style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
         const SizedBox(height: 12),
 
         // Review rows
         Container(
-          decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(DS.cardRadius), border: Border.all(color: DT.border)),
-          child: Column(children: [
-            _ReviewRow(label: 'Group', value: group?.name ?? '—'),
-            _ReviewRow(label: 'Month', value: monthLabel),
-            if (notes.isNotEmpty) _ReviewRow(label: 'Notes', value: notes),
-            _ReviewRow(
-              label: 'Approval',
-              value: needsApproval ? 'Pending review' : 'Auto-approved',
-              valueColor: needsApproval ? DT.warning : DT.success,
-              last: true,
-            ),
-          ]),
+          decoration: BoxDecoration(
+            color: DT.surface,
+            borderRadius: BorderRadius.circular(DS.cardRadius),
+            border: Border.all(color: DT.border),
+          ),
+          child: Column(
+            children: [
+              _ReviewRow(label: 'Group', value: group?.name ?? '—'),
+              _ReviewRow(label: 'Month', value: monthLabel),
+              if (notes.isNotEmpty) _ReviewRow(label: 'Notes', value: notes),
+              _ReviewRow(
+                label: 'Approval',
+                value: needsApproval ? 'Pending review' : 'Auto-approved',
+                valueColor: needsApproval ? DT.warning : DT.success,
+                last: true,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -639,29 +959,51 @@ class _Step3 extends StatelessWidget {
             color: needsApproval ? DT.infoSoft : DT.accentSoft,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(
-              needsApproval ? Icons.info_outline_rounded : Icons.check_circle_outline_rounded,
-              size: 16,
-              color: needsApproval ? DT.info : DT.accentDeep,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
                 needsApproval
-                    ? 'Group admins will be notified to review and approve your payment.'
-                    : 'Auto-approve is on. Your payment will be confirmed immediately.',
-                style: GoogleFonts.manrope(fontSize: 12, color: DT.text, height: 1.4),
+                    ? Icons.info_outline_rounded
+                    : Icons.check_circle_outline_rounded,
+                size: 16,
+                color: needsApproval ? DT.info : DT.accentDeep,
               ),
-            ),
-          ]),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  needsApproval
+                      ? 'Group admins will be notified to review and approve your payment.'
+                      : 'Auto-approve is on. Your payment will be confirmed immediately.',
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    color: DT.text,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
   static String _ml(DateTime d) {
-    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const m = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${m[d.month - 1]} ${d.year}';
   }
 }
@@ -676,29 +1018,45 @@ class _NonGroupPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSoon = type == _EntryType.personal;
     final label = switch (type) {
-      _EntryType.bill     => 'bills',
-      _EntryType.loan     => 'loans',
-      _                   => 'personal',
+      _EntryType.bill => 'bills',
+      _EntryType.loan => 'loans',
+      _ => 'personal',
     };
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isSoon ? DT.warningSoft : DT.infoSoft,
         borderRadius: BorderRadius.circular(DS.cardRadius),
-        border: Border.all(color: isSoon ? DT.warning.withValues(alpha: 0.3) : DT.info.withValues(alpha: 0.3)),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(isSoon ? Icons.hourglass_top_rounded : Icons.arrow_forward_rounded, size: 16, color: isSoon ? DT.warning : DT.info),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            isSoon
-                ? 'Personal tracking is coming soon.'
-                : 'Tap confirm to proceed to the $label details form.',
-            style: GoogleFonts.manrope(fontSize: 13, color: DT.text, height: 1.4),
-          ),
+        border: Border.all(
+          color:
+              isSoon
+                  ? DT.warning.withValues(alpha: 0.3)
+                  : DT.info.withValues(alpha: 0.3),
         ),
-      ]),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isSoon ? Icons.hourglass_top_rounded : Icons.arrow_forward_rounded,
+            size: 16,
+            color: isSoon ? DT.warning : DT.info,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isSoon
+                  ? 'Personal tracking is coming soon.'
+                  : 'Tap confirm to proceed to the $label details form.',
+              style: GoogleFonts.manrope(
+                fontSize: 13,
+                color: DT.text,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -714,36 +1072,43 @@ class _TimingPills extends StatelessWidget {
   Widget build(BuildContext context) {
     const options = [
       ('previous', 'Previous'),
-      ('current',  'This Month'),
-      ('advance',  'Advance'),
+      ('current', 'This Month'),
+      ('advance', 'Advance'),
     ];
     return Row(
-      children: options.indexed.map((entry) {
-        final i = entry.$1;
-        final o = entry.$2;
-        final isSelected = timing == o.$1;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () => onChanged(o.$1),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? DT.accent : DT.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isSelected ? DT.accent : DT.border),
-              ),
-              child: Center(
-                child: Text(
-                  o.$2,
-                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : DT.textSecondary),
+      children:
+          options.indexed.map((entry) {
+            final i = entry.$1;
+            final o = entry.$2;
+            final isSelected = timing == o.$1;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(o.$1),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? DT.accent : DT.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? DT.accent : DT.border,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      o.$2,
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : DT.textSecondary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 }
@@ -769,7 +1134,20 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -780,33 +1158,78 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: DT.borderStrong, borderRadius: BorderRadius.circular(2)))),
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: DT.borderStrong,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          Text('Select Month', style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w800, color: DT.text)),
+          Text(
+            'Select Month',
+            style: GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: DT.text,
+            ),
+          ),
           const SizedBox(height: 20),
 
           // Year navigation
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            GestureDetector(
-              onTap: () => setState(() => _year--),
-              child: Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: DT.border)),
-                child: const Icon(Icons.chevron_left_rounded, size: 20, color: DT.text),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _year--),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: DT.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: DT.border),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_left_rounded,
+                    size: 20,
+                    color: DT.text,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 28),
-            Text('$_year', style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.3)),
-            const SizedBox(width: 28),
-            GestureDetector(
-              onTap: () => setState(() => _year++),
-              child: Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: DT.border)),
-                child: const Icon(Icons.chevron_right_rounded, size: 20, color: DT.text),
+              const SizedBox(width: 28),
+              Text(
+                '$_year',
+                style: GoogleFonts.manrope(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: DT.text,
+                  letterSpacing: -0.3,
+                ),
               ),
-            ),
-          ]),
+              const SizedBox(width: 28),
+              GestureDetector(
+                onTap: () => setState(() => _year++),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: DT.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: DT.border),
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: DT.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
 
           // Month grid
@@ -819,7 +1242,8 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
             mainAxisSpacing: 8,
             physics: const NeverScrollableScrollPhysics(),
             children: List.generate(12, (i) {
-              final isSelected = _year == widget.initial.year && i + 1 == widget.initial.month;
+              final isSelected =
+                  _year == widget.initial.year && i + 1 == widget.initial.month;
               return GestureDetector(
                 onTap: () => Navigator.pop(context, DateTime(_year, i + 1)),
                 child: AnimatedContainer(
@@ -827,12 +1251,18 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                   decoration: BoxDecoration(
                     color: isSelected ? DT.accent : DT.surface,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isSelected ? DT.accent : DT.border),
+                    border: Border.all(
+                      color: isSelected ? DT.accent : DT.border,
+                    ),
                   ),
                   child: Center(
                     child: Text(
                       months[i],
-                      style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : DT.text),
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : DT.text,
+                      ),
                     ),
                   ),
                 ),
@@ -852,7 +1282,12 @@ class _ReviewRow extends StatelessWidget {
   final String value;
   final bool last;
   final Color? valueColor;
-  const _ReviewRow({required this.label, required this.value, this.last = false, this.valueColor});
+  const _ReviewRow({
+    required this.label,
+    required this.value,
+    this.last = false,
+    this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
@@ -860,16 +1295,26 @@ class _ReviewRow extends StatelessWidget {
     decoration: BoxDecoration(
       border: last ? null : const Border(bottom: BorderSide(color: DT.border)),
     ),
-    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(label, style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary)),
-      Flexible(
-        child: Text(
-          value,
-          textAlign: TextAlign.end,
-          style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: valueColor ?? DT.text),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary),
         ),
-      ),
-    ]),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: GoogleFonts.manrope(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? DT.text,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }
 
@@ -880,6 +1325,11 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.8),
+    style: GoogleFonts.manrope(
+      fontSize: 10,
+      fontWeight: FontWeight.w700,
+      color: DT.textSecondary,
+      letterSpacing: 0.8,
+    ),
   );
 }

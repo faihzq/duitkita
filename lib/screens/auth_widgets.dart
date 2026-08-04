@@ -1,19 +1,11 @@
 // ============================================================================
 // auth_widgets.dart — shared UI for login, signup & forgot password.
-// AuthHero, PrimaryButton, TrustCard, errorSnack.
+// AuthHero, PrimaryButton, GoogleButton, TrustCard.
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
-
-// Floating snackbar for auth errors.
-SnackBar errorSnack(String msg) => SnackBar(
-  content: Text(msg, style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
-  backgroundColor: DT.danger,
-  behavior: SnackBarBehavior.floating,
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-);
 
 // Compact navy gradient hero with brand mark + decorative glow circles.
 class AuthHero extends StatelessWidget {

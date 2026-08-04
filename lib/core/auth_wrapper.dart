@@ -58,7 +58,10 @@ class AuthWrapper extends ConsumerWidget {
         final effectiveUser = user ?? FirebaseAuth.instance.currentUser;
         return KeyedSubtree(
           key: ValueKey(effectiveUser?.uid ?? 'logged_out'),
-          child: effectiveUser != null ? const MainNavigation() : const LoginScreen(),
+          child:
+              effectiveUser != null
+                  ? const MainNavigation()
+                  : const LoginScreen(),
         );
       },
       loading: () {

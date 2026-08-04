@@ -6,7 +6,8 @@ class GroupModel {
   final String description;
   final String createdBy;
   final double monthlyAmount;
-  final double initialBalance; // Starting money in the group (e.g. existing savings)
+  final double
+  initialBalance; // Starting money in the group (e.g. existing savings)
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> memberIds;
@@ -19,7 +20,8 @@ class GroupModel {
   final bool autoApproveExpenses; // Auto-approve expenses without admin review
   final String? iconEmoji; // chosen emoji, e.g. '🏠'
   final String? iconUrl; // uploaded photo (Storage URL)
-  final double goalAmount; // savings target; 0 = no goal / open-ended monthly group
+  final double
+  goalAmount; // savings target; 0 = no goal / open-ended monthly group
   final bool isSettled; // goal reached & closed: no more monthly contributions
 
   GroupModel({

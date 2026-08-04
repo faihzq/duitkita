@@ -111,15 +111,21 @@ class PaymentService {
     required int year,
   }) async {
     try {
-      final snapshot = await _payments
-          .where('groupId', isEqualTo: groupId)
-          .where('userId', isEqualTo: userId)
-          .where('month', isEqualTo: month)
-          .where('year', isEqualTo: year)
-          .get();
+      final snapshot =
+          await _payments
+              .where('groupId', isEqualTo: groupId)
+              .where('userId', isEqualTo: userId)
+              .where('month', isEqualTo: month)
+              .where('year', isEqualTo: year)
+              .get();
 
       return snapshot.docs
-          .map((doc) => PaymentModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .map(
+            (doc) => PaymentModel.fromMap(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            ),
+          )
           .toList();
     } catch (e) {
       debugPrint('Error getting user month payments: $e');
@@ -151,12 +157,17 @@ class PaymentService {
     return _payments
         .where('userId', isEqualTo: userId)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => PaymentModel.fromMap(
-                  doc.data() as Map<String, dynamic>,
-                  doc.id,
-                ))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (doc) => PaymentModel.fromMap(
+                      doc.data() as Map<String, dynamic>,
+                      doc.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 
   // Get payments for a specific user in a group
@@ -235,7 +246,8 @@ class PaymentService {
   // Returns the number of payments actually added (skips duplicates)
   Future<int> addBulkPayments({
     required String groupId,
-    required List<({String userId, String userName, int month, int year})> entries,
+    required List<({String userId, String userName, int month, int year})>
+    entries,
     required double amount,
     String? notes,
   }) async {
@@ -312,9 +324,9 @@ class PaymentService {
           .collection('members')
           .doc(entry.key)
           .update({
-        'totalPaid': FieldValue.increment(stats.total),
-        'paymentCount': FieldValue.increment(stats.count),
-      });
+            'totalPaid': FieldValue.increment(stats.total),
+            'paymentCount': FieldValue.increment(stats.count),
+          });
     }
 
     return added;
@@ -335,10 +347,11 @@ class PaymentService {
     required String verifiedBy,
     required String verifiedByName,
   }) async {
-    final snapshot = await _payments
-        .where('groupId', isEqualTo: groupId)
-        .where('paymentStatus', isEqualTo: 'pending')
-        .get();
+    final snapshot =
+        await _payments
+            .where('groupId', isEqualTo: groupId)
+            .where('paymentStatus', isEqualTo: 'pending')
+            .get();
 
     if (snapshot.docs.isEmpty) return 0;
 
@@ -421,16 +434,18 @@ class PaymentService {
           .collection('members')
           .doc(userId)
           .update({
-        'totalPaid': FieldValue.increment(-amount),
-        'paymentCount': FieldValue.increment(-1),
-      });
+            'totalPaid': FieldValue.increment(-amount),
+            'paymentCount': FieldValue.increment(-1),
+          });
     } catch (e) {
       throw Exception('Failed to delete payment: $e');
     }
   }
 
   // Get pending payments for multiple groups (admin review)
-  Stream<List<PaymentModel>> getPendingPaymentsForGroupsStream(List<String> groupIds) {
+  Stream<List<PaymentModel>> getPendingPaymentsForGroupsStream(
+    List<String> groupIds,
+  ) {
     if (groupIds.isEmpty) return Stream.value([]);
 
     // Firestore 'whereIn' supports max 30 values
@@ -441,9 +456,17 @@ class PaymentService {
         .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PaymentModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-            .toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) => PaymentModel.fromMap(
+                      doc.data() as Map<String, dynamic>,
+                      doc.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 }
 
@@ -493,23 +516,33 @@ final pendingPaymentsStreamProvider =
 
 // Stream provider for current month payment status (returns 'confirmed', 'pending', 'rejected', or 'unpaid')
 // Uses a stream so the UI updates in real-time when payments are added/changed.
-final groupMonthPaymentStatusProvider = StreamProvider.family<String, ({String groupId, String userId})>((ref, params) {
-  final paymentService = ref.watch(paymentServiceProvider);
-  final now = DateTime.now();
-  return paymentService.getUserPaymentsInGroupStream(
-    groupId: params.groupId,
-    userId: params.userId,
-  ).map((payments) {
-    final monthPayments = payments.where(
-      (p) => p.month == now.month && p.year == now.year,
-    ).toList();
-    if (monthPayments.isEmpty) return 'unpaid';
-    return monthPayments.first.paymentStatus;
-  });
-});
+final groupMonthPaymentStatusProvider =
+    StreamProvider.family<String, ({String groupId, String userId})>((
+      ref,
+      params,
+    ) {
+      final paymentService = ref.watch(paymentServiceProvider);
+      final now = DateTime.now();
+      return paymentService
+          .getUserPaymentsInGroupStream(
+            groupId: params.groupId,
+            userId: params.userId,
+          )
+          .map((payments) {
+            final monthPayments =
+                payments
+                    .where((p) => p.month == now.month && p.year == now.year)
+                    .toList();
+            if (monthPayments.isEmpty) return 'unpaid';
+            return monthPayments.first.paymentStatus;
+          });
+    });
 
 // Count of confirmed payments for the current month in a group (for progress bar)
-final groupMonthPaidCountProvider = StreamProvider.family<int, String>((ref, groupId) {
+final groupMonthPaidCountProvider = StreamProvider.family<int, String>((
+  ref,
+  groupId,
+) {
   final now = DateTime.now();
   return FirebaseFirestore.instance
       .collection('payments')
@@ -524,18 +557,24 @@ final groupMonthPaidCountProvider = StreamProvider.family<int, String>((ref, gro
 // Provider for user payment notifications (recently confirmed/rejected within 7 days)
 final userPaymentNotificationsProvider =
     StreamProvider.family<List<PaymentModel>, String>((ref, userId) {
-  final paymentService = ref.watch(paymentServiceProvider);
-  return paymentService.getAllUserPaymentsStream(userId).map((payments) {
-    final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    final notifs = payments
-        .where((p) =>
-            (p.paymentStatus == 'confirmed' ||
-                p.paymentStatus == 'rejected') &&
-            p.verifiedAt != null &&
-            p.verifiedAt!.isAfter(cutoff))
-        .toList();
-    notifs.sort((a, b) => (b.verifiedAt ?? b.createdAt)
-        .compareTo(a.verifiedAt ?? a.createdAt));
-    return notifs;
-  });
-});
+      final paymentService = ref.watch(paymentServiceProvider);
+      return paymentService.getAllUserPaymentsStream(userId).map((payments) {
+        final cutoff = DateTime.now().subtract(const Duration(days: 7));
+        final notifs =
+            payments
+                .where(
+                  (p) =>
+                      (p.paymentStatus == 'confirmed' ||
+                          p.paymentStatus == 'rejected') &&
+                      p.verifiedAt != null &&
+                      p.verifiedAt!.isAfter(cutoff),
+                )
+                .toList();
+        notifs.sort(
+          (a, b) => (b.verifiedAt ?? b.createdAt).compareTo(
+            a.verifiedAt ?? a.createdAt,
+          ),
+        );
+        return notifs;
+      });
+    });

@@ -48,7 +48,11 @@ service cloud.firestore {
                        request.resource.data.uid == request.auth.uid;
 
       // Only the holder can release it, when changing to a new handle.
-      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      // `resource == null` covers deleting a reservation that is already gone:
+      // without it, a stale handle on a profile denies the whole rename.
+      allow delete: if isSignedIn() &&
+                       (resource == null ||
+                        resource.data.uid == request.auth.uid);
     }
 
     // Groups collection
@@ -59,10 +63,17 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
                        request.auth.uid == request.resource.data.createdBy;
 
-      // Admin or creator can update group
+      // Admin or creator can update group.
+      // A plain member may also remove *themselves* — needed to leave a group
+      // and for account deletion, which must not leave their uid behind. They
+      // can touch nothing else, and cannot remove anyone but themselves.
       allow update: if isSignedIn() &&
                        (request.auth.uid == resource.data.createdBy ||
-                        isGroupAdmin(groupId));
+                        isGroupAdmin(groupId) ||
+                        (request.auth.uid in resource.data.memberIds &&
+                         !(request.auth.uid in request.resource.data.memberIds) &&
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['memberIds', 'memberCount', 'updatedAt'])));
 
       allow delete: if isSignedIn() &&
                        request.auth.uid == resource.data.createdBy;
@@ -72,9 +83,15 @@ service cloud.firestore {
         allow read: if isSignedIn() &&
                        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
 
-        allow create, delete: if isSignedIn() &&
+        allow create: if isSignedIn() &&
                         (isGroupAdmin(groupId) ||
                          request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy);
+
+        // Members can remove their own membership (leaving / account deletion).
+        allow delete: if isSignedIn() &&
+                        (isGroupAdmin(groupId) ||
+                         request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy ||
+                         request.auth.uid == memberId);
 
         // Admin/creator can update any member; members can update their own stats
         allow update: if isSignedIn() &&
@@ -207,11 +224,18 @@ service cloud.firestore {
                        request.auth.uid == request.resource.data.createdBy &&
                        request.auth.uid in request.resource.data.travellerIds;
 
-      // Only the organiser can edit or delete the trip. createdBy is immutable,
-      // so ownership cannot be handed off (or stolen) by an update.
+      // Only the organiser can edit the trip. They may hand ownership to
+      // someone already travelling — needed when deleting their account — but
+      // never to an outsider, so it cannot be stolen or dumped on a stranger.
+      // A traveller may additionally remove *themselves*, and nothing else.
       allow update: if isSignedIn() &&
-                       request.auth.uid == resource.data.createdBy &&
-                       request.resource.data.createdBy == resource.data.createdBy;
+                       ((request.auth.uid == resource.data.createdBy &&
+                         (request.resource.data.createdBy == resource.data.createdBy ||
+                          request.resource.data.createdBy in resource.data.travellerIds)) ||
+                        (request.auth.uid in resource.data.travellerIds &&
+                         !(request.auth.uid in request.resource.data.travellerIds) &&
+                         request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['travellerIds', 'travellers', 'updatedAt'])));
 
       allow delete: if isSignedIn() &&
                        request.auth.uid == resource.data.createdBy;

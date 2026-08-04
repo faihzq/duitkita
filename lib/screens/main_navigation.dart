@@ -38,9 +38,16 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     // Accounts predating usernames get one derived from their name or email, so
     // they can be found by handle without having to visit Profile first. It is
     // a no-op once set, and never blocks startup.
-    final uid = ref.read(authControllerProvider.notifier).currentUser?.uid;
-    if (uid != null) {
-      unawaited(ref.read(profileServiceProvider).ensureUsername(uid));
+    final user = ref.read(authControllerProvider.notifier).currentUser;
+    if (user != null) {
+      final profiles = ref.read(profileServiceProvider);
+      // The profile has to exist before a handle can be written onto it, so
+      // repair a missing document first (see ProfileService.ensureProfile).
+      unawaited(
+        profiles
+            .ensureProfile(user)
+            .then((_) => profiles.ensureUsername(user.uid)),
+      );
     }
 
     // Reminders and activity notifications are now sent server-side by Cloud
@@ -61,7 +68,8 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
-    final profileAsync = userId != null ? ref.watch(userProfileStreamProvider(userId)) : null;
+    final profileAsync =
+        userId != null ? ref.watch(userProfileStreamProvider(userId)) : null;
     final showJdt = profileAsync?.valueOrNull?.showJdtMatches ?? false;
 
     final screens = <Widget>[
@@ -84,12 +92,15 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         body: IndexedStack(index: safeIndex, children: screens),
         // ── Centre FAB ─────────────────────────────────────────
         floatingActionButton: SizedBox(
-          width: 52, height: 52,
+          width: 52,
+          height: 52,
           child: FloatingActionButton(
             onPressed: _openAddEntry,
             backgroundColor: DT.text,
             elevation: 6,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
           ),
         ),
@@ -136,15 +147,50 @@ class _BottomNav extends StatelessWidget {
         height: 60,
         child: Row(
           children: [
-            _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home', index: 0, currentIndex: currentIndex, onTap: onTap),
-            _NavItem(icon: Icons.group_outlined, activeIcon: Icons.group_rounded, label: 'Groups', index: 1, currentIndex: currentIndex, onTap: onTap),
+            _NavItem(
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home_rounded,
+              label: 'Home',
+              index: 0,
+              currentIndex: currentIndex,
+              onTap: onTap,
+            ),
+            _NavItem(
+              icon: Icons.group_outlined,
+              activeIcon: Icons.group_rounded,
+              label: 'Groups',
+              index: 1,
+              currentIndex: currentIndex,
+              onTap: onTap,
+            ),
             // Centre gap for FAB
             const Expanded(child: SizedBox()),
-            _NavItem(icon: Icons.account_balance_outlined, activeIcon: Icons.account_balance_rounded, label: 'Debts', index: 2, currentIndex: currentIndex, onTap: onTap),
+            _NavItem(
+              icon: Icons.account_balance_outlined,
+              activeIcon: Icons.account_balance_rounded,
+              label: 'Debts',
+              index: 2,
+              currentIndex: currentIndex,
+              onTap: onTap,
+            ),
             if (showJdt)
-              _NavItem(icon: Icons.sports_soccer_outlined, activeIcon: Icons.sports_soccer_rounded, label: 'JDT', index: 3, currentIndex: currentIndex, onTap: onTap)
+              _NavItem(
+                icon: Icons.sports_soccer_outlined,
+                activeIcon: Icons.sports_soccer_rounded,
+                label: 'JDT',
+                index: 3,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              )
             else
-              _NavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile', index: 3, currentIndex: currentIndex, onTap: onTap),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                label: 'Profile',
+                index: 3,
+                currentIndex: currentIndex,
+                onTap: onTap,
+              ),
           ],
         ),
       ),

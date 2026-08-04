@@ -31,9 +31,8 @@ class AnalyticsService {
               .toList();
 
       // Only count confirmed payments for analytics
-      final payments = allPayments
-          .where((p) => p.paymentStatus == 'confirmed')
-          .toList();
+      final payments =
+          allPayments.where((p) => p.paymentStatus == 'confirmed').toList();
 
       // Note: do NOT early-return when there are no payments — the group may
       // still have expenses and a starting balance that must be reflected.
@@ -46,9 +45,8 @@ class AnalyticsService {
       );
 
       // Calculate average payment amount
-      final averagePaymentAmount = payments.isNotEmpty
-          ? totalCollected / payments.length
-          : 0.0;
+      final averagePaymentAmount =
+          payments.isNotEmpty ? totalCollected / payments.length : 0.0;
 
       // Calculate member contributions (confirmed only)
       final Map<String, double> memberContributions = {};
@@ -100,7 +98,8 @@ class AnalyticsService {
       double expectedTotal = 0.0;
       for (final member in members) {
         // Months from member's join date to now (inclusive of both months)
-        final memberMonths = _calculateMonthsDifference(member.joinedAt, now) + 1;
+        final memberMonths =
+            _calculateMonthsDifference(member.joinedAt, now) + 1;
         expectedTotal += memberMonths * group.monthlyAmount;
       }
 
@@ -136,9 +135,10 @@ class AnalyticsService {
         final amount = ((data['amount'] ?? 0.0) as num).toDouble();
         final requesterName = data['requestedByName'] as String? ?? 'Unknown';
         final title = data['title'] as String? ?? '';
-        final createdAt = data['createdAt'] != null
-            ? (data['createdAt'] as Timestamp).toDate()
-            : DateTime.now();
+        final createdAt =
+            data['createdAt'] != null
+                ? (data['createdAt'] as Timestamp).toDate()
+                : DateTime.now();
 
         if (status == 'pending') {
           pendingExpenseCount++;
@@ -158,13 +158,15 @@ class AnalyticsService {
               (monthlyExpenses[monthYear] ?? 0.0) + amount;
 
           // Collect for recent list
-          recentExpenses.add(ExpenseItem(
-            title: title,
-            amount: amount,
-            requestedByName: requesterName,
-            status: status,
-            date: createdAt,
-          ));
+          recentExpenses.add(
+            ExpenseItem(
+              title: title,
+              amount: amount,
+              requestedByName: requesterName,
+              status: status,
+              date: createdAt,
+            ),
+          );
         } else if (status == 'rejected') {
           rejectedExpenseCount++;
         }
@@ -177,10 +179,11 @@ class AnalyticsService {
       final totalExpenseCount = allExpenseDocs.length;
 
       // Outstanding fund loans (money drawn from the fund, not yet repaid).
-      final loansSnapshot = await _firestore
-          .collection('fund_loans')
-          .where('groupId', isEqualTo: groupId)
-          .get();
+      final loansSnapshot =
+          await _firestore
+              .collection('fund_loans')
+              .where('groupId', isEqualTo: groupId)
+              .get();
       double outstandingLoans = 0.0;
       for (final doc in loansSnapshot.docs) {
         final data = doc.data();
@@ -198,13 +201,17 @@ class AnalyticsService {
       }
 
       final netBalance =
-          group.initialBalance + totalCollected - totalExpenses - outstandingLoans;
+          group.initialBalance +
+          totalCollected -
+          totalExpenses -
+          outstandingLoans;
 
       // Aggregate yearly collections from monthly data
       final Map<int, double> yearlyCollections = {};
       for (final entry in monthlyCollections.entries) {
         final year = int.parse(entry.key.split('-')[0]);
-        yearlyCollections[year] = (yearlyCollections[year] ?? 0.0) + entry.value;
+        yearlyCollections[year] =
+            (yearlyCollections[year] ?? 0.0) + entry.value;
       }
 
       // Aggregate yearly expenses from monthly data
@@ -316,7 +323,6 @@ class AnalyticsService {
   int _calculateMonthsDifference(DateTime start, DateTime end) {
     return (end.year - start.year) * 12 + end.month - start.month;
   }
-
 }
 
 // Provider for analytics service

@@ -14,6 +14,7 @@ import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/storage_service.dart';
 import 'package:duitkita/widgets/floating_field.dart';
+import 'package:duitkita/utils/utils.dart';
 
 class AddPaymentScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -191,15 +192,12 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('User not logged in')));
+        showSnackBar(context, 'User not logged in');
       }
       return;
     }
 
     setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     String? receiptUrl;
 
@@ -265,35 +263,11 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
               : autoApprove
               ? 'Payment confirmed automatically!'
               : 'Payment submitted for review!';
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            msg,
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w600),
-          ),
-          backgroundColor: DT.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      showSnackBar(context, msg);
       nav.pop();
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to add payment: $e',
-            style: GoogleFonts.manrope(),
-          ),
-          backgroundColor: DT.danger,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      showSnackBar(context, 'Failed to add payment: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -316,9 +290,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+        showSnackBar(context, 'Failed to pick image: $e');
       }
     }
   }
@@ -340,9 +312,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to take photo: $e')));
+        showSnackBar(context, 'Failed to take photo: $e');
       }
     }
   }
@@ -362,9 +332,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to pick PDF: $e')));
+        showSnackBar(context, 'Failed to pick PDF: $e');
       }
     }
   }
@@ -1699,7 +1667,6 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     );
   }
 
-
   // ── Receipt section ────────────────────────────────────────────────────────
 
   Widget _buildReceiptSection() {
@@ -2022,10 +1989,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                               Icon(
                                 Icons.check_circle_outline_rounded,
                                 size: 18,
-                                color:
-                                    _amountValid
-                                        ? DT.text
-                                        : DT.textTertiary,
+                                color: _amountValid ? DT.text : DT.textTertiary,
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -2037,9 +2001,7 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.2,
                                   color:
-                                      _amountValid
-                                          ? DT.text
-                                          : DT.textTertiary,
+                                      _amountValid ? DT.text : DT.textTertiary,
                                 ),
                               ),
                             ],
@@ -2053,4 +2015,3 @@ class _AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
     );
   }
 }
-

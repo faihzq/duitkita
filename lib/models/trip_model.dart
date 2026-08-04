@@ -3,15 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum TripStatus { tentative, confirmed, settled }
 
 TripStatus tripStatusFrom(String? s) => TripStatus.values.firstWhere(
-      (e) => e.name == s,
-      orElse: () => TripStatus.tentative,
-    );
+  (e) => e.name == s,
+  orElse: () => TripStatus.tentative,
+);
 
 String tripStatusLabel(TripStatus s) => switch (s) {
-      TripStatus.tentative => 'Tentative',
-      TripStatus.confirmed => 'Confirmed',
-      TripStatus.settled => 'Settled',
-    };
+  TripStatus.tentative => 'Tentative',
+  TripStatus.confirmed => 'Confirmed',
+  TripStatus.settled => 'Settled',
+};
 
 /// A traveller is embedded on the trip doc (name + photo denormalised) so the
 /// list screen can draw avatar stacks from a single read. [TripModel.travellerIds]
@@ -28,16 +28,16 @@ class TripTraveller {
   });
 
   factory TripTraveller.fromMap(Map<String, dynamic> data) => TripTraveller(
-        userId: data['userId'] ?? '',
-        name: data['name'] ?? 'Traveller',
-        photoUrl: data['photoUrl'],
-      );
+    userId: data['userId'] ?? '',
+    name: data['name'] ?? 'Traveller',
+    photoUrl: data['photoUrl'],
+  );
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-        'name': name,
-        'photoUrl': photoUrl,
-      };
+    'userId': userId,
+    'name': name,
+    'photoUrl': photoUrl,
+  };
 }
 
 class TripModel {
@@ -86,11 +86,8 @@ class TripModel {
   }
 
   /// Calendar date for day [n] (1-based).
-  DateTime dateForDay(int n) => DateTime(
-        startDate.year,
-        startDate.month,
-        startDate.day + (n - 1),
-      );
+  DateTime dateForDay(int n) =>
+      DateTime(startDate.year, startDate.month, startDate.day + (n - 1));
 
   /// "Perlis · Kedah · Penang"
   String get where => destinations.join(' · ');
@@ -101,9 +98,8 @@ class TripModel {
   bool isOrganiser(String? userId) =>
       userId != null && userId.isNotEmpty && userId == createdBy;
 
-  bool get isPast => endDate.isBefore(
-        DateTime.now().subtract(const Duration(days: 1)),
-      );
+  bool get isPast =>
+      endDate.isBefore(DateTime.now().subtract(const Duration(days: 1)));
 
   factory TripModel.fromMap(Map<String, dynamic> data, String id) {
     return TripModel(
@@ -117,7 +113,8 @@ class TripModel {
       bandGradient: data['bandGradient'],
       createdBy: data['createdBy'] ?? '',
       travellerIds: List<String>.from(data['travellerIds'] ?? const []),
-      travellers: (data['travellers'] as List?)
+      travellers:
+          (data['travellers'] as List?)
               ?.map((t) => TripTraveller.fromMap(Map<String, dynamic>.from(t)))
               .toList() ??
           const [],
@@ -128,22 +125,22 @@ class TripModel {
   }
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        'destinations': destinations,
-        'startDate': Timestamp.fromDate(startDate),
-        'endDate': Timestamp.fromDate(endDate),
-        'status': status.name,
-        'emoji': emoji,
-        'bandGradient': bandGradient,
-        'createdBy': createdBy,
-        'travellerIds': travellerIds,
-        'travellers': travellers.map((t) => t.toMap()).toList(),
-        // stopCount is deliberately omitted — it is only ever moved by
-        // FieldValue.increment, so writing a read-back value could lose a
-        // concurrent stop added from another device.
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
-      };
+    'name': name,
+    'destinations': destinations,
+    'startDate': Timestamp.fromDate(startDate),
+    'endDate': Timestamp.fromDate(endDate),
+    'status': status.name,
+    'emoji': emoji,
+    'bandGradient': bandGradient,
+    'createdBy': createdBy,
+    'travellerIds': travellerIds,
+    'travellers': travellers.map((t) => t.toMap()).toList(),
+    // stopCount is deliberately omitted — it is only ever moved by
+    // FieldValue.increment, so writing a read-back value could lose a
+    // concurrent stop added from another device.
+    'createdAt': Timestamp.fromDate(createdAt),
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   TripModel copyWith({
     String? name,

@@ -134,14 +134,16 @@ class FundLoanService {
 
   Stream<List<FundLoanModel>> getGroupLoansStream(String groupId) {
     // No orderBy here (avoids needing a composite Firestore index); sorted below.
-    return _loans
-        .where('groupId', isEqualTo: groupId)
-        .snapshots()
-        .map((snap) {
-      final loans = snap.docs
-          .map((doc) =>
-              FundLoanModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-          .toList();
+    return _loans.where('groupId', isEqualTo: groupId).snapshots().map((snap) {
+      final loans =
+          snap.docs
+              .map(
+                (doc) => FundLoanModel.fromMap(
+                  doc.data() as Map<String, dynamic>,
+                  doc.id,
+                ),
+              )
+              .toList();
       loans.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return loans;
     });
@@ -156,13 +158,18 @@ final fundLoanServiceProvider = Provider<FundLoanService>((ref) {
 
 final groupFundLoansStreamProvider =
     StreamProvider.family<List<FundLoanModel>, String>((ref, groupId) {
-  return ref.watch(fundLoanServiceProvider).getGroupLoansStream(groupId);
-});
+      return ref.watch(fundLoanServiceProvider).getGroupLoansStream(groupId);
+    });
 
 // Total outstanding (unpaid) across a group's approved fund loans.
-final groupOutstandingLoansProvider =
-    StreamProvider.family<double, String>((ref, groupId) {
-  return ref.watch(fundLoanServiceProvider).getGroupLoansStream(groupId).map(
+final groupOutstandingLoansProvider = StreamProvider.family<double, String>((
+  ref,
+  groupId,
+) {
+  return ref
+      .watch(fundLoanServiceProvider)
+      .getGroupLoansStream(groupId)
+      .map(
         (loans) => loans
             .where((l) => l.affectsBalance)
             .fold<double>(0.0, (s, l) => s + l.outstanding),
@@ -170,9 +177,12 @@ final groupOutstandingLoansProvider =
 });
 
 // Count of pending loan requests for a group (admin review badge).
-final pendingFundLoansCountProvider =
-    StreamProvider.family<int, String>((ref, groupId) {
-  return ref.watch(fundLoanServiceProvider).getGroupLoansStream(groupId).map(
-        (loans) => loans.where((l) => l.isPending).length,
-      );
+final pendingFundLoansCountProvider = StreamProvider.family<int, String>((
+  ref,
+  groupId,
+) {
+  return ref
+      .watch(fundLoanServiceProvider)
+      .getGroupLoansStream(groupId)
+      .map((loans) => loans.where((l) => l.isPending).length);
 });

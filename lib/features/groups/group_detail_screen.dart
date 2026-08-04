@@ -24,6 +24,7 @@ import 'package:duitkita/features/groups/bulk_import_screen.dart';
 import 'package:duitkita/widgets/group_icon_avatar.dart';
 import 'package:duitkita/features/groups/fund_loans_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
+import 'package:duitkita/utils/utils.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -93,7 +94,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   }) async {
     final userId = ref.read(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) return;
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final profile = await ref
           .read(profileServiceProvider)
@@ -111,13 +111,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       if (sheetCtx != null && sheetCtx.mounted) Navigator.of(sheetCtx).pop();
       final msg =
           'Payment by $memberName ${status == 'confirmed' ? 'confirmed' : 'rejected'}';
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      showSnackBar(context, msg);
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-      );
+      showSnackBar(context, 'Failed: $e', isError: true);
     }
   }
 
@@ -285,14 +283,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           ),
     );
     if (ok != true || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(groupServiceProvider)
           .updateGroup(groupId: widget.groupId, isSettled: true);
-      messenger.showSnackBar(const SnackBar(content: Text('Group settled 🎉')));
+      showAppSnackBar('Group settled 🎉');
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      showAppSnackBar('Error: $e');
     }
   }
 
@@ -1333,6 +1330,44 @@ class _MembersTab extends StatelessWidget {
                                 .where((i) => i.status == 'pending')
                                 .length;
                         final unpaid = members.length - paid - pending;
+
+                        // Rows interleaved with rules, built here so the loop
+                        // can use statements rather than nesting a Builder.
+                        final rows = <Widget>[];
+                        for (var i = 0; i < members.length; i++) {
+                          if (i > 0) {
+                            rows.add(
+                              const Divider(
+                                height: 1,
+                                thickness: 1,
+                                color: DT.border,
+                              ),
+                            );
+                          }
+                          final m = members[i];
+                          final info =
+                              statusMap[m.userId] ?? _PayInfo(status: 'unpaid');
+                          rows.add(
+                            _MemberCard(
+                              member: m,
+                              info: info,
+                              isCurrentUser: m.userId == userId,
+                              isAdmin: isAdmin,
+                              group: group,
+                              groupId: groupId,
+                              selectedMonth: selectedMonth,
+                              selectedYear: selectedYear,
+                              onVerify: onVerify,
+                              onShowReview:
+                                  (ctx) => onShowReview(
+                                    ctx,
+                                    payment: info.payment!,
+                                    memberName: m.userName,
+                                  ),
+                            ),
+                          );
+                        }
+
                         return Column(
                           children: [
                             _StatusStrip(
@@ -1340,31 +1375,19 @@ class _MembersTab extends StatelessWidget {
                               pending: pending,
                               unpaid: unpaid,
                             ),
-                            ...members.map((m) {
-                              final info =
-                                  statusMap[m.userId] ??
-                                  _PayInfo(status: 'unpaid');
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _MemberCard(
-                                  member: m,
-                                  info: info,
-                                  isCurrentUser: m.userId == userId,
-                                  isAdmin: isAdmin,
-                                  group: group,
-                                  groupId: groupId,
-                                  selectedMonth: selectedMonth,
-                                  selectedYear: selectedYear,
-                                  onVerify: onVerify,
-                                  onShowReview:
-                                      (ctx) => onShowReview(
-                                        ctx,
-                                        payment: info.payment!,
-                                        memberName: m.userName,
-                                      ),
+                            // One card for the whole roster, members separated
+                            // by a rule rather than each sitting in its own box.
+                            Container(
+                              decoration: BoxDecoration(
+                                color: DT.surface,
+                                borderRadius: BorderRadius.circular(
+                                  DS.cardRadius,
                                 ),
-                              );
-                            }),
+                                border: Border.all(color: DT.border),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(children: rows),
+                            ),
                           ],
                         );
                       },
@@ -1963,17 +1986,11 @@ class _MemberCard extends StatelessWidget {
       _ => (DT.surfaceAlt, DT.textTertiary, 'Unpaid'),
     };
 
-    return Container(
+    // No card chrome of its own: the list wraps every member in one card and
+    // separates them with a rule. The "You" badge marks the current user, so
+    // the highlighted border this used to carry is no longer needed.
+    return Padding(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: DT.surface,
-        borderRadius: BorderRadius.circular(DS.cardRadius),
-        border: Border.all(
-          color:
-              isCurrentUser ? DT.catGroups.withValues(alpha: 0.3) : DT.border,
-          width: isCurrentUser ? 1.5 : 1,
-        ),
-      ),
       child: Column(
         children: [
           Row(

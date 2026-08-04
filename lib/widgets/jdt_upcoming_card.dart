@@ -41,11 +41,18 @@ class JdtUpcomingCard extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      Icon(Icons.event_busy, size: 36, color: Colors.white.withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.event_busy,
+                        size: 36,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'No upcoming fixtures scheduled yet',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _buildSeeAllButton(context),
@@ -68,50 +75,61 @@ class JdtUpcomingCard extends ConsumerWidget {
               ),
             );
           },
-          loading: () => _buildCard(
+          loading:
+              () => _buildCard(
+                context,
+                title: 'JDT Matches',
+                icon: Icons.sports_soccer,
+                child: const Padding(
+                  padding: EdgeInsets.all(28),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                ),
+              ),
+          error:
+              (_, __) => _buildCard(
+                context,
+                title: 'JDT Matches',
+                icon: Icons.sports_soccer,
+                child: _buildErrorContent(ref),
+              ),
+        );
+      },
+      loading:
+          () => _buildCard(
             context,
             title: 'JDT Matches',
             icon: Icons.sports_soccer,
             child: const Padding(
               padding: EdgeInsets.all(28),
               child: Center(
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
               ),
             ),
           ),
-          error: (_, __) => _buildCard(
+      error:
+          (_, __) => _buildCard(
             context,
             title: 'JDT Matches',
             icon: Icons.sports_soccer,
             child: _buildErrorContent(ref),
           ),
-        );
-      },
-      loading: () => _buildCard(
-        context,
-        title: 'JDT Matches',
-        icon: Icons.sports_soccer,
-        child: const Padding(
-          padding: EdgeInsets.all(28),
-          child: Center(
-            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-          ),
-        ),
-      ),
-      error: (_, __) => _buildCard(
-        context,
-        title: 'JDT Matches',
-        icon: Icons.sports_soccer,
-        child: _buildErrorContent(ref),
-      ),
     );
   }
 
   Widget _buildSeeAllButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        AppTheme.slideRoute(const JdtMatchesScreen()),
-      ),
+      onTap:
+          () => Navigator.of(
+            context,
+          ).push(AppTheme.slideRoute(const JdtMatchesScreen())),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
@@ -131,7 +149,11 @@ class JdtUpcomingCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios, size: 12, color: Colors.white.withValues(alpha: 0.7)),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
           ],
         ),
       ),
@@ -143,11 +165,18 @@ class JdtUpcomingCard extends ConsumerWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Icon(Icons.cloud_off, color: Colors.white.withValues(alpha: 0.5), size: 32),
+          Icon(
+            Icons.cloud_off,
+            color: Colors.white.withValues(alpha: 0.5),
+            size: 32,
+          ),
           const SizedBox(height: 8),
           Text(
             'Could not load matches',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 12),
           GestureDetector(
@@ -163,7 +192,11 @@ class JdtUpcomingCard extends ConsumerWidget {
               ),
               child: const Text(
                 'Retry',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
@@ -227,8 +260,18 @@ class JdtUpcomingCard extends ConsumerWidget {
 
   Widget _buildMatchRow(MatchModel match, {required bool showScore}) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final dateStr =
         '${match.matchDate.day} ${months[match.matchDate.month - 1]}';
@@ -338,15 +381,20 @@ class JdtUpcomingCard extends ConsumerWidget {
           logoUrl,
           width: 24,
           height: 24,
-          errorBuilder: (_, __, ___) => Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Icon(Icons.shield, size: 16, color: Colors.white70),
-          ),
+          errorBuilder:
+              (_, __, ___) => Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(
+                  Icons.shield,
+                  size: 16,
+                  color: Colors.white70,
+                ),
+              ),
         ),
       );
     }

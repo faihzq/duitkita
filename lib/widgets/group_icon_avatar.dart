@@ -35,13 +35,16 @@ class GroupIconAvatar extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: hasPhoto
-          ? Image.network(
-              iconUrl!,
-              width: size, height: size, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => hasEmoji ? _emoji() : fallback,
-            )
-          : hasEmoji
+      child:
+          hasPhoto
+              ? Image.network(
+                iconUrl!,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => hasEmoji ? _emoji() : fallback,
+              )
+              : hasEmoji
               ? _emoji()
               : fallback,
     );

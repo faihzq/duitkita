@@ -10,6 +10,8 @@ import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/payment_service.dart';
 import 'package:duitkita/services/debt_service.dart';
 import 'package:duitkita/services/expense_service.dart';
+import 'package:duitkita/features/home/breakdown_bar.dart';
+import 'package:duitkita/features/home/hero_ring.dart';
 import 'package:duitkita/features/groups/group_detail_screen.dart';
 import 'package:duitkita/features/expenses/expense_list_screen.dart';
 import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
@@ -145,6 +147,14 @@ class HomeScreen extends ConsumerWidget {
                       paidThisMonth: paidThisMonth,
                       remaining: remaining,
                       progressPct: progressPct,
+                      // Quick actions now live inside the hero as translucent
+                      // chips rather than as a separate row below it.
+                      quickActions: _QuickActions(
+                        context: context,
+                        userId: user.uid,
+                        onTabChange: onTabChange,
+                        onDark: true,
+                      ),
                     ),
                   ),
 
@@ -155,15 +165,17 @@ class HomeScreen extends ConsumerWidget {
                       child: _HomeHeroTip(),
                     ),
 
-                  // ── Quick actions ────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(DS.xl, 20, DS.xl, 0),
-                    child: _QuickActions(
-                      context: context,
-                      userId: user.uid,
-                      onTabChange: onTabChange,
+                  // With no commitments the hero collapses to just its label,
+                  // so the actions still need a home of their own.
+                  if (totalMonthly <= 0)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(DS.xl, 20, DS.xl, 0),
+                      child: _QuickActions(
+                        context: context,
+                        userId: user.uid,
+                        onTabChange: onTabChange,
+                      ),
                     ),
-                  ),
 
                   // ── Up next ──────────────────────────────────────
                   if (groups.isNotEmpty || debts.isNotEmpty)
@@ -738,11 +750,15 @@ class _HeroCard extends StatelessWidget {
   final double remaining;
   final double progressPct;
 
+  /// The quick-action chips, rendered inside the hero on the dark gradient.
+  final Widget quickActions;
+
   const _HeroCard({
     required this.totalMonthly,
     required this.paidThisMonth,
     required this.remaining,
     required this.progressPct,
+    required this.quickActions,
   });
 
   @override
@@ -804,30 +820,14 @@ class _HeroCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'MONTHLY COMMITMENTS · ${months[now.month - 1].toUpperCase()}',
-                          style: GoogleFonts.manrope(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.7),
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          totalMonthly > 0 ? 'RM ${_fmt(totalMonthly)}' : '—',
-                          style: GoogleFonts.manrope(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -1.2,
-                            height: 1,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'MONTHLY COMMITMENTS · ${months[now.month - 1].toUpperCase()}',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        letterSpacing: 0.4,
+                      ),
                     ),
                   ),
                   if (totalMonthly > 0)
@@ -869,47 +869,95 @@ class _HeroCard extends StatelessWidget {
               ),
 
               if (totalMonthly > 0) ...[
-                const SizedBox(height: 18),
-                // Paid / Remaining labels
+                const SizedBox(height: 14),
+                // Ring of % cleared, beside what is actually left to pay.
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Paid RM ${_fmt(paidThisMonth, decimals: 0)}',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.85),
+                    SizedBox(
+                      width: 128,
+                      height: 128,
+                      child: AnimatedHeroRing(
+                        pct: progressPct,
+                        center: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$pct%',
+                              style: GoogleFonts.manrope(
+                                fontSize: 27,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.8,
+                                height: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'CLEARED',
+                              style: GoogleFonts.manrope(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.6),
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    Text(
-                      'RM ${_fmt(remaining, decimals: 0)} left',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.85),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'RM ${_fmt(remaining, decimals: 0)}',
+                              style: GoogleFonts.manrope(
+                                fontSize: 37,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -1.4,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          Text.rich(
+                            TextSpan(
+                              style: GoogleFonts.manrope(
+                                fontSize: 12.5,
+                                height: 1.55,
+                                color: Colors.white.withValues(alpha: 0.78),
+                              ),
+                              children: [
+                                TextSpan(
+                                  text:
+                                      'of RM ${_fmt(totalMonthly, decimals: 0)} due this month\n',
+                                ),
+                                TextSpan(
+                                  text:
+                                      'RM ${_fmt(paidThisMonth, decimals: 0)} paid',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: DT.accent,
+                                  ),
+                                ),
+                                const TextSpan(text: ' so far'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: progressPct,
-                    minHeight: 6,
-                    backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    valueColor: const AlwaysStoppedAnimation<Color>(DT.accent),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$pct% of monthly commitments cleared',
-                  style: GoogleFonts.manrope(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
+                const SizedBox(height: 18),
+                quickActions,
               ],
             ],
           ),
@@ -938,10 +986,16 @@ class _QuickActions extends StatelessWidget {
   final BuildContext context;
   final String userId;
   final void Function(int)? onTabChange;
+
+  /// Renders translucent chips for the hero's dark gradient instead of the
+  /// light surface tiles.
+  final bool onDark;
+
   const _QuickActions({
     required this.context,
     required this.userId,
     this.onTabChange,
+    this.onDark = false,
   });
 
   @override
@@ -986,19 +1040,22 @@ class _QuickActions extends StatelessWidget {
       ),
     ];
 
+    // Gaps are built in rather than appended: the previous
+    // `..insertBetween(...)` was a cascade, so its return value — the list
+    // *with* separators — was discarded and the tiles rendered flush.
+    final gap = onDark ? 8.0 : 10.0;
     return Row(
-      children:
-          actions
-              .map(
-                (a) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 0),
-                    child: _ActionTile(action: a),
-                  ),
-                ),
-              )
-              .toList()
-            ..insertBetween(const SizedBox(width: 10)),
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) SizedBox(width: gap),
+          Expanded(
+            child:
+                onDark
+                    ? _HeroChip(action: actions[i])
+                    : _ActionTile(action: actions[i]),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1010,6 +1067,46 @@ class _Action {
   final Color fg;
   final VoidCallback onTap;
   const _Action(this.icon, this.label, this.bg, this.fg, this.onTap);
+}
+
+/// Quick action as a translucent chip, for use on the hero's dark gradient.
+class _HeroChip extends StatelessWidget {
+  final _Action action;
+  const _HeroChip({required this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: action.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(action.icon, size: 19, color: Colors.white),
+            const SizedBox(height: 6),
+            Text(
+              action.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.manrope(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.92),
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ActionTile extends StatelessWidget {
@@ -1054,18 +1151,6 @@ class _ActionTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-extension _ListInsertBetween<T extends Widget> on List<T> {
-  List<Widget> insertBetween(Widget separator) {
-    if (length <= 1) return this;
-    final result = <Widget>[];
-    for (int i = 0; i < length; i++) {
-      result.add(this[i]);
-      if (i < length - 1) result.add(separator);
-    }
-    return result;
   }
 }
 
@@ -1150,6 +1235,7 @@ class _UpNextSection extends ConsumerWidget {
             amount: g.monthlyAmount,
             ctaLabel: 'Pay',
             muted: false,
+            soon: items.isEmpty,
             onTap:
                 () => Navigator.of(
                   context,
@@ -1174,6 +1260,7 @@ class _UpNextSection extends ConsumerWidget {
             amount: d.monthlyPayment,
             ctaLabel: 'Pay',
             muted: false,
+            soon: items.isEmpty,
             onTap: () => onTabChange?.call(2),
           ),
         );
@@ -1194,6 +1281,7 @@ class _UpNextSection extends ConsumerWidget {
             amount: b.monthlyPayment,
             ctaLabel: 'Pay',
             muted: false,
+            soon: items.isEmpty,
             onTap: () => onTabChange?.call(2),
           ),
         );
@@ -1205,7 +1293,10 @@ class _UpNextSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'Up next'),
+        _SectionHeader(
+          title: 'Up next',
+          action: _upNextCountPill(items.length),
+        ),
         ...items.map(
           (item) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -1217,6 +1308,30 @@ class _UpNextSection extends ConsumerWidget {
   }
 }
 
+/// "3 to pay" — how much is still outstanding, beside the section title.
+Widget _upNextCountPill(int count) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+  decoration: BoxDecoration(
+    color: DT.warningSoft,
+    borderRadius: BorderRadius.circular(999),
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const Icon(Icons.schedule_rounded, size: 13, color: DT.warning),
+      const SizedBox(width: 5),
+      Text(
+        '$count to pay',
+        style: GoogleFonts.manrope(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: DT.warning,
+        ),
+      ),
+    ],
+  ),
+);
+
 class _UpNextItemData {
   final IconData icon;
   final Color iconBg;
@@ -1227,6 +1342,10 @@ class _UpNextItemData {
   final String ctaLabel;
   final bool muted;
   final VoidCallback onTap;
+
+  /// The nearest thing needing payment. Only the first item gets this, and it
+  /// is the one the section is emphasising.
+  final bool soon;
 
   /// Group icon, when this row is a group. Falls back to [icon] otherwise.
   final String? iconEmoji;
@@ -1242,6 +1361,7 @@ class _UpNextItemData {
     required this.ctaLabel,
     required this.muted,
     required this.onTap,
+    this.soon = false,
     this.iconEmoji,
     this.iconUrl,
   });
@@ -1263,7 +1383,19 @@ class _UpNextCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: DT.surface,
           borderRadius: BorderRadius.circular(DS.cardRadius),
-          border: Border.all(color: DT.border),
+          border: Border.all(
+            color: item.soon ? DT.warning.withValues(alpha: 0.33) : DT.border,
+          ),
+          boxShadow:
+              item.soon
+                  ? [
+                    BoxShadow(
+                      color: DT.warning.withValues(alpha: 0.13),
+                      blurRadius: 26,
+                      offset: const Offset(0, 10),
+                    ),
+                  ]
+                  : null,
         ),
         child: Row(
           children: [
@@ -1280,14 +1412,44 @@ class _UpNextCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    style: GoogleFonts.manrope(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: DT.text,
-                      letterSpacing: -0.2,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.manrope(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: DT.text,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      if (item.soon) ...[
+                        const SizedBox(width: 7),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: DT.warningSoft,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'DUE SOON',
+                            style: GoogleFonts.manrope(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: DT.warning,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 1),
                   Text(
@@ -1321,7 +1483,10 @@ class _UpNextCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: item.muted ? DT.surfaceAlt : DT.text,
+                    color:
+                        item.muted
+                            ? DT.surfaceAlt
+                            : (item.soon ? DT.warning : DT.text),
                     borderRadius: BorderRadius.circular(8),
                     border: item.muted ? Border.all(color: DT.border) : null,
                   ),
@@ -1383,35 +1548,31 @@ class _BreakdownCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              if (activeGroups > 0) ...[
+              BreakdownSegmentBar(
+                groupMonthly: groupMonthly,
+                debtMonthly: debtMonthly,
+                billMonthly: billMonthly,
+              ),
+              // No dividers: the segment bar already separates the categories,
+              // and the design leaves the rows to breathe on spacing alone.
+              if (activeGroups > 0)
                 _BreakdownRow(
-                  icon: Icons.group_outlined,
-                  iconBg: DT.catGroupsSoft,
                   iconColor: DT.catGroups,
                   label: 'Groups',
                   sub: '$activeGroups active',
                   amount: groupMonthly,
                   onTap: () => onTabChange?.call(1),
                 ),
-                if (activeDebts > 0 || activeBills > 0)
-                  const _BreakdownDivider(),
-              ],
-              if (activeDebts > 0) ...[
+              if (activeDebts > 0)
                 _BreakdownRow(
-                  icon: Icons.account_balance_outlined,
-                  iconBg: DT.catDebtsSoft,
                   iconColor: DT.catDebts,
                   label: 'Loans',
                   sub: '$activeDebts active',
                   amount: debtMonthly,
                   onTap: () => onTabChange?.call(2),
                 ),
-                if (activeBills > 0) const _BreakdownDivider(),
-              ],
               if (activeBills > 0)
                 _BreakdownRow(
-                  icon: Icons.receipt_outlined,
-                  iconBg: DT.catBillsSoft,
                   iconColor: DT.catBills,
                   label: 'Bills',
                   sub: '$activeBills subscriptions',
@@ -1427,8 +1588,7 @@ class _BreakdownCard extends StatelessWidget {
 }
 
 class _BreakdownRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
+  /// Colour of the dot, matching this category's segment in the bar above.
   final Color iconColor;
   final String label;
   final String sub;
@@ -1436,8 +1596,6 @@ class _BreakdownRow extends StatelessWidget {
   final VoidCallback onTap;
 
   const _BreakdownRow({
-    required this.icon,
-    required this.iconBg,
     required this.iconColor,
     required this.label,
     required this.sub,
@@ -1453,14 +1611,15 @@ class _BreakdownRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
+            // A dot in the category colour rather than an icon tile, so each
+            // row reads directly against its segment in the bar above.
             Container(
-              width: 36,
-              height: 36,
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
+                color: iconColor,
+                shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 18, color: iconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1514,19 +1673,6 @@ class _BreakdownRow extends StatelessWidget {
       buf.write(intPart[i]);
     }
     return buf.toString();
-  }
-}
-
-class _BreakdownDivider extends StatelessWidget {
-  const _BreakdownDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: DT.border,
-    );
   }
 }
 

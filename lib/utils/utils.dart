@@ -4,16 +4,22 @@ import 'package:duitkita/widgets/dk_toast.dart';
 
 /// Shows a branded toast. Kept as `showSnackBar` so every existing call site
 /// works unchanged; see [DkToast] for the richer forms (body copy, actions).
+/// Reports without a screen context.
+///
+/// For results delivered after the calling screen may already be gone — the
+/// case the old `final messenger = ScaffoldMessenger.of(context)` captures
+/// existed to cover. Toasts mount in the app's root overlay either way, so
+/// nothing is lost by not passing one.
+void showAppSnackBar(String message, {bool isError = false}) =>
+    showSnackBar(null, message, isError: isError);
+
 void showSnackBar(
-  BuildContext context,
+  BuildContext? context,
   String message, {
   bool isError = false,
 }) {
-  // Toasts mount into the root overlay rather than a ScaffoldMessenger, so a
-  // context that has just been popped has nothing to attach to. Several call
-  // sites report success immediately after Navigator.pop.
-  if (!context.mounted) return;
-
+  // A popped context is fine: DkToast falls back to the app's root overlay via
+  // its navigatorKey, so messages reported just after Navigator.pop still show.
   if (isError) {
     DkToast.error(context, message);
   } else {

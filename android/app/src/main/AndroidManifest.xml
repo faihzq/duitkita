@@ -1,12 +1,47 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Add Internet Permission - Essential for Firebase -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!--
+      Alarm and boot permissions are stripped, not merely undeclared.
+
+      Reminders are sent server-side by Cloud Functions (functions/index.js);
+      nothing in the app schedules a local notification, so these are unused.
+      flutter_local_notifications declares them in its own manifest and the
+      merge would pull them back in, hence tools:node="remove".
+
+      SCHEDULE_EXACT_ALARM matters beyond tidiness: Google Play restricts it to
+      apps whose core purpose is alarms or calendars, and shipping it here would
+      invite a rejection over a feature that does not exist. If local scheduling
+      is ever reintroduced, delete these three lines rather than working around
+      them.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+
+    <!--
+      Advertising ID, stripped for the same reason.
+
+      Firebase Analytics pulls these in, but the app serves no ads and is
+      declared "no ads" on Play. Play cross-checks the shipped manifest against
+      that declaration: leaving AD_ID in place while declaring no advertising ID
+      collection is a submission-blocking mismatch. Removing it costs only
+      ad-attribution signals, which an app with no ads has no use for; the rest
+      of Firebase Analytics is unaffected.
+
+      com.google.android.gms.permission.AD_ID is the one Play actually keys on;
+      the ACCESS_ADSERVICES_* pair is the Privacy Sandbox equivalent on
+      Android 13+. Remove all three together or the mismatch remains.
+    -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
     
     <application
         android:label="DuitKita"

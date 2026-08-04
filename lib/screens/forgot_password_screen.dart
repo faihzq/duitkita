@@ -11,7 +11,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -40,7 +41,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     if (!_validateInputs()) return;
     setState(() => _isLoading = true);
 
-    final messenger = ScaffoldMessenger.of(context);
     final response = await ref
         .read(authControllerProvider.notifier)
         .forgotPassword(email: _emailController.text.trim());
@@ -49,9 +49,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() => _isLoading = false);
 
     if (response.error != null) {
-      messenger.showSnackBar(errorSnack(
+      showSnackBar(
+        context,
         response.errorMessage ?? getAuthErrorMessage(response.error),
-      ));
+        isError: true,
+      );
     } else {
       setState(() => _emailSent = true);
     }
@@ -65,19 +67,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         children: [
           AuthHero(
             title: _emailSent ? 'Check your inbox' : 'Reset password',
-            subtitle: _emailSent
-                ? 'Follow the link we just emailed to set a new password.'
-                : 'Enter the email linked to your DuitKita account.',
+            subtitle:
+                _emailSent
+                    ? 'Follow the link we just emailed to set a new password.'
+                    : 'Enter the email linked to your DuitKita account.',
             leading: IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(DS.screenPad, DS.xxl, DS.screenPad, DS.xl),
+              padding: const EdgeInsets.fromLTRB(
+                DS.screenPad,
+                DS.xxl,
+                DS.screenPad,
+                DS.xl,
+              ),
               child: _emailSent ? _sentView() : _formView(),
             ),
           ),
@@ -91,12 +103,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FloatingField(
-          controller: _emailController, gap: 0,
+          controller: _emailController,
+          gap: 0,
           label: 'Email',
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
           error: _emailError,
-          onChanged: (_) { if (_emailError != null) setState(() => _emailError = null); },
+          onChanged: (_) {
+            if (_emailError != null) setState(() => _emailError = null);
+          },
         ),
         const SizedBox(height: DS.md),
         PrimaryButton(
@@ -117,8 +132,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               children: [
                 const Icon(Icons.arrow_back_rounded, size: 14),
                 const SizedBox(width: 4),
-                Text('Back to sign in', style: GoogleFonts.manrope(
-                  fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(
+                  'Back to sign in',
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -135,9 +155,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         const SizedBox(height: DS.sm),
         Center(
           child: Container(
-            width: 72, height: 72,
-            decoration: const BoxDecoration(color: DT.successSoft, shape: BoxShape.circle),
-            child: const Icon(Icons.mark_email_read_outlined, color: DT.success, size: 36),
+            width: 72,
+            height: 72,
+            decoration: const BoxDecoration(
+              color: DT.successSoft,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.mark_email_read_outlined,
+              color: DT.success,
+              size: 36,
+            ),
           ),
         ),
         const SizedBox(height: DS.xl),
@@ -151,24 +179,46 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.check_circle_rounded, size: 20, color: DT.success),
+              const Icon(
+                Icons.check_circle_rounded,
+                size: 20,
+                color: DT.success,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Email sent', style: GoogleFonts.manrope(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: DT.text)),
+                    Text(
+                      'Email sent',
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: DT.text,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text.rich(
                       TextSpan(
                         style: GoogleFonts.manrope(
-                          fontSize: 12, height: 1.45, color: DT.textSecondary),
+                          fontSize: 12,
+                          height: 1.45,
+                          color: DT.textSecondary,
+                        ),
                         children: [
                           const TextSpan(text: 'We sent a reset link to '),
-                          TextSpan(text: email, style: GoogleFonts.manrope(
-                            fontSize: 12, fontWeight: FontWeight.w700, color: DT.text)),
-                          const TextSpan(text: '. Check spam if it doesn\'t arrive in 1–2 minutes.'),
+                          TextSpan(
+                            text: email,
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: DT.text,
+                            ),
+                          ),
+                          const TextSpan(
+                            text:
+                                '. Check spam if it doesn\'t arrive in 1–2 minutes.',
+                          ),
                         ],
                       ),
                     ),
@@ -191,8 +241,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               foregroundColor: DT.textSecondary,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text('Resend email', style: GoogleFonts.manrope(
-              fontSize: 14, fontWeight: FontWeight.w700)),
+            child: Text(
+              'Resend email',
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ],

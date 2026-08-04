@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'duitkita-8451b.firebasestorage.app',
     measurementId: 'G-B154WDW562',
   );
-
 }

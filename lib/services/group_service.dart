@@ -105,10 +105,7 @@ class GroupService {
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map(
-                    (doc) =>
-                        GroupMember.fromMap(doc.data()),
-                  )
+                  .map((doc) => GroupMember.fromMap(doc.data()))
                   .toList(),
         );
   }
@@ -200,9 +197,15 @@ class GroupService {
       if (reminderDay != null) updateData['reminderDay'] = reminderDay;
       if (bankName != null) updateData['bankName'] = bankName;
       if (accountNumber != null) updateData['accountNumber'] = accountNumber;
-      if (accountHolderName != null) updateData['accountHolderName'] = accountHolderName;
-      if (autoApprovePayments != null) updateData['autoApprovePayments'] = autoApprovePayments;
-      if (autoApproveExpenses != null) updateData['autoApproveExpenses'] = autoApproveExpenses;
+      if (accountHolderName != null) {
+        updateData['accountHolderName'] = accountHolderName;
+      }
+      if (autoApprovePayments != null) {
+        updateData['autoApprovePayments'] = autoApprovePayments;
+      }
+      if (autoApproveExpenses != null) {
+        updateData['autoApproveExpenses'] = autoApproveExpenses;
+      }
       if (goalAmount != null) updateData['goalAmount'] = goalAmount;
       if (isSettled != null) updateData['isSettled'] = isSettled;
 
@@ -289,13 +292,16 @@ class GroupService {
       final groupDoc = _groups.doc(groupId);
 
       // Verify requesting user is admin
-      final requestingDoc = await groupDoc.collection('members').doc(requestingUserId).get();
-      if (!requestingDoc.exists || !(requestingDoc.data()?['isAdmin'] ?? false)) {
+      final requestingDoc =
+          await groupDoc.collection('members').doc(requestingUserId).get();
+      if (!requestingDoc.exists ||
+          !(requestingDoc.data()?['isAdmin'] ?? false)) {
         throw Exception('You are not authorized to manage admin rights');
       }
 
       // Verify target is a member
-      final targetDoc = await groupDoc.collection('members').doc(targetUserId).get();
+      final targetDoc =
+          await groupDoc.collection('members').doc(targetUserId).get();
       if (!targetDoc.exists) {
         throw Exception('Selected user is not a member of this group');
       }
@@ -308,9 +314,7 @@ class GroupService {
       batch.update(groupDoc.collection('members').doc(targetUserId), {
         'isAdmin': true,
       });
-      batch.update(groupDoc, {
-        'updatedAt': DateTime.now(),
-      });
+      batch.update(groupDoc, {'updatedAt': DateTime.now()});
       await batch.commit();
     } catch (e) {
       throw Exception('Failed to promote member: $e');
@@ -327,37 +331,44 @@ class GroupService {
       final groupDoc = _groups.doc(groupId);
 
       // Verify requesting user is admin
-      final requestingDoc = await groupDoc.collection('members').doc(requestingUserId).get();
-      if (!requestingDoc.exists || !(requestingDoc.data()?['isAdmin'] ?? false)) {
+      final requestingDoc =
+          await groupDoc.collection('members').doc(requestingUserId).get();
+      if (!requestingDoc.exists ||
+          !(requestingDoc.data()?['isAdmin'] ?? false)) {
         throw Exception('You are not authorized to manage admin rights');
       }
 
       // Prevent demoting yourself if you're the last admin
-      final membersSnapshot = await groupDoc.collection('members')
-          .where('isAdmin', isEqualTo: true)
-          .get();
+      final membersSnapshot =
+          await groupDoc
+              .collection('members')
+              .where('isAdmin', isEqualTo: true)
+              .get();
       final adminCount = membersSnapshot.docs.length;
 
       if (targetUserId == requestingUserId && adminCount <= 1) {
-        throw Exception('Cannot remove the last admin. Promote another member first.');
+        throw Exception(
+          'Cannot remove the last admin. Promote another member first.',
+        );
       }
 
       if (adminCount <= 1 && membersSnapshot.docs.first.id == targetUserId) {
-        throw Exception('Cannot remove the last admin. Promote another member first.');
+        throw Exception(
+          'Cannot remove the last admin. Promote another member first.',
+        );
       }
 
       final batch = _firestore.batch();
       batch.update(groupDoc.collection('members').doc(targetUserId), {
         'isAdmin': false,
       });
-      batch.update(groupDoc, {
-        'updatedAt': DateTime.now(),
-      });
+      batch.update(groupDoc, {'updatedAt': DateTime.now()});
       await batch.commit();
     } catch (e) {
       throw Exception('Failed to demote admin: $e');
     }
   }
+
   // Get group IDs where user is admin (uses collection group query)
   Stream<Set<String>> getAdminGroupIdsStream(String userId) {
     return _firestore
@@ -403,8 +414,10 @@ final groupMembersStreamProvider =
     });
 
 // Stream provider for group IDs where user is admin
-final adminGroupIdsStreamProvider =
-    StreamProvider.family<Set<String>, String>((ref, userId) {
-      final groupService = ref.watch(groupServiceProvider);
-      return groupService.getAdminGroupIdsStream(userId);
-    });
+final adminGroupIdsStreamProvider = StreamProvider.family<Set<String>, String>((
+  ref,
+  userId,
+) {
+  final groupService = ref.watch(groupServiceProvider);
+  return groupService.getAdminGroupIdsStream(userId);
+});

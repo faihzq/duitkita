@@ -402,9 +402,22 @@ class _MemberCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           // Skeleton lines
-          Container(height: 6, decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(3))),
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: DT.surfaceAlt,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
           const SizedBox(height: 6),
-          Container(width: 60, height: 6, decoration: BoxDecoration(color: DT.surfaceAlt, borderRadius: BorderRadius.circular(3))),
+          Container(
+            width: 60,
+            height: 6,
+            decoration: BoxDecoration(
+              color: DT.surfaceAlt,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
           const Spacer(),
           // Amount
           Text(
@@ -485,7 +498,10 @@ class _CalendarArt extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: DT.accentSoft,
                         borderRadius: BorderRadius.circular(8),
@@ -600,9 +616,7 @@ class _QrArt extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.all(8),
-                    child: CustomPaint(
-                      painter: _QrPatternPainter(),
-                    ),
+                    child: CustomPaint(painter: _QrPatternPainter()),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -634,9 +648,10 @@ class _QrArt extends StatelessWidget {
 class _QrPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.fill;
 
     const cell = 5.0;
     const gap = 2.0;
@@ -663,20 +678,36 @@ class _QrPatternPainter extends CustomPainter {
     _drawFinderPattern(canvas, 0, size.height - 21, size, paint);
   }
 
-  void _drawFinderPattern(Canvas canvas, double x, double y, Size size, Paint paint) {
+  void _drawFinderPattern(
+    Canvas canvas,
+    double x,
+    double y,
+    Size size,
+    Paint paint,
+  ) {
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(x, y, 21, 21), const Radius.circular(3)),
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, 21, 21),
+        const Radius.circular(3),
+      ),
       paint,
     );
-    final inner = Paint()
-      ..color = const Color(0xFF0B1F3A)
-      ..style = PaintingStyle.fill;
+    final inner =
+        Paint()
+          ..color = const Color(0xFF0B1F3A)
+          ..style = PaintingStyle.fill;
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(x + 3, y + 3, 15, 15), const Radius.circular(2)),
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 3, y + 3, 15, 15),
+        const Radius.circular(2),
+      ),
       inner,
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(x + 6, y + 6, 9, 9), const Radius.circular(1)),
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 6, y + 6, 9, 9),
+        const Radius.circular(1),
+      ),
       paint,
     );
   }

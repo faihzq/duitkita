@@ -19,9 +19,17 @@ class TripService {
         .where('travellerIds', arrayContains: userId)
         .orderBy('startDate', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => TripModel.fromMap(d.data() as Map<String, dynamic>, d.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map(
+                    (d) => TripModel.fromMap(
+                      d.data() as Map<String, dynamic>,
+                      d.id,
+                    ),
+                  )
+                  .toList(),
+        );
   }
 
   Stream<TripModel?> streamTrip(String tripId) {
@@ -125,9 +133,12 @@ class TripService {
         .orderBy('day')
         .orderBy('order')
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ItineraryStop.fromMap(d.data(), d.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs
+                  .map((d) => ItineraryStop.fromMap(d.data(), d.id))
+                  .toList(),
+        );
   }
 
   Future<String> addStop(String tripId, ItineraryStop stop) async {
@@ -195,14 +206,18 @@ class TripService {
 final tripServiceProvider = Provider<TripService>((ref) => TripService());
 
 /// All trips for a user.
-final tripsStreamProvider =
-    StreamProvider.family<List<TripModel>, String>((ref, userId) {
+final tripsStreamProvider = StreamProvider.family<List<TripModel>, String>((
+  ref,
+  userId,
+) {
   return ref.watch(tripServiceProvider).streamTrips(userId);
 });
 
 /// A single trip, live.
-final tripStreamProvider =
-    StreamProvider.family<TripModel?, String>((ref, tripId) {
+final tripStreamProvider = StreamProvider.family<TripModel?, String>((
+  ref,
+  tripId,
+) {
   return ref.watch(tripServiceProvider).streamTrip(tripId);
 });
 
@@ -210,5 +225,5 @@ final tripStreamProvider =
 /// switching day tabs must not refetch.
 final tripStopsStreamProvider =
     StreamProvider.family<List<ItineraryStop>, String>((ref, tripId) {
-  return ref.watch(tripServiceProvider).streamStops(tripId);
-});
+      return ref.watch(tripServiceProvider).streamStops(tripId);
+    });

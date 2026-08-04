@@ -48,9 +48,18 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                       GestureDetector(
                         onTap: widget.onBack,
                         child: Container(
-                          width: 38, height: 38,
-                          decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(11), border: Border.all(color: DT.border)),
-                          child: const Icon(Icons.arrow_back_rounded, size: 18, color: DT.text),
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: DT.surface,
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: DT.border),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            size: 18,
+                            color: DT.text,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -71,13 +80,22 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                           const SizedBox(height: 3),
                           debtsAsync.when(
                             data: (debts) {
-                              final active = debts.where((d) => d.isActive).toList();
-                              final loans = active.where((d) => d.isDebt).length;
-                              final bills = active.where((d) => d.isBill).length;
-                              final monthly = active.fold<double>(0, (s, d) => s + d.monthlyPayment);
+                              final active =
+                                  debts.where((d) => d.isActive).toList();
+                              final loans =
+                                  active.where((d) => d.isDebt).length;
+                              final bills =
+                                  active.where((d) => d.isBill).length;
+                              final monthly = active.fold<double>(
+                                0,
+                                (s, d) => s + d.monthlyPayment,
+                              );
                               return Text(
                                 '$loans loans · $bills bills · RM${monthly.toStringAsFixed(0)}/mo',
-                                style: GoogleFonts.manrope(fontSize: 13, color: DT.textSecondary),
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  color: DT.textSecondary,
+                                ),
                               );
                             },
                             loading: () => const SizedBox.shrink(),
@@ -88,15 +106,23 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
-                      onTap: () => Navigator.of(context).push(AppTheme.slideRoute(const AddDebtScreen())),
+                      onTap:
+                          () => Navigator.of(
+                            context,
+                          ).push(AppTheme.slideRoute(const AddDebtScreen())),
                       child: Container(
-                        width: 40, height: 40,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: DT.surface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: DT.border),
                         ),
-                        child: const Icon(Icons.add_rounded, size: 20, color: DT.text),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          size: 20,
+                          color: DT.text,
+                        ),
                       ),
                     ),
                   ],
@@ -112,15 +138,24 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                   if (active.isEmpty) return const SizedBox.shrink();
                   final loans = active.where((d) => d.isDebt).toList();
                   final bills = active.where((d) => d.isBill).toList();
-                  final totalRemaining = loans.fold<double>(0, (s, d) => s + d.remainingBalance);
-                  final totalMonthly = active.fold<double>(0, (s, d) => s + d.monthlyPayment);
+                  final totalRemaining = loans.fold<double>(
+                    0,
+                    (s, d) => s + d.remainingBalance,
+                  );
+                  final totalMonthly = active.fold<double>(
+                    0,
+                    (s, d) => s + d.monthlyPayment,
+                  );
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [DT.headerGradientStart, DT.headerGradientEnd],
+                          colors: [
+                            DT.headerGradientStart,
+                            DT.headerGradientEnd,
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -134,16 +169,30 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                               value: 'RM${totalMonthly.toStringAsFixed(0)}',
                               light: true,
                             ),
-                            const VerticalDivider(color: Colors.white24, width: 1),
+                            const VerticalDivider(
+                              color: Colors.white24,
+                              width: 1,
+                            ),
                             _SumCell(
-                              label: '${loans.length} Loan${loans.length != 1 ? 's' : ''}',
-                              value: loans.isEmpty ? '—' : 'RM${_fmt(totalRemaining)} left',
+                              label:
+                                  '${loans.length} Loan${loans.length != 1 ? 's' : ''}',
+                              value:
+                                  loans.isEmpty
+                                      ? '—'
+                                      : 'RM${_fmt(totalRemaining)} left',
                               light: true,
                             ),
-                            const VerticalDivider(color: Colors.white24, width: 1),
+                            const VerticalDivider(
+                              color: Colors.white24,
+                              width: 1,
+                            ),
                             _SumCell(
-                              label: '${bills.length} Bill${bills.length != 1 ? 's' : ''}',
-                              value: bills.isEmpty ? '—' : 'RM${bills.fold<double>(0, (s, d) => s + d.monthlyPayment).toStringAsFixed(0)}/mo',
+                              label:
+                                  '${bills.length} Bill${bills.length != 1 ? 's' : ''}',
+                              value:
+                                  bills.isEmpty
+                                      ? '—'
+                                      : 'RM${bills.fold<double>(0, (s, d) => s + d.monthlyPayment).toStringAsFixed(0)}/mo',
                               light: true,
                             ),
                           ],
@@ -169,43 +218,64 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                     border: Border.all(color: DT.border),
                   ),
                   child: Row(
-                    children: _Filter.values.map((f) {
-                      final active = f == _filter;
-                      final (label, icon, accent) = switch (f) {
-                        _Filter.debts => ('Debts', Icons.account_balance_outlined, DT.catDebts),
-                        _Filter.bills => ('Bills', Icons.autorenew_rounded, DT.catBills),
-                      };
-                      return Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() => _filter = f),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: active ? accent : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
+                    children:
+                        _Filter.values.map((f) {
+                          final active = f == _filter;
+                          final (label, icon, accent) = switch (f) {
+                            _Filter.debts => (
+                              'Debts',
+                              Icons.account_balance_outlined,
+                              DT.catDebts,
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(icon, size: 16, color: active ? Colors.white : DT.textTertiary),
-                                const SizedBox(width: 7),
-                                Text(
-                                  label,
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: active ? Colors.white : DT.textSecondary,
-                                  ),
+                            _Filter.bills => (
+                              'Bills',
+                              Icons.autorenew_rounded,
+                              DT.catBills,
+                            ),
+                          };
+                          return Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _filter = f),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
                                 ),
-                              ],
+                                decoration: BoxDecoration(
+                                  color: active ? accent : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      icon,
+                                      size: 16,
+                                      color:
+                                          active
+                                              ? Colors.white
+                                              : DT.textTertiary,
+                                    ),
+                                    const SizedBox(width: 7),
+                                    Text(
+                                      label,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color:
+                                            active
+                                                ? Colors.white
+                                                : DT.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                          );
+                        }).toList(),
                   ),
                 ),
               ),
@@ -214,13 +284,14 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
             // ── Content ───────────────────────────────────────────
             debtsAsync.when(
               data: (debts) {
-                final active = debts.where((d) {
-                  if (!d.isActive) return false;
-                  return switch (_filter) {
-                    _Filter.debts => d.isDebt,
-                    _Filter.bills => d.isBill,
-                  };
-                }).toList();
+                final active =
+                    debts.where((d) {
+                      if (!d.isActive) return false;
+                      return switch (_filter) {
+                        _Filter.debts => d.isDebt,
+                        _Filter.bills => d.isBill,
+                      };
+                    }).toList();
                 // Unpaid (this month) sort to the top.
                 bool paidThisMonth(DebtModel d) =>
                     ref.watch(debtMonthPaidProvider(d.id)).valueOrNull ?? false;
@@ -229,19 +300,23 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                   if (ap == bp) return 0;
                   return ap ? 1 : -1;
                 });
-                final completed = debts.where((d) {
-                  if (d.isActive) return false;
-                  return switch (_filter) {
-                    _Filter.debts => d.isDebt,
-                    _Filter.bills => d.isBill,
-                  };
-                }).toList();
+                final completed =
+                    debts.where((d) {
+                      if (d.isActive) return false;
+                      return switch (_filter) {
+                        _Filter.debts => d.isDebt,
+                        _Filter.bills => d.isBill,
+                      };
+                    }).toList();
 
                 if (active.isEmpty && completed.isEmpty) {
                   return SliverFillRemaining(
                     child: _EmptyState(
                       filter: _filter,
-                      onAdd: () => Navigator.of(context).push(AppTheme.slideRoute(const AddDebtScreen())),
+                      onAdd:
+                          () => Navigator.of(
+                            context,
+                          ).push(AppTheme.slideRoute(const AddDebtScreen())),
                     ),
                   );
                 }
@@ -255,9 +330,12 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                         if (i < active.length) {
                           return _DebtCard(
                             debt: active[i],
-                            onTap: () => Navigator.of(context).push(
-                              AppTheme.slideRoute(DebtDetailScreen(debtId: active[i].id)),
-                            ),
+                            onTap:
+                                () => Navigator.of(context).push(
+                                  AppTheme.slideRoute(
+                                    DebtDetailScreen(debtId: active[i].id),
+                                  ),
+                                ),
                           );
                         }
                         final completedIdx = i - active.length;
@@ -267,7 +345,8 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                             child: Row(
                               children: [
                                 Container(
-                                  width: 3, height: 16,
+                                  width: 3,
+                                  height: 16,
                                   decoration: BoxDecoration(
                                     color: DT.textTertiary,
                                     borderRadius: BorderRadius.circular(2),
@@ -276,7 +355,11 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                                 const SizedBox(width: 8),
                                 Text(
                                   'Completed (${completed.length})',
-                                  style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: DT.textTertiary),
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: DT.textTertiary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -285,22 +368,41 @@ class _DebtsListScreenState extends ConsumerState<DebtsListScreen> {
                         return _DebtCard(
                           debt: completed[completedIdx - 1],
                           muted: true,
-                          onTap: () => Navigator.of(context).push(
-                            AppTheme.slideRoute(DebtDetailScreen(debtId: completed[completedIdx - 1].id)),
-                          ),
+                          onTap:
+                              () => Navigator.of(context).push(
+                                AppTheme.slideRoute(
+                                  DebtDetailScreen(
+                                    debtId: completed[completedIdx - 1].id,
+                                  ),
+                                ),
+                              ),
                         );
                       },
-                      childCount: active.length + (completed.isEmpty ? 0 : completed.length + 1),
+                      childCount:
+                          active.length +
+                          (completed.isEmpty ? 0 : completed.length + 1),
                     ),
                   ),
                 );
               },
-              loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2)),
-              ),
-              error: (e, _) => SliverFillRemaining(
-                child: Center(child: Text('Error: $e', style: GoogleFonts.manrope(color: DT.textSecondary))),
-              ),
+              loading:
+                  () => const SliverFillRemaining(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: DT.accent,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+              error:
+                  (e, _) => SliverFillRemaining(
+                    child: Center(
+                      child: Text(
+                        'Error: $e',
+                        style: GoogleFonts.manrope(color: DT.textSecondary),
+                      ),
+                    ),
+                  ),
             ),
           ],
         ),
@@ -321,16 +423,21 @@ class _DebtCard extends ConsumerWidget {
   final bool muted;
   final VoidCallback onTap;
 
-  const _DebtCard({required this.debt, required this.onTap, this.muted = false});
+  const _DebtCard({
+    required this.debt,
+    required this.onTap,
+    this.muted = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final paidAsync = ref.watch(debtMonthPaidProvider(debt.id));
     final isPaid = paidAsync.valueOrNull ?? false;
 
-    final (iconColor, iconBg, typeLabel) = debt.isDebt
-        ? (DT.catDebts, DT.catDebtsSoft, 'Debt')
-        : (DT.catBills, DT.catBillsSoft, 'Bill');
+    final (iconColor, iconBg, typeLabel) =
+        debt.isDebt
+            ? (DT.catDebts, DT.catDebtsSoft, 'Debt')
+            : (DT.catBills, DT.catBillsSoft, 'Bill');
 
     final catInfo = debt.categoryInfo;
 
@@ -350,12 +457,17 @@ class _DebtCard extends ConsumerWidget {
               children: [
                 // Icon tile
                 Container(
-                  width: 44, height: 44,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: muted ? DT.surfaceAlt : iconBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(catInfo.icon, size: 20, color: muted ? DT.textTertiary : iconColor),
+                  child: Icon(
+                    catInfo.icon,
+                    size: 20,
+                    color: muted ? DT.textTertiary : iconColor,
+                  ),
                 ),
                 const SizedBox(width: 12),
 
@@ -379,7 +491,11 @@ class _DebtCard extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          _TypePill(label: typeLabel, isDebt: debt.isDebt, muted: muted),
+                          _TypePill(
+                            label: typeLabel,
+                            isDebt: debt.isDebt,
+                            muted: muted,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -410,8 +526,7 @@ class _DebtCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    if (!muted)
-                      _PaidBadge(isPaid: isPaid),
+                    if (!muted) _PaidBadge(isPaid: isPaid),
                   ],
                 ),
               ],
@@ -427,11 +542,19 @@ class _DebtCard extends ConsumerWidget {
                     children: [
                       Text(
                         'RM${_DebtCard._fmt(debt.totalPaid)} paid',
-                        style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: DT.textSecondary),
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: DT.textSecondary,
+                        ),
                       ),
                       Text(
                         'RM${_DebtCard._fmt(debt.remainingBalance)} left · ${debt.monthsRemaining}mo',
-                        style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: DT.textTertiary),
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: DT.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -463,10 +586,14 @@ class _DebtCard extends ConsumerWidget {
 String _daySuffix(int day) {
   if (day >= 11 && day <= 13) return 'th';
   switch (day % 10) {
-    case 1: return 'st';
-    case 2: return 'nd';
-    case 3: return 'rd';
-    default: return 'th';
+    case 1:
+      return 'st';
+    case 2:
+      return 'nd';
+    case 3:
+      return 'rd';
+    default:
+      return 'th';
   }
 }
 
@@ -482,15 +609,15 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, title, body) = switch (filter) {
       _Filter.debts => (
-          Icons.account_balance_outlined,
-          'No debts yet',
-          'Add a debt — car, home, PTPTN — and track how much you\'ve paid down.',
-        ),
+        Icons.account_balance_outlined,
+        'No debts yet',
+        'Add a debt — car, home, PTPTN — and track how much you\'ve paid down.',
+      ),
       _Filter.bills => (
-          Icons.receipt_outlined,
-          'No bills yet',
-          'Add subscriptions like Unifi, Astro, or Spotify and see what\'s due each month.',
-        ),
+        Icons.receipt_outlined,
+        'No bills yet',
+        'Add subscriptions like Unifi, Astro, or Spotify and see what\'s due each month.',
+      ),
     };
 
     return Padding(
@@ -501,7 +628,8 @@ class _EmptyState extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 80, height: 80,
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
                   color: DT.surface,
                   borderRadius: BorderRadius.circular(22),
@@ -510,14 +638,20 @@ class _EmptyState extends StatelessWidget {
                 child: Icon(icon, size: 36, color: DT.textTertiary),
               ),
               Positioned(
-                right: -8, top: -8,
+                right: -8,
+                top: -8,
                 child: Container(
-                  width: 26, height: 26,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     color: DT.accent,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -525,13 +659,22 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             title,
-            style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4),
+            style: GoogleFonts.manrope(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: DT.text,
+              letterSpacing: -0.4,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
             body,
             textAlign: TextAlign.center,
-            style: GoogleFonts.manrope(fontSize: 14, color: DT.textSecondary, height: 1.5),
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              color: DT.textSecondary,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 24),
           GestureDetector(
@@ -549,7 +692,11 @@ class _EmptyState extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Add your first one',
-                    style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -569,32 +716,57 @@ class _EmptyState extends StatelessWidget {
               children: [
                 Text(
                   'HOW IT WORKS',
-                  style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.8),
+                  style: GoogleFonts.manrope(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: DT.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 ...[
                   'Add a loan or bill with your monthly payment',
                   'Mark each month as paid when done',
                   'Watch your loan balance shrink over time',
-                ].asMap().entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 18, height: 18,
-                        decoration: BoxDecoration(color: DT.accentSoft, borderRadius: BorderRadius.circular(6)),
-                        child: Center(
-                          child: Text('${e.key + 1}', style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: DT.accentDeep)),
+                ].asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: DT.accentSoft,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${e.key + 1}',
+                              style: GoogleFonts.manrope(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: DT.accentDeep,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(e.value, style: GoogleFonts.manrope(fontSize: 13, color: DT.text, fontWeight: FontWeight.w500)),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            e.value,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              color: DT.text,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
               ],
             ),
           ),
@@ -611,7 +783,11 @@ class _SumCell extends StatelessWidget {
   final String value;
   final bool light;
 
-  const _SumCell({required this.label, required this.value, this.light = false});
+  const _SumCell({
+    required this.label,
+    required this.value,
+    this.light = false,
+  });
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -649,20 +825,35 @@ class _TypePill extends StatelessWidget {
   final bool isDebt;
   final bool muted;
 
-  const _TypePill({required this.label, required this.isDebt, this.muted = false});
+  const _TypePill({
+    required this.label,
+    required this.isDebt,
+    this.muted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = muted
-        ? (DT.surfaceAlt, DT.textTertiary)
-        : isDebt
+    final (bg, fg) =
+        muted
+            ? (DT.surfaceAlt, DT.textTertiary)
+            : isDebt
             ? (DT.catDebtsSoft, DT.catDebts)
             : (DT.catBillsSoft, DT.catBills);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.manrope(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
     );
   }
 }
@@ -673,19 +864,40 @@ class _PaidBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg, label, icon) = isPaid
-        ? (DT.successSoft, DT.success, 'Paid', Icons.check_circle_outline_rounded)
-        : (DT.warningSoft, DT.warning, 'Due', Icons.radio_button_unchecked_rounded);
+    final (bg, fg, label, icon) =
+        isPaid
+            ? (
+              DT.successSoft,
+              DT.success,
+              'Paid',
+              Icons.check_circle_outline_rounded,
+            )
+            : (
+              DT.warningSoft,
+              DT.warning,
+              'Due',
+              Icons.radio_button_unchecked_rounded,
+            );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 10, color: fg),
           const SizedBox(width: 3),
-          Text(label, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+          Text(
+            label,
+            style: GoogleFonts.manrope(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
         ],
       ),
     );

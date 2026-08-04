@@ -68,9 +68,10 @@ class PaymentModel {
       transactionReference: data['transactionReference'],
       verifiedBy: data['verifiedBy'],
       verifiedByName: data['verifiedByName'],
-      verifiedAt: data['verifiedAt'] != null
-          ? (data['verifiedAt'] as Timestamp).toDate()
-          : null,
+      verifiedAt:
+          data['verifiedAt'] != null
+              ? (data['verifiedAt'] as Timestamp).toDate()
+              : null,
       rejectionReason: data['rejectionReason'],
     );
   }
@@ -97,5 +98,4 @@ class PaymentModel {
       'rejectionReason': rejectionReason,
     };
   }
-
 }

@@ -26,11 +26,14 @@ class StorageService {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
 
       // Get file extension from the file path if not provided
-      final extension = fileExtension ?? file.path.split('.').last.toLowerCase();
+      final extension =
+          fileExtension ?? file.path.split('.').last.toLowerCase();
 
       // Validate file type
       if (!allowedExtensions.contains(extension)) {
-        throw Exception('Invalid file type. Allowed: ${allowedExtensions.join(", ")}');
+        throw Exception(
+          'Invalid file type. Allowed: ${allowedExtensions.join(", ")}',
+        );
       }
 
       final filename = 'receipt_${userId}_$timestamp.$extension';
@@ -49,9 +52,10 @@ class StorageService {
         metadata = SettableMetadata(contentType: 'image/$extension');
       }
 
-      final uploadTask = metadata != null
-          ? await ref.putFile(file, metadata)
-          : await ref.putFile(file);
+      final uploadTask =
+          metadata != null
+              ? await ref.putFile(file, metadata)
+              : await ref.putFile(file);
 
       // Get download URL
       final downloadUrl = await uploadTask.ref.getDownloadURL();
@@ -79,12 +83,14 @@ class StorageService {
       final extension = fileName.split('.').last.toLowerCase();
       if (!allowedExtensions.contains(extension)) {
         throw Exception(
-            'Invalid file type. Allowed: ${allowedExtensions.join(", ")}');
+          'Invalid file type. Allowed: ${allowedExtensions.join(", ")}',
+        );
       }
 
-      final contentType = extension == 'pdf'
-          ? 'application/pdf'
-          : 'image/${extension == 'jpg' ? 'jpeg' : extension}';
+      final contentType =
+          extension == 'pdf'
+              ? 'application/pdf'
+              : 'image/${extension == 'jpg' ? 'jpeg' : extension}';
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       // Storage object names cannot contain '/', and spaces make for awkward
@@ -93,8 +99,10 @@ class StorageService {
       final path = 'trip_tickets/$tripId/$stopId/${timestamp}_$safeName';
 
       final ref = _storage.ref().child(path);
-      final task =
-          await ref.putFile(file, SettableMetadata(contentType: contentType));
+      final task = await ref.putFile(
+        file,
+        SettableMetadata(contentType: contentType),
+      );
       final url = await task.ref.getDownloadURL();
 
       return {
@@ -181,7 +189,9 @@ class StorageService {
   Future<void> deleteGroupImage(String iconUrl) async {
     try {
       await _storage.refFromURL(iconUrl).delete();
-    } catch (_) {/* file may already be gone */}
+    } catch (_) {
+      /* file may already be gone */
+    }
   }
 
   // Delete receipt from storage

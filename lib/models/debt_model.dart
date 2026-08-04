@@ -53,10 +53,22 @@ class DebtModel {
     required this.updatedAt,
   });
 
-  double get remainingBalance => isBill ? 0 : (totalAmount - totalPaid).clamp(0, totalAmount);
-  double get progressPercent => isBill ? 0 : (totalAmount > 0 ? (totalPaid / totalAmount).clamp(0, 1) : 0);
-  int get estimatedTotalMonths => isBill ? 0 : (monthlyPayment > 0 ? (totalAmount / monthlyPayment).ceil() : 0);
-  int get monthsRemaining => isBill ? 0 : (monthlyPayment > 0 ? (remainingBalance / monthlyPayment).ceil() : 0);
+  double get remainingBalance =>
+      isBill ? 0 : (totalAmount - totalPaid).clamp(0, totalAmount);
+  double get progressPercent =>
+      isBill
+          ? 0
+          : (totalAmount > 0 ? (totalPaid / totalAmount).clamp(0, 1) : 0);
+  int get estimatedTotalMonths =>
+      isBill
+          ? 0
+          : (monthlyPayment > 0 ? (totalAmount / monthlyPayment).ceil() : 0);
+  int get monthsRemaining =>
+      isBill
+          ? 0
+          : (monthlyPayment > 0
+              ? (remainingBalance / monthlyPayment).ceil()
+              : 0);
 
   DateTime get estimatedPayoffDate {
     if (monthlyPayment <= 0) return startDate;
@@ -69,21 +81,81 @@ class DebtModel {
   // ── Centralized category definitions ──
 
   static const debtCategories = [
-    DebtCategory(value: 'car', label: 'Car', icon: Icons.directions_car_outlined, color: Color(0xFF1565C0)),
-    DebtCategory(value: 'personal', label: 'Personal', icon: Icons.person_outline, color: Color(0xFF7B1FA2)),
-    DebtCategory(value: 'housing', label: 'Housing', icon: Icons.home_outlined, color: Color(0xFFE65100)),
-    DebtCategory(value: 'education', label: 'Education', icon: Icons.school_outlined, color: Color(0xFF00897B)),
-    DebtCategory(value: 'other', label: 'Other', icon: Icons.receipt_long_outlined, color: Color(0xFF546E7A)),
+    DebtCategory(
+      value: 'car',
+      label: 'Car',
+      icon: Icons.directions_car_outlined,
+      color: Color(0xFF1565C0),
+    ),
+    DebtCategory(
+      value: 'personal',
+      label: 'Personal',
+      icon: Icons.person_outline,
+      color: Color(0xFF7B1FA2),
+    ),
+    DebtCategory(
+      value: 'housing',
+      label: 'Housing',
+      icon: Icons.home_outlined,
+      color: Color(0xFFE65100),
+    ),
+    DebtCategory(
+      value: 'education',
+      label: 'Education',
+      icon: Icons.school_outlined,
+      color: Color(0xFF00897B),
+    ),
+    DebtCategory(
+      value: 'other',
+      label: 'Other',
+      icon: Icons.receipt_long_outlined,
+      color: Color(0xFF546E7A),
+    ),
   ];
 
   static const billCategories = [
-    DebtCategory(value: 'internet', label: 'Internet', icon: Icons.wifi_outlined, color: Color(0xFF1565C0)),
-    DebtCategory(value: 'phone', label: 'Phone', icon: Icons.phone_android_outlined, color: Color(0xFF00897B)),
-    DebtCategory(value: 'streaming', label: 'Streaming', icon: Icons.tv_outlined, color: Color(0xFFE65100)),
-    DebtCategory(value: 'insurance', label: 'Insurance', icon: Icons.shield_outlined, color: Color(0xFF7B1FA2)),
-    DebtCategory(value: 'utilities', label: 'Utilities', icon: Icons.bolt_outlined, color: Color(0xFFC62828)),
-    DebtCategory(value: 'subscription', label: 'Subscription', icon: Icons.autorenew_outlined, color: Color(0xFF00838F)),
-    DebtCategory(value: 'other', label: 'Other', icon: Icons.receipt_long_outlined, color: Color(0xFF546E7A)),
+    DebtCategory(
+      value: 'internet',
+      label: 'Internet',
+      icon: Icons.wifi_outlined,
+      color: Color(0xFF1565C0),
+    ),
+    DebtCategory(
+      value: 'phone',
+      label: 'Phone',
+      icon: Icons.phone_android_outlined,
+      color: Color(0xFF00897B),
+    ),
+    DebtCategory(
+      value: 'streaming',
+      label: 'Streaming',
+      icon: Icons.tv_outlined,
+      color: Color(0xFFE65100),
+    ),
+    DebtCategory(
+      value: 'insurance',
+      label: 'Insurance',
+      icon: Icons.shield_outlined,
+      color: Color(0xFF7B1FA2),
+    ),
+    DebtCategory(
+      value: 'utilities',
+      label: 'Utilities',
+      icon: Icons.bolt_outlined,
+      color: Color(0xFFC62828),
+    ),
+    DebtCategory(
+      value: 'subscription',
+      label: 'Subscription',
+      icon: Icons.autorenew_outlined,
+      color: Color(0xFF00838F),
+    ),
+    DebtCategory(
+      value: 'other',
+      label: 'Other',
+      icon: Icons.receipt_long_outlined,
+      color: Color(0xFF546E7A),
+    ),
   ];
 
   static List<DebtCategory> categoriesForType(String type) =>
@@ -99,7 +171,12 @@ class DebtModel {
 
   DebtCategory get categoryInfo =>
       findCategory(type, category) ??
-      DebtCategory(value: 'other', label: 'Other', icon: Icons.receipt_long_outlined, color: const Color(0xFF546E7A));
+      DebtCategory(
+        value: 'other',
+        label: 'Other',
+        icon: Icons.receipt_long_outlined,
+        color: const Color(0xFF546E7A),
+      );
 
   factory DebtModel.fromMap(Map<String, dynamic> data, String id) {
     return DebtModel(
@@ -111,19 +188,22 @@ class DebtModel {
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       monthlyPayment: (data['monthlyPayment'] ?? 0.0).toDouble(),
       totalPaid: (data['totalPaid'] ?? 0.0).toDouble(),
-      startDate: data['startDate'] != null
-          ? (data['startDate'] as Timestamp).toDate()
-          : DateTime.now(),
+      startDate:
+          data['startDate'] != null
+              ? (data['startDate'] as Timestamp).toDate()
+              : DateTime.now(),
       dueDay: (data['dueDay'] as int?) ?? 1,
       category: data['category'] ?? 'other',
       type: data['type'] ?? 'debt',
       isActive: data['isActive'] ?? true,
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.now(),
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : DateTime.now(),
+      createdAt:
+          data['createdAt'] != null
+              ? (data['createdAt'] as Timestamp).toDate()
+              : DateTime.now(),
+      updatedAt:
+          data['updatedAt'] != null
+              ? (data['updatedAt'] as Timestamp).toDate()
+              : DateTime.now(),
     );
   }
 

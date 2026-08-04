@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:duitkita/models/user_profile.dart';
+import 'package:duitkita/services/notification_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 
 // Authentication service errors
@@ -104,7 +108,19 @@ class AuthService {
         email: email,
         password: password,
       );
-      // If we have a user, create a profile
+      // If we have a user, create a profile.
+      //
+      // Deliberately NOT awaited. A Firestore write settles only once the
+      // server acknowledges it, and the client sits in backoff for a while
+      // after an auth change — every listener opened under the old token has
+      // just failed with permission-denied. Signing out and immediately
+      // signing up reliably lands in that window, and awaiting here left the
+      // sign-up button spinning forever on an account that already existed.
+      //
+      // The write is durable regardless: Firestore persists it locally and
+      // retries until it lands, so the profile appears as soon as the client
+      // recovers. ProfileService.ensureProfile covers the case where the app
+      // dies first.
       if (userCredential.user != null) {
         final profileService = ProfileService();
         final userProfile = UserProfile(
@@ -116,7 +132,11 @@ class AuthService {
           updatedAt: DateTime.now(),
         );
 
-        await profileService.createUserProfile(userProfile);
+        unawaited(
+          profileService.createUserProfile(userProfile).catchError((Object e) {
+            debugPrint('Signed up but could not write the profile: $e');
+          }),
+        );
       }
       return AuthResponse(user: userCredential.user);
     } on FirebaseAuthException catch (e) {
@@ -176,23 +196,21 @@ class AuthService {
       }
 
       final credential = GoogleAuthProvider.credential(idToken: idToken);
-      final userCredential =
-          await _firebaseAuth.signInWithCredential(credential);
+      final userCredential = await _firebaseAuth.signInWithCredential(
+        credential,
+      );
       final user = userCredential.user;
 
       if (user != null) {
-        final profileService = ProfileService();
-        final existing = await profileService.getUserProfile(user.uid);
-        if (existing == null) {
-          await profileService.createUserProfile(UserProfile(
-            uid: user.uid,
-            name: user.displayName ?? account.displayName,
-            email: user.email ?? account.email,
-            profileImageUrl: user.photoURL,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ));
-        }
+        // Not awaited, for the same reason as signUpWithEmailAndPassword: a
+        // first-time Google sign-in would otherwise block the UI on a Firestore
+        // read *and* a write while the client is still in backoff from the auth
+        // change.
+        unawaited(
+          _bootstrapGoogleProfile(user, account).catchError((Object e) {
+            debugPrint('Signed in but could not write the profile: $e');
+          }),
+        );
       }
 
       return AuthResponse(user: user);
@@ -202,7 +220,8 @@ class AuthService {
       }
       return AuthResponse(
         error: AuthError.undefined,
-        errorMessage: e.description ?? 'Google sign-in failed (${e.code.name}).',
+        errorMessage:
+            e.description ?? 'Google sign-in failed (${e.code.name}).',
       );
     } on FirebaseAuthException catch (e) {
       return AuthResponse(error: _getAuthError(e), errorMessage: e.message);
@@ -214,14 +233,42 @@ class AuthService {
     }
   }
 
+  /// Creates the profile document for a first-time Google account.
+  ///
+  /// Runs in the background; the caller must not wait on it.
+  Future<void> _bootstrapGoogleProfile(
+    User user,
+    GoogleSignInAccount account,
+  ) async {
+    final profileService = ProfileService();
+    if (await profileService.getUserProfile(user.uid) != null) return;
+    await profileService.createUserProfile(
+      UserProfile(
+        uid: user.uid,
+        name: user.displayName ?? account.displayName,
+        email: user.email ?? account.email,
+        profileImageUrl: user.photoURL,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   // Sign out
   Future<void> signOut() async {
+    // Detach this device first, while the credential still satisfies the
+    // users/{uid} rule. Afterwards the write would be denied and this account
+    // would keep receiving notifications on a device it no longer owns.
+    await NotificationService.clearFcmToken();
+
     // Also clear the Google session so the account picker reappears next time.
     // Best-effort: fails harmlessly if Google sign-in was never initialized.
     try {
       await _ensureGoogleInitialized();
       await GoogleSignIn.instance.signOut();
-    } catch (_) {/* not signed in with Google, or plugin unavailable */}
+    } catch (_) {
+      /* not signed in with Google, or plugin unavailable */
+    }
     await _firebaseAuth.signOut();
   }
 

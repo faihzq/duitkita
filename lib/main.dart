@@ -7,6 +7,7 @@ import 'package:duitkita/firebase_options.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:duitkita/core/auth_wrapper.dart';
 import 'package:duitkita/config/app_theme.dart';
+import 'package:duitkita/widgets/dk_toast.dart';
 import 'package:duitkita/services/notification_service.dart';
 import 'package:duitkita/features/onboarding/onboarding_screen.dart';
 
@@ -26,10 +27,12 @@ Future<void> main() async {
   final showOnboarding = !(prefs.getBool('onboarding_seen') ?? false);
 
   // Set system UI overlay style
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
 
   runApp(ProviderScope(child: MyApp(showOnboarding: showOnboarding)));
 }
@@ -45,6 +48,10 @@ class MyApp extends StatelessWidget {
       title: 'DuitKita',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      // Lets DkToast reach the root overlay when the calling screen has already
+      // been popped — the case the old `final messenger = ...` captures existed
+      // to handle.
+      navigatorKey: DkToast.navigatorKey,
       home: showOnboarding ? const _OnboardingEntry() : const AuthWrapper(),
     );
   }
@@ -57,9 +64,9 @@ class _OnboardingEntry extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_seen', true);
     if (!context.mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AuthWrapper()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const AuthWrapper()));
   }
 
   @override

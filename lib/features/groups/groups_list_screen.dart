@@ -32,44 +32,55 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
     if (userId == null) return const SizedBox.shrink();
 
     final groupsAsync = ref.watch(userGroupsStreamProvider(userId));
-    final adminGroupIds = ref.watch(adminGroupIdsStreamProvider(userId)).valueOrNull ?? {};
+    final adminGroupIds =
+        ref.watch(adminGroupIdsStreamProvider(userId)).valueOrNull ?? {};
     final allGroups = groupsAsync.valueOrNull ?? [];
 
     // Pre-fetch payment statuses for all groups (drives filter + badge)
     final statusMap = <String, String>{};
     for (final g in allGroups) {
-      statusMap[g.id] = ref.watch(
-        groupMonthPaymentStatusProvider((groupId: g.id, userId: userId)),
-      ).valueOrNull ?? 'unpaid';
+      statusMap[g.id] =
+          ref
+              .watch(
+                groupMonthPaymentStatusProvider((
+                  groupId: g.id,
+                  userId: userId,
+                )),
+              )
+              .valueOrNull ??
+          'unpaid';
     }
 
     // Sort: admin groups first, then by updatedAt
-    final sorted = List.of(allGroups)
-      ..sort((a, b) {
-        final aAdmin = adminGroupIds.contains(a.id);
-        final bAdmin = adminGroupIds.contains(b.id);
-        if (aAdmin != bAdmin) return aAdmin ? -1 : 1;
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
+    final sorted = List.of(allGroups)..sort((a, b) {
+      final aAdmin = adminGroupIds.contains(a.id);
+      final bAdmin = adminGroupIds.contains(b.id);
+      if (aAdmin != bAdmin) return aAdmin ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
 
     // Apply filter
-    final groups = sorted.where((g) {
-      switch (_filter) {
-        case _Filter.all:
-          return true;
-        case _Filter.unpaid:
-          // 'rejected' belongs here too — a rejected payment still needs
-          // paying, and no other chip would surface it.
-          final s = statusMap[g.id];
-          return s == 'unpaid' || s == 'rejected';
-        case _Filter.pending:
-          return statusMap[g.id] == 'pending';
-        case _Filter.settled:
-          return statusMap[g.id] == 'confirmed';
-      }
-    }).toList();
+    final groups =
+        sorted.where((g) {
+          switch (_filter) {
+            case _Filter.all:
+              return true;
+            case _Filter.unpaid:
+              // 'rejected' belongs here too — a rejected payment still needs
+              // paying, and no other chip would surface it.
+              final s = statusMap[g.id];
+              return s == 'unpaid' || s == 'rejected';
+            case _Filter.pending:
+              return statusMap[g.id] == 'pending';
+            case _Filter.settled:
+              return statusMap[g.id] == 'confirmed';
+          }
+        }).toList();
 
-    final totalMonthly = allGroups.fold<double>(0, (s, g) => s + g.monthlyAmount);
+    final totalMonthly = allGroups.fold<double>(
+      0,
+      (s, g) => s + g.monthlyAmount,
+    );
 
     return Scaffold(
       backgroundColor: DT.bg,
@@ -87,9 +98,18 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                       GestureDetector(
                         onTap: widget.onBack,
                         child: Container(
-                          width: 38, height: 38,
-                          decoration: BoxDecoration(color: DT.surface, borderRadius: BorderRadius.circular(11), border: Border.all(color: DT.border)),
-                          child: const Icon(Icons.arrow_back_rounded, size: 18, color: DT.text),
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: DT.surface,
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: DT.border),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            size: 18,
+                            color: DT.text,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -121,9 +141,10 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        AppTheme.slideRoute(const CreateGroupScreen()),
-                      ),
+                      onTap:
+                          () => Navigator.of(context).push(
+                            AppTheme.slideRoute(const CreateGroupScreen()),
+                          ),
                       child: Container(
                         width: 40,
                         height: 40,
@@ -132,7 +153,11 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: DT.border),
                         ),
-                        child: const Icon(Icons.add_rounded, size: 20, color: DT.text),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          size: 20,
+                          color: DT.text,
+                        ),
                       ),
                     ),
                   ],
@@ -147,37 +172,45 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.fromLTRB(DS.xl, 8, DS.xl, 0),
-                  children: _Filter.values.map((f) {
-                    final active = f == _filter;
-                    final label = switch (f) {
-                      _Filter.all => 'All',
-                      _Filter.unpaid => 'Not paid',
-                      _Filter.pending => 'Pending',
-                      _Filter.settled => 'Paid',
-                    };
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => setState(() => _filter = f),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: active ? DT.text : DT.surface,
-                            borderRadius: BorderRadius.circular(DS.chipRadius),
-                            border: Border.all(color: active ? DT.text : DT.border),
-                          ),
-                          child: Text(
-                            label,
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: active ? Colors.white : DT.text,
+                  children:
+                      _Filter.values.map((f) {
+                        final active = f == _filter;
+                        final label = switch (f) {
+                          _Filter.all => 'All',
+                          _Filter.unpaid => 'Not paid',
+                          _Filter.pending => 'Pending',
+                          _Filter.settled => 'Paid',
+                        };
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _filter = f),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: active ? DT.text : DT.surface,
+                                borderRadius: BorderRadius.circular(
+                                  DS.chipRadius,
+                                ),
+                                border: Border.all(
+                                  color: active ? DT.text : DT.border,
+                                ),
+                              ),
+                              child: Text(
+                                label,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: active ? Colors.white : DT.text,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
               ),
             ),
@@ -185,15 +218,21 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             // ── List / empty state ──────────────────────────────
             if (groupsAsync.isLoading)
               const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: DT.accent, strokeWidth: 2)),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: DT.accent,
+                    strokeWidth: 2,
+                  ),
+                ),
               )
             else if (groups.isEmpty)
               SliverFillRemaining(
                 child: _EmptyState(
                   filterActive: _filter != _Filter.all,
-                  onCreateGroup: () => Navigator.of(context).push(
-                    AppTheme.slideRoute(const CreateGroupScreen()),
-                  ),
+                  onCreateGroup:
+                      () => Navigator.of(
+                        context,
+                      ).push(AppTheme.slideRoute(const CreateGroupScreen())),
                 ),
               )
             else
@@ -209,9 +248,12 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                         isAdmin: adminGroupIds.contains(groups[i].id),
                         status: statusMap[groups[i].id] ?? 'unpaid',
                         colorIndex: i,
-                        onTap: () => Navigator.of(context).push(
-                          AppTheme.slideRoute(GroupDetailScreen(groupId: groups[i].id)),
-                        ),
+                        onTap:
+                            () => Navigator.of(context).push(
+                              AppTheme.slideRoute(
+                                GroupDetailScreen(groupId: groups[i].id),
+                              ),
+                            ),
                       ),
                     ),
                     childCount: groups.length,
@@ -271,11 +313,16 @@ class _GroupCard extends ConsumerWidget {
     final tileSoft = _tileSoftColors[colorIndex % _tileSoftColors.length];
 
     // Paid count for progress bar (monthly groups only)
-    final paidCount = isMonthly
-        ? ref.watch(groupMonthPaidCountProvider(group.id as String)).valueOrNull ?? 0
-        : 0;
+    final paidCount =
+        isMonthly
+            ? ref
+                    .watch(groupMonthPaidCountProvider(group.id as String))
+                    .valueOrNull ??
+                0
+            : 0;
     final memberCount = group.memberCount as int;
-    final paidPct = memberCount > 0 ? (paidCount / memberCount).clamp(0.0, 1.0) : 0.0;
+    final paidPct =
+        memberCount > 0 ? (paidCount / memberCount).clamp(0.0, 1.0) : 0.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -329,18 +376,29 @@ class _GroupCard extends ConsumerWidget {
                       if (isAdmin)
                         Container(
                           margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: DT.catGroupsSoft,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             'Admin',
-                            style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: DT.catGroups),
+                            style: GoogleFonts.manrope(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: DT.catGroups,
+                            ),
                           ),
                         ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.chevron_right_rounded, size: 16, color: DT.textTertiary),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: DT.textTertiary,
+                      ),
                     ],
                   ),
 
@@ -351,7 +409,10 @@ class _GroupCard extends ConsumerWidget {
                       group.description as String,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(fontSize: 12, color: DT.textSecondary),
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        color: DT.textSecondary,
+                      ),
                     ),
                   ],
 
@@ -366,7 +427,11 @@ class _GroupCard extends ConsumerWidget {
                           children: [
                             Text(
                               '$paidCount/$memberCount paid',
-                              style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w600, color: DT.textSecondary),
+                              style: GoogleFonts.manrope(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: DT.textSecondary,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             _StatusPill(status: status),
@@ -376,12 +441,22 @@ class _GroupCard extends ConsumerWidget {
                           text: TextSpan(
                             children: [
                               TextSpan(
-                                text: 'RM${(group.monthlyAmount as double).toStringAsFixed(0)}',
-                                style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.2),
+                                text:
+                                    'RM${(group.monthlyAmount as double).toStringAsFixed(0)}',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: DT.text,
+                                  letterSpacing: -0.2,
+                                ),
                               ),
                               TextSpan(
                                 text: '/mo',
-                                style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w600, color: DT.textTertiary),
+                                style: GoogleFonts.manrope(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: DT.textTertiary,
+                                ),
                               ),
                             ],
                           ),
@@ -404,20 +479,31 @@ class _GroupCard extends ConsumerWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: DT.accentSoft,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             'One-off split',
-                            style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.accentDeep),
+                            style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: DT.accentDeep,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '$memberCount members',
-                          style: GoogleFonts.manrope(fontSize: 11, color: DT.textSecondary, fontWeight: FontWeight.w500),
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: DT.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -442,14 +528,24 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bg, fg, label) = switch (status) {
       'confirmed' => (DT.successSoft, DT.success, 'Paid'),
-      'pending'   => (DT.warningSoft, DT.warning, 'Pending'),
-      'rejected'  => (DT.dangerSoft,  DT.danger,  'Rejected'),
-      _           => (DT.surfaceAlt,  DT.textTertiary, 'Not paid'),
+      'pending' => (DT.warningSoft, DT.warning, 'Pending'),
+      'rejected' => (DT.dangerSoft, DT.danger, 'Rejected'),
+      _ => (DT.surfaceAlt, DT.textTertiary, 'Not paid'),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.manrope(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: fg,
+        ),
+      ),
     );
   }
 }
@@ -480,7 +576,11 @@ class _EmptyState extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: DT.border),
                 ),
-                child: const Icon(Icons.group_outlined, size: 38, color: DT.textTertiary),
+                child: const Icon(
+                  Icons.group_outlined,
+                  size: 38,
+                  color: DT.textTertiary,
+                ),
               ),
               Positioned(
                 right: -6,
@@ -492,7 +592,11 @@ class _EmptyState extends StatelessWidget {
                     color: DT.accent,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -500,7 +604,12 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 20),
           Text(
             filterActive ? 'No groups match' : 'No groups yet',
-            style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: DT.text, letterSpacing: -0.4),
+            style: GoogleFonts.manrope(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: DT.text,
+              letterSpacing: -0.4,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -508,14 +617,21 @@ class _EmptyState extends StatelessWidget {
                 ? 'Try a different filter above.'
                 : 'Start a group with family, housemates, or your travel squad. Split monthly bills, track who paid, and settle up without the awkwardness.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.manrope(fontSize: 14, color: DT.textSecondary, height: 1.5),
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              color: DT.textSecondary,
+              height: 1.5,
+            ),
           ),
           if (!filterActive) ...[
             const SizedBox(height: 24),
             GestureDetector(
               onTap: onCreateGroup,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 13,
+                ),
                 decoration: BoxDecoration(
                   color: DT.text,
                   borderRadius: BorderRadius.circular(14),
@@ -523,11 +639,19 @@ class _EmptyState extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                    const Icon(
+                      Icons.add_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Create your first group',
-                      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                      style: GoogleFonts.manrope(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -546,31 +670,54 @@ class _EmptyState extends StatelessWidget {
                 children: [
                   Text(
                     'HOW IT WORKS',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: DT.textSecondary, letterSpacing: 0.5),
+                    style: GoogleFonts.manrope(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: DT.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  ...['Set a monthly amount', 'Add members by phone or email', 'Admin approves payments']
-                      .asMap()
-                      .entries
-                      .map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 18,
-                                height: 18,
-                                decoration: BoxDecoration(color: DT.accentSoft, borderRadius: BorderRadius.circular(6)),
-                                child: Center(
-                                  child: Text('${e.key + 1}', style: GoogleFonts.manrope(fontSize: 10, fontWeight: FontWeight.w800, color: DT.accentDeep)),
+                  ...[
+                    'Set a monthly amount',
+                    'Add members by phone or email',
+                    'Admin approves payments',
+                  ].asMap().entries.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: DT.accentSoft,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${e.key + 1}',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: DT.accentDeep,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Text(e.value, style: GoogleFonts.manrope(fontSize: 13, color: DT.text, fontWeight: FontWeight.w500)),
-                            ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Text(
+                            e.value,
+                            style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              color: DT.text,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                  ),
                 ],
               ),
             ),

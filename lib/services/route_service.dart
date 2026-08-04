@@ -24,8 +24,8 @@ class RouteFailure implements Exception {
 /// the APK and billed to us.
 class RouteService {
   RouteService({FirebaseFunctions? functions})
-      : _functions = functions ??
-            FirebaseFunctions.instanceFor(region: 'asia-southeast1');
+    : _functions =
+          functions ?? FirebaseFunctions.instanceFor(region: 'asia-southeast1');
 
   final FirebaseFunctions _functions;
 
@@ -38,7 +38,8 @@ class RouteService {
       final result = await _functions.httpsCallable('computeLeg').call({
         'origin': origin,
         'destination': destination,
-        if (departAt != null) 'departureTime': departAt.toUtc().toIso8601String(),
+        if (departAt != null)
+          'departureTime': departAt.toUtc().toIso8601String(),
       });
       final data = Map<String, dynamic>.from(result.data as Map);
       return LegEstimate(

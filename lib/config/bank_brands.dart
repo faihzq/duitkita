@@ -9,7 +9,10 @@ class BankBrand {
 }
 
 /// Neutral fallback for unknown / unset banks.
-const BankBrand kDefaultBankBrand = BankBrand(tile: Color(0xFF37474F), icon: Colors.white);
+const BankBrand kDefaultBankBrand = BankBrand(
+  tile: Color(0xFF37474F),
+  icon: Colors.white,
+);
 
 /// Keyed by a lowercase substring matched against the bank name.
 /// Order matters only in that the first substring match wins.
