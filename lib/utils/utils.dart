@@ -37,11 +37,17 @@ String getAuthErrorMessage(AuthError? error) {
     case AuthError.userNotFound:
       return 'No user found for this email.';
     case AuthError.wrongPassword:
-      return 'Wrong password provided.';
+      return 'Wrong password. If you signed up with Google, tap Continue '
+          'with Google instead.';
     case AuthError.emailAlreadyInUse:
       return 'The email address is already in use.';
+    // Firebase collapses "no such user" and "wrong password" into this one
+    // code when email enumeration protection is on, so the message has to
+    // cover both — including the case where the password was removed because
+    // the account was later used with Google.
     case AuthError.invalidCredential:
-      return 'The credentials are invalid.';
+      return 'Email or password is incorrect. If you signed up with Google, '
+          'tap Continue with Google instead.';
     case AuthError.operationNotAllowed:
       return 'This operation is not allowed.';
     case AuthError.weakPassword:

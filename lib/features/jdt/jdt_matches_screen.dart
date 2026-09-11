@@ -29,6 +29,10 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  /// Which side's fixtures are on screen. JDT first — it is what the tab was
+  /// built for and what most people open it to see.
+  FootballTeam _team = FootballTeam.jdt;
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +59,13 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
         headerSliverBuilder:
             (context, innerBoxIsScrolled) => [
               SliverAppBar(
-                expandedHeight: 150,
+                // FlexibleSpaceBar fades `background` out over the app bar's
+                // collapse travel (maxExtent - minExtent), and minExtent here
+                // is toolbar 56 + bottom 92 = 148. At the old expandedHeight of
+                // 150 that left 2px of travel, so the crest went from opaque to
+                // gone within two pixels of scroll — it blinked out instead of
+                // fading. 230 gives 82px of travel for a gradual fade.
+                expandedHeight: 230,
                 floating: false,
                 pinned: true,
                 elevation: 0,
@@ -63,7 +73,7 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                 foregroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'JDT Matches',
+                    '${_team.label} Matches',
                     style: GoogleFonts.manrope(
                       fontWeight: FontWeight.w700,
                       fontSize: 20,
@@ -98,48 +108,67 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                             color: _jdtGold.withValues(alpha: 0.4),
                           ),
                         ),
-                        // JDT logo
+                        // Team crest, bounded to a fixed square instead of
+                        // stretched between top and bottom: against the taller
+                        // header that would scale it to ~160px and hide its
+                        // lower half behind the opaque chips/tabs bar, which
+                        // covers the last 92px of this background.
                         Positioned(
                           right: 20,
-                          top: 16,
-                          bottom: 52,
-                          child: Image.asset(
-                            'assets/images/jdt_logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder:
-                                (_, __, ___) => Icon(
-                                  Icons.shield_rounded,
-                                  color: Colors.white.withValues(alpha: 0.25),
-                                  size: 80,
-                                ),
-                          ),
+                          top: 14,
+                          width: 108,
+                          height: 108,
+                          child: _TeamCrest(team: _team),
                         ),
                       ],
                     ),
                   ),
                 ),
                 bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(48),
+                  preferredSize: const Size.fromHeight(92),
                   child: Container(
                     color: _jdtRed,
-                    child: TabBar(
-                      controller: _tabController,
-                      indicatorColor: _jdtGold,
-                      indicatorWeight: 3,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white.withValues(
-                        alpha: 0.55,
-                      ),
-                      labelStyle: GoogleFonts.manrope(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                      unselectedLabelStyle: GoogleFonts.manrope(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                      tabs: const [Tab(text: 'Upcoming'), Tab(text: 'Results')],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: Row(
+                            children: [
+                              for (final team in FootballTeam.values)
+                                Expanded(
+                                  child: _TeamChip(
+                                    label: team.label,
+                                    selected: _team == team,
+                                    onTap: () => setState(() => _team = team),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        TabBar(
+                          controller: _tabController,
+                          indicatorColor: _jdtGold,
+                          indicatorWeight: 3,
+                          indicatorSize: TabBarIndicatorSize.label,
+                          labelColor: Colors.white,
+                          unselectedLabelColor: Colors.white.withValues(
+                            alpha: 0.55,
+                          ),
+                          labelStyle: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                          unselectedLabelStyle: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                          tabs: const [
+                            Tab(text: 'Upcoming'),
+                            Tab(text: 'Results'),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -149,7 +178,7 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
           controller: _tabController,
           children: [
             _MatchTab(
-              provider: upcomingMatchesProvider,
+              provider: upcomingMatchesProvider(_team),
               emptyIcon: Icons.event_busy_rounded,
               emptyMessage: 'No upcoming matches',
               showScore: false,
@@ -157,7 +186,7 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
               onDelete: _deleteMatch,
             ),
             _MatchTab(
-              provider: recentResultsProvider,
+              provider: recentResultsProvider(_team),
               emptyIcon: Icons.scoreboard_outlined,
               emptyMessage: 'No recent results',
               showScore: true,
@@ -167,14 +196,17 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'addMatchFab',
-        onPressed: _showAddMatchDialog,
-        backgroundColor: _jdtRed,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        child: const Icon(Icons.add_rounded),
-      ),
+      floatingActionButton:
+          _team != FootballTeam.jdt
+              ? null
+              : FloatingActionButton(
+                heroTag: 'addMatchFab',
+                onPressed: _showAddMatchDialog,
+                backgroundColor: _jdtRed,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                child: const Icon(Icons.add_rounded),
+              ),
     );
   }
 
@@ -629,8 +661,19 @@ class _MatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateStr =
         '${match.matchDate.day} ${_months[match.matchDate.month - 1]} ${match.matchDate.year}';
+    // The Results section of the source page shows a score where fixtures show
+    // a kick-off, so a finished match has no time to display — rendering one
+    // anyway printed "00:00" on every result. Manually added matches do carry
+    // a real time, so those keep it.
+    final hasKickOff =
+        !showScore ||
+        match.isManual ||
+        match.matchDate.hour != 0 ||
+        match.matchDate.minute != 0;
     final timeStr =
-        '${match.matchDate.hour.toString().padLeft(2, '0')}:${match.matchDate.minute.toString().padLeft(2, '0')}';
+        hasKickOff
+            ? '  ${match.matchDate.hour.toString().padLeft(2, '0')}:${match.matchDate.minute.toString().padLeft(2, '0')}'
+            : '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: DS.md),
@@ -683,7 +726,7 @@ class _MatchCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$dateStr  $timeStr',
+                  '$dateStr$timeStr',
                   style: GoogleFonts.manrope(
                     fontSize: 11,
                     color: DT.textTertiary,
@@ -1026,6 +1069,89 @@ class _DateTimeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: DS.md),
         backgroundColor: DT.surfaceAlt,
       ),
+    );
+  }
+}
+
+/// Segmented control for picking whose fixtures to show. Deliberately plain —
+/// it sits on the crest artwork, where a heavier control would compete with it.
+class _TeamChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TeamChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color:
+              selected
+                  ? Colors.white.withValues(alpha: 0.16)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? _jdtGold : Colors.white.withValues(alpha: 0.28),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color:
+                selected ? Colors.white : Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The team's crest for the header.
+///
+/// The bundled copy paints on the first frame and works offline; the published
+/// URL covers an asset that fails to decode, and a plain shield covers both
+/// going wrong, so nothing here can show a broken image.
+class _TeamCrest extends StatelessWidget {
+  final FootballTeam team;
+
+  const _TeamCrest({required this.team});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget shield() => Icon(
+      Icons.shield_rounded,
+      color: Colors.white.withValues(alpha: 0.25),
+      size: 80,
+    );
+
+    return Image.asset(
+      team.crestAsset,
+      fit: BoxFit.contain,
+      errorBuilder:
+          (_, __, ___) => Image.network(
+            team.crestUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => shield(),
+            // No spinner: the crest is decoration behind a title, and a flicker
+            // of progress indicator there reads as breakage.
+            loadingBuilder:
+                (context, child, progress) =>
+                    progress == null ? child : const SizedBox.shrink(),
+          ),
     );
   }
 }

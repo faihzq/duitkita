@@ -10,6 +10,7 @@ import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/services/storage_service.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/utils/utils.dart';
+import 'package:duitkita/utils/username.dart';
 
 const _kGroupEmojis = [
   '🏠',
@@ -48,18 +49,39 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   String _emoji = '🏠';
   File? _photo; // chosen locally; uploaded after group exists
   final _emailController = TextEditingController();
-  final List<String> _invites = []; // emails to invite after creation
+  // Usernames (stored as "@handle") or emails, resolved to accounts after the
+  // group document exists.
+  final List<String> _invites = [];
   bool _isLoading = false;
 
   static final _emailRe = RegExp(
     r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
   );
-  bool get _emailValid => _emailRe.hasMatch(_emailController.text.trim());
+
+  /// An email needs a dot after the "@"; anything else is treated as a handle,
+  /// matching how [ProfileService.findUserId] decides which lookup to run.
+  static bool _looksLikeEmail(String v) => v.contains('@') && v.contains('.');
+
+  /// Canonical form of whatever was typed, or null when it is neither a valid
+  /// email nor a valid username.
+  static String? _normaliseInvite(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    if (_looksLikeEmail(value)) {
+      final email = value.toLowerCase();
+      return _emailRe.hasMatch(email) ? email : null;
+    }
+    if (!isValidUsername(value)) return null;
+    return '@${normaliseUsername(value)}';
+  }
+
+  bool get _inviteValid => _normaliseInvite(_emailController.text) != null;
+
   void _addInvite() {
-    final e = _emailController.text.trim().toLowerCase();
-    if (!_emailRe.hasMatch(e) || _invites.contains(e)) return;
+    final entry = _normaliseInvite(_emailController.text);
+    if (entry == null || _invites.contains(entry)) return;
     setState(() {
-      _invites.add(e);
+      _invites.add(entry);
       _emailController.clear();
     });
   }
@@ -195,15 +217,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
         }
       }
 
-      // Resolve invited emails to real users and add them. Emails with no
-      // matching account are collected and reported (they can join by link).
+      // Resolve invited usernames/emails to real users and add them. Entries
+      // with no matching account are collected and reported (they can join by
+      // link).
       final profileService = ref.read(profileServiceProvider);
       final notFound = <String>[];
-      for (final email in _invites) {
+      for (final invite in _invites) {
         try {
-          final uid = await profileService.findUserId(email);
+          final uid = await profileService.findUserId(invite);
           if (uid == null) {
-            notFound.add(email);
+            notFound.add(invite);
             continue;
           }
           final p = await profileService.getUserProfile(uid);
@@ -211,10 +234,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
             groupId: groupId,
             userId: uid,
             userName: p?.name ?? 'Member',
-            userEmail: p?.email ?? email,
+            // Only an email belongs in the email field — a handle would make
+            // the member row show "@fairul" where an address is expected.
+            userEmail: p?.email ?? (_looksLikeEmail(invite) ? invite : null),
           );
         } catch (_) {
-          notFound.add(email);
+          notFound.add(invite);
         }
       }
 
@@ -680,7 +705,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       ),
                     const SizedBox(height: 12),
 
-                    // Members — creator is the first member; others invited by email
+                    // Members — creator is the first member; others invited by
+                    // username or email
                     _Label('MEMBERS'),
                     Container(
                       decoration: BoxDecoration(
@@ -774,7 +800,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                               ],
                             ),
                           ),
-                          for (final email in _invites)
+                          for (final invite in _invites)
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: const BoxDecoration(
@@ -805,7 +831,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          email,
+                                          invite,
                                           style: GoogleFonts.manrope(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
@@ -827,7 +853,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                   GestureDetector(
                                     onTap:
                                         () => setState(
-                                          () => _invites.remove(email),
+                                          () => _invites.remove(invite),
                                         ),
                                     child: Container(
                                       width: 32,
@@ -855,7 +881,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                 Expanded(
                                   child: TextField(
                                     controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
+                                    keyboardType: TextInputType.text,
+                                    autocorrect: false,
+                                    textCapitalization: TextCapitalization.none,
                                     onChanged: (_) => setState(() {}),
                                     onSubmitted: (_) => _addInvite(),
                                     style: GoogleFonts.manrope(
@@ -870,7 +898,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                       enabledBorder: InputBorder.none,
                                       focusedBorder: InputBorder.none,
                                       contentPadding: EdgeInsets.zero,
-                                      hintText: 'friend@email.com',
+                                      hintText: '@username or friend@email.com',
                                       hintStyle: GoogleFonts.manrope(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -881,7 +909,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 GestureDetector(
-                                  onTap: _emailValid ? _addInvite : null,
+                                  onTap: _inviteValid ? _addInvite : null,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
@@ -889,7 +917,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       color:
-                                          _emailValid ? DT.text : DT.surfaceAlt,
+                                          _inviteValid ? DT.text : DT.surfaceAlt,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -898,7 +926,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w700,
                                         color:
-                                            _emailValid
+                                            _inviteValid
                                                 ? Colors.white
                                                 : DT.textTertiary,
                                       ),

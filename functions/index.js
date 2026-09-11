@@ -735,3 +735,196 @@ function toWaypoint(value) {
   }
   return { address: value };
 }
+
+// ─── JDT match reminders ─────────────────────────────────────────────────────
+
+/** Kept in step with FootballTeam in lib/services/match_service.dart. */
+const FOLLOWED_TEAMS = [
+  { id: "139018", label: "JDT" },
+  { id: "140138", label: "Malaysia" },
+];
+const KL_ZONE = "Asia/Kuala_Lumpur";
+
+/**
+ * Fixtures come from TheSportsDB's JSON API, not the team page the app
+ * scrapes. The free tier returns only the single next event — a hard limit for
+ * the app's five-match list, but exactly what a reminder needs, and it does not
+ * break every time the site reworks its HTML.
+ */
+const nextEventUrl = (teamId) =>
+  `https://www.thesportsdb.com/api/v1/json/123/eventsnext.php?id=${teamId}`;
+
+/** Calendar date and hour in Malaysia, which is what "match day" means here. */
+function malaysianParts(date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: KL_ZONE,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+    })
+      .formatToParts(date)
+      .map((p) => [p.type, p.value])
+  );
+  return {
+    day: `${parts.year}-${parts.month}-${parts.day}`,
+    hour: Number(parts.hour),
+  };
+}
+
+function malaysianTime(date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: KL_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+/**
+ * Which reminder, if any, this run should send.
+ *
+ * The job wakes on the hour, so "an hour before kick-off" has to be a window
+ * rather than a moment: 60–120 minutes catches every fixture exactly once
+ * however its kick-off minutes fall. Kick-off wins over match-day so a 10am
+ * fixture does not fire both at once.
+ */
+function reminderKind(now, kickoff) {
+  const minutesAway = (kickoff.getTime() - now.getTime()) / 60000;
+  if (minutesAway >= 60 && minutesAway < 120) return "kickoff";
+
+  const here = malaysianParts(now);
+  const there = malaysianParts(kickoff);
+  if (here.hour === 9 && here.day === there.day && minutesAway > 0) {
+    return "matchday";
+  }
+  return null;
+}
+
+function reminderMessage(event, kickoff, kind, team) {
+  const playingAtHome = event.idHomeTeam === team.id;
+  const opponent = playingAtHome ? event.strAwayTeam : event.strHomeTeam;
+  const where = playingAtHome ? "at home" : "away";
+  const time = malaysianTime(kickoff);
+  const competition = event.strLeague || "Match";
+
+  if (kind === "kickoff") {
+    return {
+      title: `${team.label} kick off in an hour`,
+      body: `${team.label} vs ${opponent} at ${time}. ${competition}.`,
+    };
+  }
+  return {
+    title: `${team.label} play today`,
+    body: `${team.label} vs ${opponent} ${where} at ${time}. ${competition}.`,
+  };
+}
+
+/**
+ * Sends at most two pushes per fixture: one on the morning of the match, one an
+ * hour before kick-off.
+ *
+ * One hourly job rather than two cron entries — Cloud Scheduler's free tier
+ * covers three jobs and the payment and debt reminders already use two.
+ */
+exports.jdtMatchReminder = onSchedule(
+  {
+    schedule: "0 * * * *", // every hour, on the hour
+    timeZone: KL_ZONE,
+    region: "asia-southeast1",
+  },
+  async () => {
+    // One recipient query for both teams: whoever wants reminders wants them
+    // for every side the app follows.
+    const recipients = await db
+      .collection("users")
+      .where("notifyJdtMatches", "==", true)
+      .get();
+
+    if (recipients.empty) {
+      console.log("Nobody has match reminders on");
+      return;
+    }
+
+    for (const team of FOLLOWED_TEAMS) {
+      try {
+        await remindForTeam(team, recipients);
+      } catch (error) {
+        // One team's failure must not silence the other.
+        console.error(`${team.label} reminder failed:`, error);
+      }
+    }
+  }
+);
+
+async function remindForTeam(team, recipients) {
+  let event;
+  try {
+    const response = await fetch(nextEventUrl(team.id));
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    event = (payload.events || [])[0];
+  } catch (error) {
+    console.error(`Could not fetch the next ${team.label} fixture:`, error);
+    return;
+  }
+
+  // Normal between windows for a national side, and at the end of a season.
+  if (!event) {
+    console.log(`No upcoming ${team.label} fixture`);
+    return;
+  }
+
+  // strTimestamp is UTC but carries no zone suffix, so say so explicitly
+  // rather than letting Node read it as server-local time.
+  const kickoff = new Date(`${event.strTimestamp}Z`);
+  if (Number.isNaN(kickoff.getTime())) {
+    console.error("Unparseable kick-off time:", event.strTimestamp);
+    return;
+  }
+
+  const kind = reminderKind(new Date(), kickoff);
+  if (!kind) return;
+
+  // Claim the reminder before sending. create() fails if the document is
+  // already there, which makes the guard atomic against a retried or
+  // overlapping run — better a dropped reminder than a duplicated one. Event
+  // ids are unique across teams, so the two never collide.
+  const marker = db.collection("jdt_reminders").doc(`${event.idEvent}_${kind}`);
+  try {
+    await marker.create({
+      eventId: event.idEvent,
+      teamId: team.id,
+      kind,
+      kickoff,
+      sentAt: new Date(),
+    });
+  } catch (error) {
+    if (error.code === 6 /* ALREADY_EXISTS */) return;
+    console.error("Could not claim the reminder:", error);
+    return;
+  }
+
+  const message = reminderMessage(event, kickoff, kind, team);
+  for (const userDoc of recipients.docs) {
+    await sendNotification(userDoc.id, {
+      notification: message,
+      data: {
+        type: "jdt_match",
+        eventId: String(event.idEvent),
+        teamId: team.id,
+        kind,
+      },
+    });
+  }
+
+  console.log(
+    `Sent ${team.label} ${kind} reminder for event ${event.idEvent} ` +
+      `to ${recipients.size} users`
+  );
+}
+
+// Exported for local checks of the timing rules, which are the fiddly part.
+exports._jdtInternals = { reminderKind, reminderMessage };

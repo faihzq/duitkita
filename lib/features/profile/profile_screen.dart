@@ -844,7 +844,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   await ref
                                       .read(profileServiceProvider)
                                       .updateUserProfile(
-                                        profile.copyWith(showJdtMatches: value),
+                                        profile.copyWith(
+                                          showJdtMatches: value,
+                                          // Hiding the tab silences the
+                                          // reminders too — a push for a tab
+                                          // you cannot open is just noise.
+                                          notifyJdtMatches:
+                                              value
+                                                  ? profile.notifyJdtMatches
+                                                  : false,
+                                        ),
                                       );
                                 },
                                 activeThumbColor: const Color(0xFFD32F2F),
@@ -854,6 +863,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ),
                           ),
+                          // Only offered once the tab is on: the reminders are
+                          // about fixtures you have said you follow.
+                          if (profile?.showJdtMatches ?? false) ...[
+                            _Divider(),
+                            _SettingsRow(
+                              icon: Icons.notifications_active_outlined,
+                              iconBg: const Color(0xFFFFEBEE),
+                              iconColor: const Color(0xFFD32F2F),
+                              label: 'Match reminders',
+                              onTap: () {},
+                              showChevron: false,
+                              trailing: Transform.scale(
+                                scale: 0.8,
+                                child: Switch(
+                                  value: profile?.notifyJdtMatches ?? false,
+                                  onChanged: (value) async {
+                                    if (profile == null) return;
+                                    await ref
+                                        .read(profileServiceProvider)
+                                        .updateUserProfile(
+                                          profile.copyWith(
+                                            notifyJdtMatches: value,
+                                          ),
+                                        );
+                                  },
+                                  activeThumbColor: const Color(0xFFD32F2F),
+                                  activeTrackColor: const Color(0xFFEF9A9A),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ),
+                          ],
                           _Divider(),
                           _SettingsRow(
                             icon: Icons.info_outline_rounded,

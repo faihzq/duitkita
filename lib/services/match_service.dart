@@ -6,16 +6,74 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import 'package:duitkita/models/match_model.dart';
 
+/// The teams the app follows.
+///
+/// Both render from the same team-page markup, so following another side is a
+/// matter of its id. [fallbackLeague] is what an unrecognised competition badge
+/// is labelled as — a club's domestic league, a national side's internationals.
+enum FootballTeam {
+  jdt(
+    '139018',
+    'JDT',
+    'Malaysian Super League',
+    crestUrl:
+        'https://r2.thesportsdb.com/images/media/team/badge/8cq3lk1752771555.png',
+    crestAsset: 'assets/images/jdt_crest.png',
+  ),
+  malaysia(
+    '140138',
+    'Malaysia',
+    'International',
+    crestUrl:
+        'https://r2.thesportsdb.com/images/media/team/badge/opqzci1597866541.png',
+    crestAsset: 'assets/images/malaysia_crest.png',
+  );
+
+  const FootballTeam(
+    this.id,
+    this.label,
+    this.fallbackLeague, {
+    required this.crestUrl,
+    required this.crestAsset,
+  });
+
+  final String id;
+  final String label;
+  final String fallbackLeague;
+
+  /// The bundled crest, 512x512 — the header paints it on the first frame and
+  /// it survives being offline. The app previously shipped a 96x120 JDT logo,
+  /// which was visibly soft once scaled up.
+  final String crestAsset;
+
+  /// Where [crestAsset] came from, kept as the fallback and as the record of
+  /// what to re-download when a club changes its crest.
+  final String crestUrl;
+
+  String get pageUrl => 'https://www.thesportsdb.com/team/$id';
+}
+
 class MatchService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  /// Both dependencies are injectable so the fallback rules — when a failed
+  /// scrape is covered by hand-entered matches and when it surfaces as an
+  /// error — can be exercised without a network or a Firebase app.
+  MatchService({http.Client? client, FirebaseFirestore? firestore})
+    : _client = client ?? http.Client(),
+      _injectedFirestore = firestore;
 
-  // In-memory cache
-  List<MatchModel>? _cachedUpcoming;
-  List<MatchModel>? _cachedResults;
-  DateTime? _lastFetchTime;
+  final http.Client _client;
+  final FirebaseFirestore? _injectedFirestore;
+
+  // Lazy: parsing the team page touches no Firestore, and resolving
+  // `instance` eagerly would demand an initialised Firebase app to do it.
+  late final FirebaseFirestore _firestore =
+      _injectedFirestore ?? FirebaseFirestore.instance;
+
+  // In-memory cache, one entry per team.
+  final Map<FootballTeam, List<MatchModel>> _cachedUpcoming = {};
+  final Map<FootballTeam, List<MatchModel>> _cachedResults = {};
+  final Map<FootballTeam, DateTime> _lastFetchTime = {};
   static const _cacheDuration = Duration(hours: 1);
-
-  static const _jdtTeamPageUrl = 'https://www.thesportsdb.com/team/139018';
 
   // League badge filename -> league name mapping (from TheSportsDB)
   static const _leagueBadgeMap = {
@@ -23,164 +81,195 @@ class MatchService {
     'gsbq4k1719686780': 'AFC Champions League Elite',
     'f6w3a61754480776': 'ASEAN Club Championship',
     'vv5p441751132202': 'Malaysian Super League',
+    'z9dvdf1780551855': 'ASEAN Championship',
   };
 
-  bool get _isCacheValid =>
-      _lastFetchTime != null &&
-      DateTime.now().difference(_lastFetchTime!) < _cacheDuration;
+  bool _isCacheValid(FootballTeam team) {
+    final fetchedAt = _lastFetchTime[team];
+    return fetchedAt != null &&
+        DateTime.now().difference(fetchedAt) < _cacheDuration;
+  }
 
   CollectionReference get _matches => _firestore.collection('matches');
 
   // --- Web Scraping Methods ---
 
   Future<List<MatchModel>> fetchUpcomingMatches({
+    FootballTeam team = FootballTeam.jdt,
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _isCacheValid && _cachedUpcoming != null) {
-      return _cachedUpcoming!;
+    final cached = _cachedUpcoming[team];
+    if (!forceRefresh && _isCacheValid(team) && cached != null) {
+      return cached;
     }
 
     try {
-      final scraped = await _scrapeJdtTeamPage();
+      final scraped = await _scrapeTeamPage(team);
       final upcoming = scraped['upcoming'] ?? [];
 
-      // Also get manual upcoming matches from Firestore
-      final manualMatches = await _fetchManualUpcomingMatches();
+      // Hand-entered matches are JDT's only; the national side has no manual
+      // equivalent, and mixing them into another team's list would be wrong.
+      final manualMatches =
+          team == FootballTeam.jdt
+              ? await _fetchManualUpcomingMatches()
+              : <MatchModel>[];
 
       final combined = [...upcoming, ...manualMatches];
       combined.sort((a, b) => a.matchDate.compareTo(b.matchDate));
 
-      _cachedUpcoming = combined;
-      _cachedResults = scraped['results'];
-      _lastFetchTime = DateTime.now();
+      _cachedUpcoming[team] = combined;
+      _cachedResults[team] = scraped['results'] ?? [];
+      _lastFetchTime[team] = DateTime.now();
       return combined;
     } catch (e) {
       debugPrint('Scraping failed, falling back to Firestore: $e');
-      return _fetchManualUpcomingMatches();
+      // Hand-entered matches still stand in for the scrape. Only when there are
+      // none either does the failure reach the UI, which shows a retry rather
+      // than an empty list indistinguishable from a quiet week.
+      final manual =
+          team == FootballTeam.jdt
+              ? await _fetchManualUpcomingMatches()
+              : <MatchModel>[];
+      if (manual.isEmpty) rethrow;
+      return manual;
     }
   }
 
   Future<List<MatchModel>> fetchRecentResults({
+    FootballTeam team = FootballTeam.jdt,
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _isCacheValid && _cachedResults != null) {
-      return _cachedResults!;
+    final cached = _cachedResults[team];
+    if (!forceRefresh && _isCacheValid(team) && cached != null) {
+      return cached;
     }
 
     try {
-      final scraped = await _scrapeJdtTeamPage();
+      final scraped = await _scrapeTeamPage(team);
       final results = scraped['results'] ?? [];
 
-      // Also get manual past matches from Firestore
-      final manualMatches = await _fetchManualPastMatches();
+      final manualMatches =
+          team == FootballTeam.jdt
+              ? await _fetchManualPastMatches()
+              : <MatchModel>[];
 
       final combined = [...results, ...manualMatches];
       combined.sort((a, b) => b.matchDate.compareTo(a.matchDate));
 
-      _cachedUpcoming = scraped['upcoming'];
-      _cachedResults = combined;
-      _lastFetchTime = DateTime.now();
+      _cachedUpcoming[team] = scraped['upcoming'] ?? [];
+      _cachedResults[team] = combined;
+      _lastFetchTime[team] = DateTime.now();
       return combined;
     } catch (e) {
       debugPrint('Scraping failed, falling back to Firestore: $e');
-      return _fetchManualPastMatches();
+      final manual =
+          team == FootballTeam.jdt
+              ? await _fetchManualPastMatches()
+              : <MatchModel>[];
+      if (manual.isEmpty) rethrow;
+      return manual;
     }
   }
 
   /// Scrape TheSportsDB team page to get upcoming matches and results.
   /// Returns a map with 'upcoming' and 'results' lists.
-  Future<Map<String, List<MatchModel>>> _scrapeJdtTeamPage() async {
-    final response = await http.get(Uri.parse(_jdtTeamPageUrl));
+  Future<Map<String, List<MatchModel>>> _scrapeTeamPage(
+    FootballTeam team,
+  ) async {
+    final response = await _client.get(Uri.parse(team.pageUrl));
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to load JDT page: ${response.statusCode}');
+      throw Exception(
+        'Failed to load the ${team.label} page: ${response.statusCode}',
+      );
     }
 
-    final document = html_parser.parse(response.body);
+    final parsed = parseTeamPage(response.body, team: team);
+
+    // A live page always lists something: the club plays in four competitions
+    // and the Results section keeps the last five whatever the calendar says.
+    // Parsing nothing out of a 200 means the markup moved again, and returning
+    // empty lists would render that as "No upcoming matches" and cache it for
+    // an hour — which is exactly how the last change went unnoticed.
+    if (parsed['upcoming']!.isEmpty && parsed['results']!.isEmpty) {
+      throw Exception(
+        'Parsed no matches from the ${team.label} page: markup changed?',
+      );
+    }
+    return parsed;
+  }
+
+  /// The HTML half of [_scrapeTeamPage], split out so a fixture can pin it.
+  /// The site's markup is not a contract and has changed under us before,
+  /// silently emptying both lists rather than failing.
+  @visibleForTesting
+  Map<String, List<MatchModel>> parseTeamPage(
+    String html, {
+    FootballTeam team = FootballTeam.jdt,
+  }) {
+    final document = html_parser.parse(html);
     final body = document.body;
     if (body == null) throw Exception('Empty page body');
 
     final upcoming = <MatchModel>[];
     final results = <MatchModel>[];
 
-    // Find the table containing Upcoming and Results
-    // The structure has <b>Upcoming</b> and <b><br>Results</b> headers
-    final allTds = body.querySelectorAll('td');
+    // Each section starts with a header row whose middle cell reads "Upcoming"
+    // or "Results"; every fixture below it is one row of four cells — date,
+    // home, kick-off or score, away.
+    //
+    // Walk rows rather than a flat list of cells. The site used to wrap those
+    // two headers in <b>, and the old scan keyed off that; it now renders them
+    // as plain styled cells, so nothing ever switched the section on and no
+    // fixture was ever collected. A row is a fixture if it links to an event,
+    // which also ends the Results section on its own: the spacer row and the
+    // squad table that follow carry no such link.
+    String? section;
+    for (final row in body.querySelectorAll('tr')) {
+      final cells = row.querySelectorAll('td');
+      if (cells.isEmpty) continue;
 
-    bool isUpcomingSection = false;
-    bool isResultsSection = false;
-
-    // Process TDs in groups of 4 (date, home, center, away)
-    final matchRows = <List<dom.Element>>[];
-    final matchSections = <String>[];
-
-    List<dom.Element> currentRow = [];
-
-    for (final td in allTds) {
-      // Check for section headers
-      final boldElements = td.querySelectorAll('b');
-      for (final b in boldElements) {
-        final text = b.text.trim();
-        if (text == 'Upcoming') {
-          isUpcomingSection = true;
-          isResultsSection = false;
-          continue;
-        }
-        if (text == 'Results') {
-          isResultsSection = true;
-          isUpcomingSection = false;
-          continue;
-        }
-        // Any other bold text means we've left the matches section
-        if (text != 'Upcoming' && text != 'Results' && text.isNotEmpty) {
-          if (text == 'Logo') continue; // Skip Logo header
-          isUpcomingSection = false;
-          isResultsSection = false;
-        }
+      final heading = cells
+          .map((c) => c.text.trim())
+          .firstWhere(
+            (t) => t == 'Upcoming' || t == 'Results',
+            orElse: () => '',
+          );
+      if (heading.isNotEmpty) {
+        section = heading == 'Upcoming' ? 'upcoming' : 'results';
+        continue;
       }
 
-      if (!isUpcomingSection && !isResultsSection) continue;
+      if (section == null || cells.length != 4) continue;
+      if (row.querySelector('a[href*="/event/"]') == null) continue;
 
-      // Skip header TDs that contain bold text
-      if (boldElements.isNotEmpty) continue;
-
-      // Check if this is a match-related TD (has width attribute)
-      final width = td.attributes['width'] ?? '';
-      if (width.isEmpty) continue;
-
-      currentRow.add(td);
-      if (currentRow.length == 4) {
-        matchRows.add(List.from(currentRow));
-        matchSections.add(isUpcomingSection ? 'upcoming' : 'results');
-        currentRow.clear();
-      }
-    }
-
-    for (int i = 0; i < matchRows.length; i++) {
+      final isResult = section == 'results';
       try {
-        final row = matchRows[i];
-        final section = matchSections[i];
-        final match = _parseMatchRow(row, isResult: section == 'results');
-        if (match != null) {
-          if (section == 'upcoming') {
-            upcoming.add(match);
-          } else {
-            results.add(match);
-          }
-        }
+        final match = _parseMatchRow(cells, isResult: isResult, team: team);
+        if (match != null) (isResult ? results : upcoming).add(match);
       } catch (e) {
-        debugPrint('Failed to parse match row $i: $e');
+        debugPrint('Failed to parse match row: $e');
       }
     }
 
     upcoming.sort((a, b) => a.matchDate.compareTo(b.matchDate));
     results.sort((a, b) => b.matchDate.compareTo(a.matchDate));
 
-    return {'upcoming': upcoming, 'results': results};
+    // Vote across both lists at once — more rows, better evidence.
+    final crests = _canonicalCrests([...upcoming, ...results]);
+
+    return {
+      'upcoming': [for (final m in upcoming) _withCrests(m, crests)],
+      'results': [for (final m in results) _withCrests(m, crests)],
+    };
   }
 
   /// Parse a single match row from 4 TD elements.
-  MatchModel? _parseMatchRow(List<dom.Element> tds, {required bool isResult}) {
+  MatchModel? _parseMatchRow(
+    List<dom.Element> tds, {
+    required bool isResult,
+    required FootballTeam team,
+  }) {
     if (tds.length < 4) return null;
 
     final dateTd = tds[0];
@@ -195,7 +284,9 @@ class MatchService {
     // Badge URLs look like: .../league/badge/laptz91692682937.png/tiny
     final leagueBadgeImg = dateTd.querySelector('img[alt*="league"]');
     final leagueBadgeSrc = leagueBadgeImg?.attributes['src'] ?? '';
-    String league = 'Malaysian Super League';
+    // An unrecognised badge means a competition not in the map — label it with
+    // the team's usual stage rather than asserting a league it may not be in.
+    String league = team.fallbackLeague;
     for (final entry in _leagueBadgeMap.entries) {
       if (leagueBadgeSrc.contains(entry.key)) {
         league = entry.value;
@@ -215,18 +306,16 @@ class MatchService {
     final eventId = eventIdMatch.group(1)!;
     final slug = eventIdMatch.group(2)!;
 
-    // Parse team names from slug (e.g., "penang-vs-johor-darul-tazim")
+    // Each cell renders the name twice, abbreviated and full. Read the full
+    // one: the link text concatenates both ("Johor Dar Johor Darul Ta'zim"),
+    // and the slug fallback loses punctuation ("Johor Darul Tazim").
     final vsParts = slug.split('-vs-');
-    String homeTeam;
-    String awayTeam;
-    if (vsParts.length == 2) {
-      homeTeam = _slugToName(vsParts[0]);
-      awayTeam = _slugToName(vsParts[1]);
-    } else {
-      // Fallback to displayed text
-      homeTeam = homeLink.text.trim();
-      awayTeam = awayLink.text.trim();
-    }
+    final homeTeam =
+        _fixtureName(homeTd) ??
+        (vsParts.length == 2 ? _slugToName(vsParts[0]) : homeLink.text.trim());
+    final awayTeam =
+        _fixtureName(awayTd) ??
+        (vsParts.length == 2 ? _slugToName(vsParts[1]) : awayLink.text.trim());
 
     // Extract team badge URLs
     final homeBadgeImg = homeTd.querySelector('img[alt*="badge"]');
@@ -270,6 +359,94 @@ class MatchService {
     );
   }
 
+  /// The name as the page renders it, or null when the cell has no full-name
+  /// span for the caller to fall back from.
+  String? _fixtureName(dom.Element td) {
+    final full = td.querySelector('.team-fixture-name-full')?.text.trim();
+    return (full == null || full.isEmpty) ? null : full;
+  }
+
+  /// The crest each team actually wears, decided by majority across every row.
+  ///
+  /// The source occasionally files an event with its two badges swapped: the
+  /// 31 Jul 2026 friendly names Cartagena as the home side but carries JDT's
+  /// crest there, and TheSportsDB's own API repeats the mistake, so it is the
+  /// data that is wrong rather than the parse. A club wears one crest in every
+  /// row it appears in, so the badge seen most often against a name is the
+  /// right one. Voting rather than hard-coding also survives a club changing
+  /// its crest — the filename carries a timestamp — since the new image simply
+  /// becomes the new majority.
+  ///
+  /// A team seen once contributes no evidence and is left out.
+  Map<String, String> _canonicalCrests(List<MatchModel> matches) {
+    final tally = <String, Map<String, int>>{};
+    void count(String team, String? badge) {
+      if (badge == null || badge.isEmpty) return;
+      (tally[team] ??= {}).update(badge, (n) => n + 1, ifAbsent: () => 1);
+    }
+
+    for (final match in matches) {
+      count(match.homeTeam, match.homeTeamLogo);
+      count(match.awayTeam, match.awayTeamLogo);
+    }
+
+    final canonical = <String, String>{};
+    tally.forEach((team, badges) {
+      final best = badges.entries.reduce((a, b) => b.value > a.value ? b : a);
+      if (best.value > 1) canonical[team] = best.key;
+    });
+    return canonical;
+  }
+
+  MatchModel _withCrests(MatchModel match, Map<String, String> crests) {
+    final taken = crests.values.toSet();
+
+    /// [otherBadge] is the crest on the other side of the same fixture.
+    ///
+    /// A team with an established crest simply gets it. A team seen only once
+    /// has none to fall back on, so its badge is taken at face value — unless
+    /// that badge demonstrably belongs to somebody else, which means the row's
+    /// two crests are the wrong way round. A row shows exactly two teams, so
+    /// the other badge is then this team's: swapping recovers both rather than
+    /// leaving one blank.
+    String? resolve(String team, String? badge, String? otherBadge) {
+      final own = crests[team];
+      if (own != null) return own;
+      if (badge != null && taken.contains(badge)) {
+        final swapped = otherBadge != null && !taken.contains(otherBadge);
+        return swapped ? otherBadge : null;
+      }
+      return badge;
+    }
+
+    final home = resolve(
+      match.homeTeam,
+      match.homeTeamLogo,
+      match.awayTeamLogo,
+    );
+    final away = resolve(
+      match.awayTeam,
+      match.awayTeamLogo,
+      match.homeTeamLogo,
+    );
+    if (home == match.homeTeamLogo && away == match.awayTeamLogo) return match;
+
+    return MatchModel(
+      id: match.id,
+      homeTeam: match.homeTeam,
+      homeTeamLogo: home,
+      awayTeam: match.awayTeam,
+      awayTeamLogo: away,
+      matchDate: match.matchDate,
+      venue: match.venue,
+      league: match.league,
+      status: match.status,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      isManual: match.isManual,
+    );
+  }
+
   /// Convert URL slug to proper name (e.g., "johor-darul-tazim" -> "Johor Darul Tazim")
   String _slugToName(String slug) {
     return slug
@@ -279,30 +456,39 @@ class MatchService {
         .trim();
   }
 
-  /// Parse date text like "28 Feb" into a DateTime.
-  /// For results, dates are in the past. For upcoming, dates are in the future.
+  static const _months = {
+    'jan': 1,
+    'feb': 2,
+    'mar': 3,
+    'apr': 4,
+    'may': 5,
+    'jun': 6,
+    'jul': 7,
+    'aug': 8,
+    'sep': 9,
+    'oct': 10,
+    'nov': 11,
+    'dec': 12,
+  };
+
+  /// Parse date text like "28 Feb" or "04 Sep 26" into a DateTime.
+  ///
+  /// The cell now carries a two-digit year of its own, so use it when present.
+  /// The guesswork below only runs for markup that omits it, and it gets a
+  /// December fixture read in January wrong by a year either way.
   DateTime _parseDateText(String text, {bool isPast = false}) {
-    final months = {
-      'jan': 1,
-      'feb': 2,
-      'mar': 3,
-      'apr': 4,
-      'may': 5,
-      'jun': 6,
-      'jul': 7,
-      'aug': 8,
-      'sep': 9,
-      'oct': 10,
-      'nov': 11,
-      'dec': 12,
-    };
+    final parsed = RegExp(
+      r'(\d{1,2})\s+([A-Za-z]{3,})\.?\s*(\d{2})?',
+    ).firstMatch(text);
+    if (parsed == null) return DateTime.now();
 
-    final parts = text.split(RegExp(r'\s+'));
-    if (parts.length < 2) return DateTime.now();
+    final day = int.tryParse(parsed.group(1)!) ?? 1;
+    final month = _months[parsed.group(2)!.toLowerCase().substring(0, 3)] ?? 1;
 
-    final day = int.tryParse(parts[0]) ?? 1;
-    final monthStr = parts[1].toLowerCase();
-    final month = months[monthStr] ?? 1;
+    final explicitYear = parsed.group(3);
+    if (explicitYear != null) {
+      return DateTime(2000 + int.parse(explicitYear), month, day);
+    }
 
     final now = DateTime.now();
     int year = now.year;
@@ -437,9 +623,9 @@ class MatchService {
   }
 
   void clearCache() {
-    _cachedUpcoming = null;
-    _cachedResults = null;
-    _lastFetchTime = null;
+    _cachedUpcoming.clear();
+    _cachedResults.clear();
+    _lastFetchTime.clear();
   }
 }
 
@@ -448,12 +634,14 @@ final matchServiceProvider = Provider<MatchService>((ref) {
   return MatchService();
 });
 
-final upcomingMatchesProvider = FutureProvider<List<MatchModel>>((ref) async {
-  final matchService = ref.watch(matchServiceProvider);
-  return matchService.fetchUpcomingMatches();
-});
+final upcomingMatchesProvider =
+    FutureProvider.family<List<MatchModel>, FootballTeam>((ref, team) async {
+      final matchService = ref.watch(matchServiceProvider);
+      return matchService.fetchUpcomingMatches(team: team);
+    });
 
-final recentResultsProvider = FutureProvider<List<MatchModel>>((ref) async {
-  final matchService = ref.watch(matchServiceProvider);
-  return matchService.fetchRecentResults();
-});
+final recentResultsProvider =
+    FutureProvider.family<List<MatchModel>, FootballTeam>((ref, team) async {
+      final matchService = ref.watch(matchServiceProvider);
+      return matchService.fetchRecentResults(team: team);
+    });

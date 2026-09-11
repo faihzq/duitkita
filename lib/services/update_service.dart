@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +24,17 @@ class UpdateService {
       final downloadUrl = data['downloadUrl'] as String? ?? '';
       final forceUpdate = data['forceUpdate'] as bool? ?? false;
 
+      // Play's own updater is preferred where it works: it installs without
+      // leaving the app, and it can only offer a build that is actually
+      // published — the config document can drift ahead of the store and
+      // advertise a version nobody can install.
+      //
+      // It answers only for copies installed from Play, so a sideloaded build
+      // throws and drops through to the dialog below. `forceUpdate` still comes
+      // from Firestore, since Play's own priority signal can only be set
+      // through the Publishing API at upload time.
+      if (await _tryPlayUpdate(force: forceUpdate)) return;
+
       if (latestVersion.isEmpty || downloadUrl.isEmpty) return;
 
       final packageInfo = await PackageInfo.fromPlatform();
@@ -39,6 +53,48 @@ class UpdateService {
       }
     } catch (e) {
       debugPrint('Update check failed: $e');
+    }
+  }
+
+  /// Returns true when Play has handled the question — including when it says
+  /// the app is already current, because Play is authoritative for copies it
+  /// installed and falling through would show a dialog contradicting it.
+  ///
+  /// Returns false only when Play cannot answer: another platform, a sideloaded
+  /// or debug build, or no Play Store on the device.
+  static Future<bool> _tryPlayUpdate({required bool force}) async {
+    if (!Platform.isAndroid) return false;
+
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+
+      if (info.updateAvailability != UpdateAvailability.updateAvailable) {
+        return true;
+      }
+
+      // Immediate blocks the app behind a full-screen Play flow; keep it for
+      // releases actually marked as required, and only when Play says the
+      // device can run it. Everything else downloads in the background.
+      if (force && info.immediateUpdateAllowed) {
+        await InAppUpdate.performImmediateUpdate();
+        return true;
+      }
+
+      if (info.flexibleUpdateAllowed) {
+        final result = await InAppUpdate.startFlexibleUpdate();
+        if (result == AppUpdateResult.success) {
+          await InAppUpdate.completeFlexibleUpdate();
+        }
+        return true;
+      }
+
+      // Play has an update but will run neither flow on this device. Let the
+      // dialog offer the store link rather than saying nothing.
+      return false;
+    } catch (e) {
+      // The common case, not an error: this copy did not come from Play.
+      debugPrint('Play in-app update unavailable, using the link flow: $e');
+      return false;
     }
   }
 

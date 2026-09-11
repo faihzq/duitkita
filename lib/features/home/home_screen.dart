@@ -44,8 +44,15 @@ class HomeScreen extends ConsumerWidget {
     final firstName = fullName.split(' ').first;
     final profileImageUrl = profile?.profileImageUrl;
 
-    // Monthly totals
-    final groupMonthly = groups.fold<double>(0, (s, g) => s + g.monthlyAmount);
+    // Monthly totals. Settled groups have reached their goal and closed, so
+    // they no longer contribute a monthly due — counting them would inflate
+    // both the total and what's left to pay, and leave the ring stuck below
+    // 100% for a month that is in fact fully paid.
+    final dueGroups = groups.where((g) => g.isSettled != true).toList();
+    final groupMonthly = dueGroups.fold<double>(
+      0,
+      (s, g) => s + g.monthlyAmount,
+    );
     final debtMonthly = debts
         .where((d) => d.isDebt)
         .fold<double>(0, (s, d) => s + d.monthlyPayment);
@@ -56,7 +63,7 @@ class HomeScreen extends ConsumerWidget {
 
     // Paid this month (confirmed groups + paid debts/bills)
     double paidThisMonth = 0;
-    for (final g in groups) {
+    for (final g in dueGroups) {
       final status =
           ref
               .watch(
@@ -1207,10 +1214,14 @@ class _UpNextSection extends ConsumerWidget {
     final items = <_UpNextItemData>[];
 
     // Settled groups have hit their goal and closed, so there is nothing left
-    // to pay. Filtering here rather than inside the loop matters: taking the
-    // first three groups first would let three settled ones crowd out a fourth
-    // that still needs paying.
-    final owing = groups.where((g) => g.isSettled != true);
+    // to pay. One-off split groups (monthlyAmount 0) have no recurring due
+    // either — their expenses are settled between members, not paid monthly —
+    // so neither belongs in a list of what's due next. Filtering here rather
+    // than inside the loop matters: taking the first three groups first would
+    // let three excluded ones crowd out a fourth that still needs paying.
+    final owing = groups.where(
+      (g) => g.isSettled != true && (g.monthlyAmount as double) > 0,
+    );
 
     for (final g in owing) {
       final status =
@@ -2069,7 +2080,13 @@ class _InsightsSheet extends ConsumerWidget {
     ];
     final monthLabel = '${monthNames[now.month - 1]} ${now.year}';
 
-    final groupMonthly = groups.fold<double>(0, (s, g) => s + g.monthlyAmount);
+    // Settled groups are closed — no monthly due left, so they stay out of
+    // the totals. They are still listed below, marked settled.
+    final dueGroups = groups.where((g) => g.isSettled != true).toList();
+    final groupMonthly = dueGroups.fold<double>(
+      0,
+      (s, g) => s + g.monthlyAmount,
+    );
     final debtMonthly = debts
         .where((d) => d.isDebt)
         .fold<double>(0, (s, d) => s + d.monthlyPayment);
@@ -2080,7 +2097,7 @@ class _InsightsSheet extends ConsumerWidget {
 
     double paidGroups = 0;
     final groupStatuses = <String, String>{};
-    for (final g in groups) {
+    for (final g in dueGroups) {
       final status =
           ref
               .watch(
@@ -2329,13 +2346,24 @@ class _InsightsSheet extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   ...groups.map((g) {
-                    final status = groupStatuses[g.id] ?? 'unpaid';
+                    // A settled group has no status for the month — it is done
+                    // for good, not merely unpaid.
+                    final status =
+                        g.isSettled == true
+                            ? 'settled'
+                            : (groupStatuses[g.id] ?? 'unpaid');
                     final (
                       Color c,
                       Color s,
                       String lbl,
                       IconData ic,
                     ) = switch (status) {
+                      'settled' => (
+                        DT.success,
+                        DT.successSoft,
+                        'Settled',
+                        Icons.verified_rounded,
+                      ),
                       'confirmed' => (
                         DT.success,
                         DT.successSoft,
@@ -2396,7 +2424,9 @@ class _InsightsSheet extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
-                                  'RM${_fmt(g.monthlyAmount)}/mo',
+                                  status == 'settled'
+                                      ? 'No monthly due'
+                                      : 'RM${_fmt(g.monthlyAmount)}/mo',
                                   style: GoogleFonts.manrope(
                                     fontSize: 11,
                                     color: DT.textSecondary,

@@ -74,6 +74,14 @@
           }
         },
         {
+          "client_id": "375006835997-b6lth32gm2pp9gihcpthu533e0c9hs3n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "my.duitkita.app",
+            "certificate_hash": "f1e09668530ebbf298208c93f0241af48603db3c"
+          }
+        },
+        {
           "client_id": "375006835997-mm7bvlqjvn72psk2qtbhf0t6o9k2cn7v.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

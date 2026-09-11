@@ -137,6 +137,20 @@ class AuthService {
             debugPrint('Signed up but could not write the profile: $e');
           }),
         );
+
+        // Ask them to verify the address. This is not politeness: Firebase
+        // deletes an *unverified* password credential the first time the same
+        // address signs in through Google, because an unverified account could
+        // have been opened by someone who does not own the mailbox. Accounts
+        // that never verify silently lose their password that way.
+        //
+        // Unawaited for the same reason as the profile write — a slow or
+        // rate-limited send must not leave the sign-up button spinning.
+        unawaited(
+          userCredential.user!.sendEmailVerification().catchError((Object e) {
+            debugPrint('Signed up but could not send the verification: $e');
+          }),
+        );
       }
       return AuthResponse(user: userCredential.user);
     } on FirebaseAuthException catch (e) {

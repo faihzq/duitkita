@@ -39,6 +39,25 @@
       the ACCESS_ADSERVICES_* pair is the Privacy Sandbox equivalent on
       Android 13+. Remove all three together or the mismatch remains.
     -->
+    <!--
+      Shared-media permissions, stripped.
+
+      open_filex declares these so it can open files from the shared media
+      store. This app never does: both OpenFilex.open call sites (payment
+      receipts, trip tickets) open a file the app itself just wrote into
+      getTemporaryDirectory() or getApplicationDocumentsDirectory(), and
+      app-private storage needs no permission on any Android version.
+
+      Keeping them would also fail Google Play's Photo and Video Permissions
+      policy, which reserves READ_MEDIA_* for apps with a frequent, core need
+      to browse the user's gallery and expects everyone else to use the Android
+      photo picker. Declaring them here would mean justifying access the app
+      does not use.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
+
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />

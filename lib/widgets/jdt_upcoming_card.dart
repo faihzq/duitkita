@@ -10,8 +10,8 @@ class JdtUpcomingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final upcomingAsync = ref.watch(upcomingMatchesProvider);
-    final resultsAsync = ref.watch(recentResultsProvider);
+    final upcomingAsync = ref.watch(upcomingMatchesProvider(FootballTeam.jdt));
+    final resultsAsync = ref.watch(recentResultsProvider(FootballTeam.jdt));
 
     return upcomingAsync.when(
       data: (upcoming) {

@@ -77,10 +77,11 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
           }
         }).toList();
 
-    final totalMonthly = allGroups.fold<double>(
-      0,
-      (s, g) => s + g.monthlyAmount,
-    );
+    // Settled groups are closed and no longer collect monthly, so they are
+    // left out of the "/mo" figure — the group count still covers them all.
+    final totalMonthly = allGroups
+        .where((g) => g.isSettled != true)
+        .fold<double>(0, (s, g) => s + g.monthlyAmount);
 
     return Scaffold(
       backgroundColor: DT.bg,

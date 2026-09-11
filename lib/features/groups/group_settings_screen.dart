@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/config/app_links.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/widgets/floating_field.dart';
 import 'package:duitkita/config/bank_brands.dart';
@@ -1353,7 +1354,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   void _shareInvite(GroupModel group) {
     final msg =
         'Join "${group.name}" on DuitKita! Track monthly payments with family.\n\n'
-        'Download: https://appdistribution.firebase.dev/i/24015162eba1d1f9';
+        'Download: $kAppDownloadUrl';
     SharePlus.instance.share(
       ShareParams(text: msg, subject: 'Join ${group.name} on DuitKita'),
     );

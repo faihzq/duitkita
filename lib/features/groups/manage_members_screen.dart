@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/config/app_links.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/profile_service.dart';
@@ -60,7 +61,6 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       _snack('Enter a username or email address', isError: true);
       return;
     }
-    final email = input;
     setState(() => _isLoading = true);
     try {
       final profileService = ref.read(profileServiceProvider);
@@ -68,7 +68,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       if (userId == null) {
         if (!mounted) return;
         setState(() => _isLoading = false);
-        _showInviteDialog(email);
+        _showInviteDialog(input, isEmail: looksLikeEmail);
         return;
       }
       final profile = await profileService.getUserProfile(userId);
@@ -78,7 +78,9 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
             groupId: widget.groupId,
             userId: userId,
             userName: profile?.name ?? 'Unknown',
-            userEmail: email,
+            // Never store a handle in the email field — fall back to what was
+            // typed only when it actually was an email.
+            userEmail: profile?.email ?? (looksLikeEmail ? input : null),
           );
       if (mounted) {
         _snack('Member added successfully');
@@ -93,7 +95,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
     }
   }
 
-  void _showInviteDialog(String email) {
+  void _showInviteDialog(String identifier, {required bool isEmail}) {
+    final label = isEmail ? identifier : '@${normaliseUsername(identifier)}';
     showDialog(
       context: context,
       builder:
@@ -147,7 +150,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                       children: [
                         const TextSpan(text: 'No account found for '),
                         TextSpan(
-                          text: email,
+                          text: label,
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: DT.text,
@@ -164,7 +167,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   GestureDetector(
                     onTap: () {
                       Navigator.pop(ctx);
-                      _sendInvite(email);
+                      _sendInvite(label, isEmail: isEmail);
                     },
                     child: Container(
                       width: double.infinity,
@@ -206,12 +209,16 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
     );
   }
 
-  Future<void> _sendInvite(String email) async {
+  Future<void> _sendInvite(String identifier, {required bool isEmail}) async {
+    final closing =
+        isEmail
+            ? 'Sign up with $identifier and let me know so I can add you!'
+            : 'Sign up and grab the username $identifier, then let me know so I can add you!';
     final msg =
         'Hey! I\'m inviting you to join "${widget.groupName}" on DuitKita - '
         'our family app for tracking monthly payments and expenses.\n\n'
-        'Download: https://appdistribution.firebase.dev/i/24015162eba1d1f9\n\n'
-        'Sign up with $email and let me know so I can add you!';
+        'Download: $kAppDownloadUrl\n\n'
+        '$closing';
     await SharePlus.instance.share(
       ShareParams(text: msg, subject: 'Join ${widget.groupName} on DuitKita'),
     );
@@ -220,7 +227,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
   void _shareInvite() {
     final msg =
         'Join "${widget.groupName}" on DuitKita! Track monthly payments with family.\n\n'
-        'Download: https://appdistribution.firebase.dev/i/24015162eba1d1f9';
+        'Download: $kAppDownloadUrl';
     SharePlus.instance.share(
       ShareParams(text: msg, subject: 'Join ${widget.groupName} on DuitKita'),
     );
@@ -398,7 +405,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Add member by email',
+                        'Add member by username or email',
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -411,19 +418,21 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                           Expanded(
                             child: TextField(
                               controller: _emailCtrl,
-                              keyboardType: TextInputType.emailAddress,
+                              keyboardType: TextInputType.text,
+                              autocorrect: false,
+                              textCapitalization: TextCapitalization.none,
                               style: GoogleFonts.manrope(
                                 fontSize: 14,
                                 color: DT.text,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'member@email.com',
+                                hintText: '@username or member@email.com',
                                 hintStyle: GoogleFonts.manrope(
                                   fontSize: 14,
                                   color: DT.textTertiary,
                                 ),
                                 prefixIcon: const Icon(
-                                  Icons.email_outlined,
+                                  Icons.alternate_email_rounded,
                                   size: 18,
                                   color: DT.textSecondary,
                                 ),
