@@ -37,6 +37,8 @@ abstract class DT {
   static const catDebtsSoft = Color(0xFFE8F0FE);
   static const catBills = Color(0xFFF59E0B);
   static const catBillsSoft = Color(0xFFFEF3DC);
+  static const catMakan = Color(0xFF16A34A);
+  static const catMakanSoft = Color(0xFFE3F6E9);
 
   // Header gradient stops
   static const headerGradientStart = Color(0xFF0B1F3A);

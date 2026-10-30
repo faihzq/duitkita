@@ -102,6 +102,7 @@ class AccountDeletionService {
     await _leaveGroups(uid);
     await _handOverOrDeleteTrips(uid);
     await _deletePersonalDebts(uid);
+    await _deletePersonalMakanSpots(uid);
     await _deleteProfileAndHandle(uid);
     await _deleteProfileImage(uid);
 
@@ -143,6 +144,7 @@ class AccountDeletionService {
           // Nobody left to keep it — remove the group and its subcollections.
           await _deleteSubcollection(doc.reference.collection('members'));
           await _deleteSubcollection(doc.reference.collection('payments'));
+          await _deleteSubcollection(doc.reference.collection('makan_spots'));
           await doc.reference.delete();
           continue;
         }
@@ -273,6 +275,21 @@ class AccountDeletionService {
       }
     } catch (e) {
       debugPrint('Could not delete debts: $e');
+    }
+  }
+
+  Future<void> _deletePersonalMakanSpots(String uid) async {
+    try {
+      final spots =
+          await _db
+              .collection('makan_spots')
+              .where('addedBy', isEqualTo: uid)
+              .get();
+      for (final doc in spots.docs) {
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      debugPrint('Could not delete makan spots: $e');
     }
   }
 

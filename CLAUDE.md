@@ -45,6 +45,7 @@ Each domain has its own service class + Riverpod providers at the bottom of the 
 - `GroupService` — groups collection, subcollection `members`
 - `PaymentService` — payments subcollection under groups; handles auto-approve logic and `batchVerifyPayments`
 - `DebtService` — peer-to-peer debts (top-level `debts` collection)
+- `MakanService` — places to eat; personal spots in top-level `makan_spots`, group spots in `groups/{gid}/makan_spots` (split by path so rules can check membership). Hours logic is pure, in `lib/features/makan/makan_hours.dart`
 - `NotificationService` — FCM push + local notifications
 - `UpdateService` — in-app update checks
 

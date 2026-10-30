@@ -18,6 +18,7 @@ import 'package:duitkita/features/payments/pending_payments_review_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/onboarding/onboarding_screen.dart';
 import 'package:duitkita/features/trips/trips_list_screen.dart';
+import 'package:duitkita/features/makan/makan_home_card.dart';
 import 'package:duitkita/widgets/group_icon_avatar.dart';
 import 'package:duitkita/widgets/help_sheet.dart';
 
@@ -201,6 +202,12 @@ class HomeScreen extends ConsumerWidget {
                         onTabChange: onTabChange,
                       ),
                     ),
+
+                  // ── Where to eat ─────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(DS.xl, DS.xxl, DS.xl, 0),
+                    child: MakanHomeCard(userId: user.uid),
+                  ),
 
                   // ── Breakdown ────────────────────────────────────
                   if (totalMonthly > 0)

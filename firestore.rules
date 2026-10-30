@@ -101,6 +101,23 @@ service cloud.firestore {
                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPaid', 'paymentCount'])));
       }
 
+      // Group makan list — shared places to eat. Any member adds or edits;
+      // only whoever added a spot, a group admin or the creator removes it.
+      match /makan_spots/{spotId} {
+        allow read: if isGroupMember(groupId);
+
+        allow create: if isGroupMember(groupId) &&
+                         request.resource.data.addedBy == request.auth.uid;
+
+        allow update: if isGroupMember(groupId) &&
+                         request.resource.data.addedBy == resource.data.addedBy;
+
+        allow delete: if isSignedIn() &&
+                         (resource.data.addedBy == request.auth.uid ||
+                          isGroupAdmin(groupId) ||
+                          request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy);
+      }
+
       // Payments subcollection
       match /payments/{paymentId} {
         // Group members can read payments in their group
@@ -261,6 +278,19 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isSignedIn();
+    }
+
+    // Personal makan spots — private to whoever added them.
+    match /makan_spots/{spotId} {
+      allow read, delete: if isSignedIn() &&
+                             request.auth.uid == resource.data.addedBy;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == request.resource.data.addedBy;
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == resource.data.addedBy &&
+                       request.resource.data.addedBy == resource.data.addedBy;
     }
 
     // Debts collection (personal debt tracking)

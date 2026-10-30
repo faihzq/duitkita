@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Location, foreground only: Makan's "Near me" sort and pinning a
+         spot to where you stand. Fine is requested alongside coarse because
+         Android 12+ lets the user downgrade to approximate in the dialog. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!--
       Alarm and boot permissions are stripped, not merely undeclared.
