@@ -59,35 +59,95 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
         headerSliverBuilder:
             (context, innerBoxIsScrolled) => [
               SliverAppBar(
-                // FlexibleSpaceBar fades `background` out over the app bar's
-                // collapse travel (maxExtent - minExtent), and minExtent here
-                // is toolbar 56 + bottom 92 = 148. At the old expandedHeight of
-                // 150 that left 2px of travel, so the crest went from opaque to
-                // gone within two pixels of scroll — it blinked out instead of
-                // fading. 230 gives 82px of travel for a gradual fade.
-                expandedHeight: 230,
+                // Toolbar and expanded height are the same, so the bar never
+                // collapses and FlexibleSpaceBar holds its background at full
+                // opacity (its fade is skipped outright when maxExtent equals
+                // minExtent). A fixed header also means the crest below keeps
+                // one size instead of being animated between two.
+                toolbarHeight: _kToolbarHeight,
+                expandedHeight: _kToolbarHeight + _kTabsHeight,
                 floating: false,
                 pinned: true,
                 elevation: 0,
                 backgroundColor: _jdtRed,
                 foregroundColor: Colors.white,
+                titleSpacing: 20,
+                // Without an `actions` widget the title would run the full
+                // width and slide under the crest, so the room is reserved here
+                // instead.
+                title: Padding(
+                  padding: const EdgeInsets.only(right: 96),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_team.label} Matches',
+                        style: GoogleFonts.manrope(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 22,
+                          color: Colors.white,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // The competition, under a short gold rule. The header was
+                      // a single line of white text against a lot of empty red;
+                      // this gives the left side something to balance the crest.
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 2.5,
+                            decoration: BoxDecoration(
+                              color: _jdtGold,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Flexible(
+                            child: Text(
+                              _team.fallbackLeague.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.manrope(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                                color: Colors.white.withValues(alpha: 0.78),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    '${_team.label} Matches',
-                    style: GoogleFonts.manrope(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                  titlePadding: const EdgeInsetsDirectional.only(
-                    start: 20,
-                    bottom: 56,
-                  ),
                   background: Container(
                     decoration: const BoxDecoration(gradient: _jdtGradient),
                     child: Stack(
                       children: [
+                        // Light falling on the crest corner. Without it the
+                        // medallion sits on flat red and reads as pasted on.
+                        Positioned(
+                          right: -40,
+                          top: -50,
+                          child: Container(
+                            width: 190,
+                            height: 190,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.16),
+                                  Colors.white.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         // Soccer ball watermark
                         Positioned(
                           right: -20,
@@ -98,70 +158,95 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                             color: Colors.white.withValues(alpha: 0.05),
                           ),
                         ),
-                        // Gold accent bar at bottom
+                        // The crest, run off the top-right corner so the Stack
+                        // crops it and the tabs bar covers its foot. Painting
+                        // it here rather than in the toolbar is only safe
+                        // because this header never collapses: FlexibleSpaceBar
+                        // fades its background out as a bar shrinks, and skips
+                        // the fade entirely when maxExtent equals minExtent.
+                        // Slightly under full opacity so it sits in the
+                        // gradient rather than on top of it.
                         Positioned(
-                          bottom: 48,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 2,
-                            color: _jdtGold.withValues(alpha: 0.4),
+                          right: -28,
+                          top: -20,
+                          child: Opacity(
+                            opacity: 0.9,
+                            child: _TeamCrest(team: _team, size: 150),
                           ),
-                        ),
-                        // Team crest, bounded to a fixed square instead of
-                        // stretched between top and bottom: against the taller
-                        // header that would scale it to ~160px and hide its
-                        // lower half behind the opaque chips/tabs bar, which
-                        // covers the last 92px of this background.
-                        Positioned(
-                          right: 20,
-                          top: 14,
-                          width: 108,
-                          height: 108,
-                          child: _TeamCrest(team: _team),
                         ),
                       ],
                     ),
                   ),
                 ),
                 bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(92),
+                  preferredSize: const Size.fromHeight(_kTabsHeight),
                   child: Container(
                     color: _jdtRed,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // One sunken track holding both options, rather than
+                        // two separate outlined pills. A segmented control
+                        // reads as "pick one of these"; two loose outlines read
+                        // as two unrelated buttons that happen to sit together.
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: Row(
-                            children: [
-                              for (final team in FootballTeam.values)
-                                Expanded(
-                                  child: _TeamChip(
-                                    label: team.label,
-                                    selected: _team == team,
-                                    onTap: () => setState(() => _team = team),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.17),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.13),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                for (final team in FootballTeam.values)
+                                  Expanded(
+                                    child: _TeamChip(
+                                      label: team.label,
+                                      selected: _team == team,
+                                      onTap:
+                                          () => setState(() => _team = team),
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         TabBar(
                           controller: _tabController,
-                          indicatorColor: _jdtGold,
-                          indicatorWeight: 3,
                           indicatorSize: TabBarIndicatorSize.label,
+                          // Rounded cap and a little inset, so the gold reads
+                          // as a deliberate marker rather than a cut edge.
+                          indicator: const UnderlineTabIndicator(
+                            borderSide: BorderSide(color: _jdtGold, width: 3),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(3),
+                            ),
+                            insets: EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          // Material 3 draws its own hairline under the whole
+                          // bar, which cuts across the red and fights the gold.
+                          dividerColor: Colors.transparent,
+                          splashFactory: NoSplash.splashFactory,
+                          overlayColor: WidgetStateProperty.all(
+                            Colors.transparent,
+                          ),
                           labelColor: Colors.white,
                           unselectedLabelColor: Colors.white.withValues(
-                            alpha: 0.55,
+                            alpha: 0.58,
                           ),
                           labelStyle: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             fontSize: 14,
+                            letterSpacing: 0.2,
                           ),
                           unselectedLabelStyle: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             fontSize: 14,
+                            letterSpacing: 0.2,
                           ),
                           tabs: const [
                             Tab(text: 'Upcoming'),
@@ -657,10 +742,32 @@ class _MatchCard extends StatelessWidget {
     'Dec',
   ];
 
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
   @override
   Widget build(BuildContext context) {
-    final dateStr =
-        '${match.matchDate.day} ${_months[match.matchDate.month - 1]} ${match.matchDate.year}';
+    // Calendar days apart, not hours: a kick-off twenty hours away can still
+    // be tomorrow, and one four hours back can still be yesterday. Both sides
+    // are flattened to midnight so the comparison is about the date on the
+    // card, not the distance between two instants.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final matchDay = DateTime(
+      match.matchDate.year,
+      match.matchDate.month,
+      match.matchDate.day,
+    );
+    final dayOffset = matchDay.difference(today).inDays;
+
+    final weekday = _weekdays[match.matchDate.weekday - 1];
+    final dateStr = switch (dayOffset) {
+      0 => 'Today · $weekday',
+      1 => 'Tomorrow · $weekday',
+      -1 => 'Yesterday · $weekday',
+      _ =>
+        '$weekday, ${match.matchDate.day} ${_months[match.matchDate.month - 1]} '
+            '${match.matchDate.year}',
+    };
     // The Results section of the source page shows a score where fixtures show
     // a kick-off, so a finished match has no time to display — rendering one
     // anyway printed "00:00" on every result. Manually added matches do carry
@@ -1075,6 +1182,14 @@ class _DateTimeButton extends StatelessWidget {
 
 /// Segmented control for picking whose fixtures to show. Deliberately plain —
 /// it sits on the crest artwork, where a heavier control would compete with it.
+/// Header geometry, named because the two have to agree: the app bar's
+/// minExtent is toolbar + bottom, and matching expandedHeight to that sum is
+/// what keeps the header from collapsing.
+const double _kToolbarHeight = 96;
+// Chips track (40) + its bottom padding (8) + TabBar (46), with headroom for
+// a larger system font scale before the column overflows its fixed height.
+const double _kTabsHeight = 100;
+
 class _TeamChip extends StatelessWidget {
   final String label;
   final bool selected;
@@ -1088,32 +1203,43 @@ class _TeamChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The selected side is a solid white pill with red text: on a red header
+    // the strongest contrast available is the absence of red, and it beats
+    // tinting white-on-white-ish, which is what the old translucent fill did.
+    const duration = Duration(milliseconds: 180);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
+      child: AnimatedContainer(
+        duration: duration,
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(vertical: 7),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color:
-              selected
-                  ? Colors.white.withValues(alpha: 0.16)
-                  : Colors.transparent,
+          color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? _jdtGold : Colors.white.withValues(alpha: 0.28),
-            width: selected ? 1.5 : 1,
-          ),
+          boxShadow:
+              selected
+                  ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                  : null,
         ),
-        child: Text(
-          label,
+        child: AnimatedDefaultTextStyle(
+          duration: duration,
+          curve: Curves.easeOut,
           style: GoogleFonts.manrope(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 13.5,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             color:
-                selected ? Colors.white : Colors.white.withValues(alpha: 0.7),
+                selected ? _jdtRedDark : Colors.white.withValues(alpha: 0.78),
           ),
+          child: Text(label),
         ),
       ),
     );
@@ -1128,30 +1254,39 @@ class _TeamChip extends StatelessWidget {
 class _TeamCrest extends StatelessWidget {
   final FootballTeam team;
 
-  const _TeamCrest({required this.team});
+  /// Side of the square the crest is drawn into. Bounded rather than free to
+  /// grow: the crest sits in the toolbar's action slot, which would otherwise
+  /// stretch it to the full toolbar height and shove the title aside.
+  final double size;
+
+  const _TeamCrest({required this.team, this.size = 38});
 
   @override
   Widget build(BuildContext context) {
     Widget shield() => Icon(
       Icons.shield_rounded,
       color: Colors.white.withValues(alpha: 0.25),
-      size: 80,
+      size: size,
     );
 
-    return Image.asset(
-      team.crestAsset,
-      fit: BoxFit.contain,
-      errorBuilder:
-          (_, __, ___) => Image.network(
-            team.crestUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => shield(),
-            // No spinner: the crest is decoration behind a title, and a flicker
-            // of progress indicator there reads as breakage.
-            loadingBuilder:
-                (context, child, progress) =>
-                    progress == null ? child : const SizedBox.shrink(),
-          ),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Image.asset(
+        team.crestAsset,
+        fit: BoxFit.contain,
+        errorBuilder:
+            (_, __, ___) => Image.network(
+              team.crestUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => shield(),
+              // No spinner: the crest is decoration beside a title, and a
+              // flicker of progress indicator there reads as breakage.
+              loadingBuilder:
+                  (context, child, progress) =>
+                      progress == null ? child : const SizedBox.shrink(),
+            ),
+      ),
     );
   }
 }

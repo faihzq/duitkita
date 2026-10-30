@@ -165,12 +165,15 @@ class AuthService {
 
   // ─── Google sign-in ─────────────────────────────────────────────────────────
 
-  /// Web OAuth client ID. Android needs this to return an ID token in some
-  /// project configurations; when null the plugin falls back to the value in
-  /// google-services.json / GoogleService-Info.plist. If sign-in succeeds but
-  /// [GoogleSignInAuthentication.idToken] comes back null, set this to the
-  /// "Web client" ID from Firebase Console → Project settings → Your apps.
-  static const String? _googleServerClientId = null;
+  /// Web OAuth client ID — the `client_type: 3` entry in google-services.json.
+  ///
+  /// Stated outright rather than left null. The plugin can read it from the
+  /// bundled config, but that fallback is what decides whether Android hands
+  /// back an ID token, and without a token there is nothing to exchange for a
+  /// Firebase session no matter how well the rest is configured. Naming it here
+  /// takes that inference out of the path.
+  static const String _googleServerClientId =
+      '375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com';
 
   bool _googleInitialized = false;
 

@@ -273,7 +273,9 @@ class JdtUpcomingCard extends ConsumerWidget {
       'Nov',
       'Dec',
     ];
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dateStr =
+        '${weekdays[match.matchDate.weekday - 1]}, '
         '${match.matchDate.day} ${months[match.matchDate.month - 1]}';
 
     return Container(
