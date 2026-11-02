@@ -572,6 +572,18 @@ class TripInput extends StatelessWidget {
 class TitleCaseFormatter extends TextInputFormatter {
   const TitleCaseFormatter();
 
+  /// [text] with each word's first letter capitalised, the rest untouched.
+  static String apply(String text) {
+    final buffer = StringBuffer();
+    var atWordStart = true;
+    for (var i = 0; i < text.length; i++) {
+      final ch = text[i];
+      buffer.write(atWordStart && _lower.hasMatch(ch) ? ch.toUpperCase() : ch);
+      atWordStart = _breaks.contains(ch);
+    }
+    return buffer.toString();
+  }
+
   static final _lower = RegExp(r'[a-z]');
   static const _breaks = {' ', '\n', '\t', '-', '/', '(', ',', '.'};
 
@@ -583,15 +595,7 @@ class TitleCaseFormatter extends TextInputFormatter {
     final text = newValue.text;
     if (text.isEmpty) return newValue;
 
-    final buffer = StringBuffer();
-    var atWordStart = true;
-    for (var i = 0; i < text.length; i++) {
-      final ch = text[i];
-      buffer.write(atWordStart && _lower.hasMatch(ch) ? ch.toUpperCase() : ch);
-      atWordStart = _breaks.contains(ch);
-    }
-
-    final result = buffer.toString();
+    final result = apply(text);
     if (result == text) return newValue;
 
     // Same length, so the incoming selection stays valid.

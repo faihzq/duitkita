@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -117,14 +119,7 @@ class HomeScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _greeting(),
-                                style: GoogleFonts.manrope(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: DT.textSecondary,
-                                ),
-                              ),
+                              const _Greeting(),
                               Text(
                                 firstName,
                                 style: GoogleFonts.manrope(
@@ -242,13 +237,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  static String _greeting() {
-    final h = DateTime.now().hour;
-    if (h >= 5 && h < 12) return 'Selamat pagi,';
-    if (h >= 12 && h < 18) return 'Selamat petang,';
-    return 'Selamat malam,';
-  }
-
   static void _showHelp(BuildContext context, WidgetRef ref, String userId) {
     showHelpSheet(
       context,
@@ -361,6 +349,52 @@ class _HelpButton extends StatelessWidget {
 }
 
 // ─── Notification bell ────────────────────────────────────────────────────────
+
+/// "Selamat pagi / petang / malam". Home sits in an IndexedStack and is rarely
+/// rebuilt, so the greeting keeps its own clock instead of saying "pagi" all
+/// day.
+class _Greeting extends StatefulWidget {
+  const _Greeting();
+
+  @override
+  State<_Greeting> createState() => _GreetingState();
+}
+
+class _GreetingState extends State<_Greeting> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  static String greetingAt(int hour) {
+    if (hour >= 5 && hour < 12) return 'Selamat pagi,';
+    if (hour >= 12 && hour < 18) return 'Selamat petang,';
+    return 'Selamat malam,';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      greetingAt(DateTime.now().hour),
+      style: GoogleFonts.manrope(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: DT.textSecondary,
+      ),
+    );
+  }
+}
 
 class _NotificationBell extends ConsumerWidget {
   final String userId;

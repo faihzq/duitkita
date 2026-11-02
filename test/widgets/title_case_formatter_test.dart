@@ -95,4 +95,12 @@ void main() {
       expect(format('langkawi '), 'Langkawi ');
     });
   });
+
+  test('apply capitalises a comma-separated dish list', () {
+    expect(
+      TitleCaseFormatter.apply('nasi lemak, roti canai'),
+      'Nasi Lemak, Roti Canai',
+    );
+    expect(TitleCaseFormatter.apply('ABC kopi'), 'ABC Kopi');
+  });
 }

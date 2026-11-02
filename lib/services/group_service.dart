@@ -243,13 +243,6 @@ class GroupService {
         await doc.reference.delete();
       }
 
-      // Delete the group's makan list
-      final spotsSnapshot =
-          await _groups.doc(groupId).collection('makan_spots').get();
-      for (var doc in spotsSnapshot.docs) {
-        await doc.reference.delete();
-      }
-
       // Delete group
       await _groups.doc(groupId).delete();
     } catch (e) {

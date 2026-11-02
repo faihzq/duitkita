@@ -144,7 +144,6 @@ class AccountDeletionService {
           // Nobody left to keep it — remove the group and its subcollections.
           await _deleteSubcollection(doc.reference.collection('members'));
           await _deleteSubcollection(doc.reference.collection('payments'));
-          await _deleteSubcollection(doc.reference.collection('makan_spots'));
           await doc.reference.delete();
           continue;
         }

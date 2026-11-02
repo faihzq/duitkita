@@ -3,14 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/config/design_tokens.dart';
+import 'package:duitkita/core/notification_route.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
 import 'package:duitkita/features/home/home_screen.dart';
 import 'package:duitkita/features/groups/groups_list_screen.dart';
 import 'package:duitkita/features/debts/debts_list_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/add_entry/add_entry_sheet.dart';
+import 'package:duitkita/features/groups/group_detail_screen.dart';
 import 'package:duitkita/features/jdt/jdt_matches_screen.dart';
+import 'package:duitkita/screens/debt_detail_screen.dart';
 import 'package:duitkita/services/match_service.dart';
 import 'package:duitkita/services/notification_service.dart';
 import 'package:duitkita/services/update_service.dart';
@@ -44,24 +48,37 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     if (mounted) setState(() {});
   }
 
-  /// Takes the user to what a tapped notification is about. A match reminder
-  /// opens the JDT tab on that team — or, with the tab turned off, the matches
-  /// screen on its own.
+  /// Takes the user to what a tapped notification is about: the group, the
+  /// bill, or the JDT tab on that team (the matches screen on its own when the
+  /// tab is turned off). The matching tab is selected underneath, so Back
+  /// lands somewhere sensible.
   void _openFromNotification(Map<String, dynamic> data, bool showJdt) {
     if (!mounted || NotificationService.tapped.value != data) return;
     NotificationService.tapped.value = null;
-    if (data['type'] != 'jdt_match') return;
+    final route = notificationRoute(data);
+    if (route == null) return;
 
-    ref.read(selectedFootballTeamProvider.notifier).state =
-        FootballTeam.fromId(data['teamId'] as String?) ?? FootballTeam.jdt;
     final navigator = Navigator.of(context);
-    navigator.popUntil((route) => route.isFirst);
-    if (showJdt) {
-      setState(() => _currentIndex = 3);
-    } else {
-      navigator.push(
-        MaterialPageRoute(builder: (_) => const JdtMatchesScreen()),
-      );
+    navigator.popUntil((r) => r.isFirst);
+    switch (route) {
+      case GroupRoute(:final groupId):
+        setState(() => _currentIndex = 1);
+        navigator.push(
+          AppTheme.slideRoute(GroupDetailScreen(groupId: groupId)),
+        );
+      case DebtRoute(:final debtId):
+        setState(() => _currentIndex = 2);
+        navigator.push(AppTheme.slideRoute(DebtDetailScreen(debtId: debtId)));
+      case MatchRoute(:final teamId):
+        ref.read(selectedFootballTeamProvider.notifier).state =
+            FootballTeam.fromId(teamId) ?? FootballTeam.jdt;
+        if (showJdt) {
+          setState(() => _currentIndex = 3);
+        } else {
+          navigator.push(
+            MaterialPageRoute(builder: (_) => const JdtMatchesScreen()),
+          );
+        }
     }
   }
 

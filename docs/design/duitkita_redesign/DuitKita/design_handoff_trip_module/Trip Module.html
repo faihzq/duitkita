@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="design_doc_mode" content="canvas"/>
+<title>DuitKita — Trips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  html,body{margin:0;padding:0;font-family:Manrope,system-ui,sans-serif;background:#E9ECF2}
+  a{color:#008C7A}a:hover{color:#00C2A8}
+  button{font-family:inherit}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</head>
+<body>
+  <div style="position:absolute;left:80px;top:60px;width:1200px">
+    <div style="font-size:34px;font-weight:800;color:#0B1F3A;letter-spacing:-0.8px">Trips</div>
+    <div style="font-size:16px;color:#5B6B82;margin-top:8px;line-height:1.5;max-width:900px">A trip module for DuitKita. Create a trip, add the people, then fill a day-by-day itinerary — each stop typed (travel, food, activity, stay, break) so the timeline reads at a glance. Flow: <b>My Trips → New Trip → Itinerary → Add a stop</b>. Populated with the real Langkawi road trip (8–14 Aug).</div>
+  </div>
+
+  <div id="p1" style="position:absolute;left:80px;top:220px"></div>
+  <div id="p2" style="position:absolute;left:600px;top:220px"></div>
+  <div id="p3" style="position:absolute;left:1120px;top:220px"></div>
+  <div id="p4" style="position:absolute;left:1640px;top:220px"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="home-redesign/base.jsx"></script>
+  <script type="text/babel" src="trip-module/screen.jsx"></script>
+  <script type="text/babel">
+    setTimeout(() => {
+      const mk = (id, label, tag, comp) =>
+        ReactDOM.createRoot(document.getElementById(id)).render(
+          <Phone label={label} tag={tag}>{comp}</Phone>
+        );
+      mk('p1', 'My Trips', 'All getaways in one place — upcoming and past, each with travellers and stop count.', <TripsList/>);
+      mk('p2', 'New Trip', 'Name it, tag the states, set the dates and travellers. One tap into the itinerary.', <NewTrip/>);
+      mk('p3', 'Itinerary', 'Day tabs across the top; a typed, colour-coded timeline for each day. Tap a day to switch.', <Itinerary activeDay={3}/>);
+      mk('p4', 'Add a stop', 'Pick the day, set a time, name the stop and its type. Optional place & note.', <AddStop/>);
+    }, 100);
+  </script>
+</body>
+</html>

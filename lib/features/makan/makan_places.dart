@@ -9,6 +9,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:duitkita/models/makan_spot.dart';
 import 'package:duitkita/features/trips/map_link.dart';
@@ -16,6 +18,29 @@ import 'package:duitkita/features/trips/map_link.dart';
 const _apiKey = String.fromEnvironment('PLACES_API_KEY');
 
 bool get placesConfigured => _apiKey.isNotEmpty;
+
+/// The headers Google checks on a key restricted to this Android app: the
+/// package name and the SHA-1 of the certificate it is signed with. Read once
+/// from the platform (Play re-signs the app, so it cannot be hard-coded).
+/// Empty off Android or if the lookup fails — an unrestricted key ignores them.
+Future<Map<String, String>> _appHeaders() =>
+    _appHeadersOnce ??= () async {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+        return const <String, String>{};
+      }
+      try {
+        final identity = await const MethodChannel(
+          'duitkita/app_identity',
+        ).invokeMapMethod<String, String?>('identity');
+        final package = identity?['package'];
+        final sha1 = identity?['sha1'];
+        if (package == null || sha1 == null) return const <String, String>{};
+        return {'X-Android-Package': package, 'X-Android-Cert': sha1};
+      } catch (_) {
+        return const <String, String>{};
+      }
+    }();
+Future<Map<String, String>>? _appHeadersOnce;
 
 /// One search result, already in the shape the form wants.
 class MakanPlace {
@@ -192,6 +217,7 @@ Future<List<MakanPlace>> searchPlaces(
         .post(
           Uri.parse('https://places.googleapis.com/v1/places:searchText'),
           headers: {
+            ...await _appHeaders(),
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': _apiKey,
             'X-Goog-FieldMask': _fields.join(','),

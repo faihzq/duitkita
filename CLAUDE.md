@@ -74,4 +74,4 @@ Material 3. Primary: `#6A1B9A` (purple). Accent: `#00BFA5` (teal). Section accen
 Plain Dart classes with `fromMap(Map, id)` / `toMap()`. Key models: `GroupModel`, `GroupMember`, `PaymentModel`, `DebtModel`, `UserProfile`.
 
 ### Pending Redesign
-`design_handoff_duitkita_redesign/` contains JSX + HTML design references for a full app redesign. Implementation has not started. New screens go in `lib/features/<feature>/` using Riverpod + Navigator (not Bloc/GoRouter despite what the design docs may imply).
+`docs/design/duitkita_redesign/` (and `docs/design/home_focus/`) contain JSX + HTML design references for a full app redesign. Implementation has not started. New screens go in `lib/features/<feature>/` using Riverpod + Navigator (not Bloc/GoRouter despite what the design docs may imply).

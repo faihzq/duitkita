@@ -144,7 +144,7 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
     final items =
         _menuInput.text
             .split(',')
-            .map((e) => e.trim())
+            .map((e) => TitleCaseFormatter.apply(e.trim()))
             .where((e) => e.isNotEmpty)
             .toList();
     if (items.isEmpty) return;
@@ -165,7 +165,7 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
   /// stands in for but keeping anything typed before the last comma.
   void _addSuggested(String item) {
     setState(() {
-      _menu.add(item);
+      _menu.add(TitleCaseFormatter.apply(item));
       final parts = _menuInput.text.split(',')..removeLast();
       _menuInput.text = parts.isEmpty ? '' : '${parts.join(',').trim()}, ';
       _menuInput.selection = TextSelection.collapsed(
@@ -402,8 +402,8 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                                 icon: Icons.restaurant_menu_outlined,
                                 child: TextField(
                                   controller: _menuInput,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
+                                  textCapitalization: TextCapitalization.words,
+                                  inputFormatters: const [TitleCaseFormatter()],
                                   textInputAction: TextInputAction.done,
                                   onChanged: (_) => setState(() {}),
                                   onSubmitted: (_) => _addMenu(),

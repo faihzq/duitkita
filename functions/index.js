@@ -560,7 +560,12 @@ exports.onFundLoanUpdated = onDocumentUpdated(
           ? `Your request for RM${amount.toFixed(2)} ("${title}") was approved`
           : `Your request for "${title}" was rejected`,
       },
-      data: { type: "fund_loan_decision", loanId: event.params.loanId, status: after.status },
+      data: {
+        type: "fund_loan_decision",
+        groupId: after.groupId || "",
+        loanId: event.params.loanId,
+        status: after.status,
+      },
     });
     console.log(`Notified borrower ${borrowerId} of fund-loan ${after.status}`);
   }

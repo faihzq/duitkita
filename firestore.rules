@@ -101,17 +101,13 @@ service cloud.firestore {
                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPaid', 'paymentCount'])));
       }
 
-      // Group makan list — no longer written by the app (spots now live in
-      // the shared top-level list). Kept so old spots can still be read and
-      // cleaned up when a group or account is deleted.
+      // Group makan lists — retired; spots now live in the shared top-level
+      // list. Only read and delete remain, because app versions before 1.3.1
+      // still clear this subcollection when deleting a group or an account,
+      // and a denied read would make that fail. Remove this block once nobody
+      // runs an older version.
       match /makan_spots/{spotId} {
         allow read: if isGroupMember(groupId);
-
-        allow create: if isGroupMember(groupId) &&
-                         request.resource.data.addedBy == request.auth.uid;
-
-        allow update: if isGroupMember(groupId) &&
-                         request.resource.data.addedBy == resource.data.addedBy;
 
         allow delete: if isSignedIn() &&
                          (resource.data.addedBy == request.auth.uid ||
