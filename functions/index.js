@@ -5,6 +5,9 @@ const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getStorage } = require("firebase-admin/storage");
+const crypto = require("crypto");
+const sharp = require("sharp");
 
 // Google Maps Routes key — set with:
 //   firebase functions:secrets:set MAPS_API_KEY
@@ -203,6 +206,8 @@ async function sendNotification(userId, message) {
       ...message,
       android: {
         priority: "high",
+        // Caller extras (ttl, collapseKey) survive; notification is merged below.
+        ...(message.android || {}),
         notification: {
           channelId: "push_notifications",
           icon: "@mipmap/ic_launcher",
@@ -774,12 +779,13 @@ function malaysianParts(date) {
   };
 }
 
+/** "6:00 PM" — the 12-hour clock the app shows everywhere else. */
 function malaysianTime(date) {
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: KL_ZONE,
-    hourCycle: "h23",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   }).format(date);
 }
 
@@ -803,24 +809,125 @@ function reminderKind(now, kickoff) {
   return null;
 }
 
+/**
+ * The followed side by its short name, the other by its full one, in the
+ * home-vs-away order a fixture list uses: "Jeonbuk Hyundai Motors vs JDT".
+ */
+function fixtureLine(event, team) {
+  const home = event.idHomeTeam === team.id ? team.label : event.strHomeTeam;
+  const away = event.idAwayTeam === team.id ? team.label : event.strAwayTeam;
+  return `${home} vs ${away}`;
+}
+
+/**
+ * Short, glanceable copy: the title alone says who and when; the body adds
+ * the fixture, competition and ground for anyone who expands it.
+ */
 function reminderMessage(event, kickoff, kind, team) {
-  const playingAtHome = event.idHomeTeam === team.id;
-  const opponent = playingAtHome ? event.strAwayTeam : event.strHomeTeam;
-  const where = playingAtHome ? "at home" : "away";
   const time = malaysianTime(kickoff);
-  const competition = event.strLeague || "Match";
+  const fixture = fixtureLine(event, team);
+  const details = [event.strLeague, event.strVenue].filter(Boolean).join(" · ");
 
   if (kind === "kickoff") {
     return {
-      title: `${team.label} kick off in an hour`,
-      body: `${team.label} vs ${opponent} at ${time}. ${competition}.`,
+      title: `⏱️ ${team.label} kick off in 1 hour`,
+      body: [`${fixture} at ${time}`, event.strLeague]
+        .filter(Boolean)
+        .join(" · "),
     };
   }
   return {
-    title: `${team.label} play today`,
-    body: `${team.label} vs ${opponent} ${where} at ${time}. ${competition}.`,
+    title: `⚽ ${team.label} play today at ${time}`,
+    body: [fixture, details].filter(Boolean).join(" · "),
   };
 }
+
+/**
+ * Both crests side by side, home on the left, for the notification's big
+ * picture. Drawn once per fixture and kept in Storage; a download-token URL
+ * lets FCM fetch it without opening the bucket. Null on any failure — the
+ * reminder still goes out, just without a picture.
+ *
+ * No text on the image: the function's runtime has no reliable fonts, and
+ * the notification already says who is playing.
+ */
+async function crestImageUrl(event) {
+  try {
+    const bucket = getStorage().bucket();
+    const file = bucket.file(`notifications/jdt/${event.idEvent}.png`);
+
+    const [exists] = await file.exists();
+    if (exists) {
+      const [meta] = await file.getMetadata();
+      const token = meta.metadata?.firebaseStorageDownloadTokens;
+      if (token) return downloadUrl(bucket.name, file.name, token);
+    }
+
+    const image = await drawCrests(event);
+    if (!image) return null;
+
+    const token = crypto.randomUUID();
+    await file.save(image, {
+      contentType: "image/png",
+      metadata: {
+        cacheControl: "public, max-age=604800",
+        metadata: { firebaseStorageDownloadTokens: token },
+      },
+    });
+    return downloadUrl(bucket.name, file.name, token);
+  } catch (error) {
+    console.error("Could not build the crest image:", error);
+    return null;
+  }
+}
+
+/** The crest picture as PNG bytes, or null when a badge is missing. */
+async function drawCrests(event) {
+  const badges = [event.strHomeTeamBadge, event.strAwayTeamBadge];
+  if (badges.some((b) => !b)) return null;
+
+  // Kept small and central: collapsed, Android shows the picture as a square
+  // thumbnail cut from the middle, which must still hold both crests.
+  const size = 230;
+  const gap = 40;
+  const crests = await Promise.all(
+    badges.map(async (url) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`badge HTTP ${response.status}`);
+      return sharp(Buffer.from(await response.arrayBuffer()))
+        .resize(size, size, { fit: "contain", background: TRANSPARENT })
+        .png()
+        .toBuffer();
+    })
+  );
+
+  // 2:1 suits Android's big-picture layout. Navy matches the app's hero.
+  const width = 1024;
+  const height = 512;
+  const top = (height - size) / 2;
+  const left = (width - (size * 2 + gap)) / 2;
+  const dot = Buffer.from(
+    `<svg width="${width}" height="${height}">` +
+      `<circle cx="${width / 2}" cy="${height / 2}" r="6" fill="#ffffff" fill-opacity="0.55"/>` +
+      "</svg>"
+  );
+  return sharp({
+    create: { width, height, channels: 4, background: "#0b1f3a" },
+  })
+    .composite([
+      { input: crests[0], left, top },
+      { input: crests[1], left: left + size + gap, top },
+      { input: dot, left: 0, top: 0 },
+    ])
+    .png()
+    .toBuffer();
+}
+
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
+
+const downloadUrl = (bucket, path, token) =>
+  `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/` +
+  `${encodeURIComponent(path)}?alt=media&token=${token}`;
 
 /**
  * Sends at most two pushes per fixture: one on the morning of the match, one an
@@ -908,9 +1015,32 @@ async function remindForTeam(team, recipients) {
   }
 
   const message = reminderMessage(event, kickoff, kind, team);
+  const image = await crestImageUrl(event);
+  // Useless once the match has started, so let FCM drop it rather than
+  // deliver it late to a phone that was off. At least a minute, in case the
+  // run is late and kick-off is very close.
+  const ttl = Math.max(kickoff.getTime() - Date.now(), 60 * 1000);
+
   for (const userDoc of recipients.docs) {
     await sendNotification(userDoc.id, {
-      notification: message,
+      notification: { ...message, ...(image ? { imageUrl: image } : {}) },
+      android: {
+        ttl,
+        notification: {
+          channelId: "match_reminders",
+          // Same tag for both reminders of a fixture: the kick-off one
+          // replaces the morning one instead of stacking under it.
+          tag: `jdt_${event.idEvent}`,
+        },
+      },
+      apns: {
+        headers: {
+          "apns-expiration": String(Math.floor(kickoff.getTime() / 1000)),
+          "apns-collapse-id": `jdt_${event.idEvent}`,
+        },
+        payload: { aps: { "mutable-content": 1 } },
+        ...(image ? { fcmOptions: { imageUrl: image } } : {}),
+      },
       data: {
         type: "jdt_match",
         eventId: String(event.idEvent),
@@ -927,4 +1057,4 @@ async function remindForTeam(team, recipients) {
 }
 
 // Exported for local checks of the timing rules, which are the fiddly part.
-exports._jdtInternals = { reminderKind, reminderMessage };
+exports._jdtInternals = { reminderKind, reminderMessage, drawCrests };

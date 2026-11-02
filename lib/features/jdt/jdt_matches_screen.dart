@@ -29,9 +29,9 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  /// Which side's fixtures are on screen. JDT first — it is what the tab was
-  /// built for and what most people open it to see.
-  FootballTeam _team = FootballTeam.jdt;
+  /// Which side's fixtures are on screen (JDT unless a match notification
+  /// asked for another). Only read while building.
+  FootballTeam get _team => ref.watch(selectedFootballTeamProvider);
 
   @override
   void initState() {
@@ -208,7 +208,13 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                                       label: team.label,
                                       selected: _team == team,
                                       onTap:
-                                          () => setState(() => _team = team),
+                                          () =>
+                                              ref
+                                                  .read(
+                                                    selectedFootballTeamProvider
+                                                        .notifier,
+                                                  )
+                                                  .state = team,
                                     ),
                                   ),
                               ],
@@ -222,9 +228,7 @@ class _JdtMatchesScreenState extends ConsumerState<JdtMatchesScreen>
                           // as a deliberate marker rather than a cut edge.
                           indicator: const UnderlineTabIndicator(
                             borderSide: BorderSide(color: _jdtGold, width: 3),
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(3),
-                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(3)),
                             insets: EdgeInsets.symmetric(horizontal: 4),
                           ),
                           // Material 3 draws its own hairline under the whole

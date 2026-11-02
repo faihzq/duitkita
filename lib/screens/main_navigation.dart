@@ -11,6 +11,8 @@ import 'package:duitkita/features/debts/debts_list_screen.dart';
 import 'package:duitkita/features/profile/profile_screen.dart';
 import 'package:duitkita/features/add_entry/add_entry_sheet.dart';
 import 'package:duitkita/features/jdt/jdt_matches_screen.dart';
+import 'package:duitkita/services/match_service.dart';
+import 'package:duitkita/services/notification_service.dart';
 import 'package:duitkita/services/update_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 
@@ -24,6 +26,44 @@ class MainNavigation extends ConsumerStatefulWidget {
 class _MainNavigationState extends ConsumerState<MainNavigation> {
   int _currentIndex = 0;
   bool _checkedUpdate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.tapped.addListener(_onNotificationTapped);
+  }
+
+  @override
+  void dispose() {
+    NotificationService.tapped.removeListener(_onNotificationTapped);
+    super.dispose();
+  }
+
+  // Handled in build, once the profile says whether the JDT tab exists.
+  void _onNotificationTapped() {
+    if (mounted) setState(() {});
+  }
+
+  /// Takes the user to what a tapped notification is about. A match reminder
+  /// opens the JDT tab on that team — or, with the tab turned off, the matches
+  /// screen on its own.
+  void _openFromNotification(Map<String, dynamic> data, bool showJdt) {
+    if (!mounted || NotificationService.tapped.value != data) return;
+    NotificationService.tapped.value = null;
+    if (data['type'] != 'jdt_match') return;
+
+    ref.read(selectedFootballTeamProvider.notifier).state =
+        FootballTeam.fromId(data['teamId'] as String?) ?? FootballTeam.jdt;
+    final navigator = Navigator.of(context);
+    navigator.popUntil((route) => route.isFirst);
+    if (showJdt) {
+      setState(() => _currentIndex = 3);
+    } else {
+      navigator.push(
+        MaterialPageRoute(builder: (_) => const JdtMatchesScreen()),
+      );
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -71,6 +111,13 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final profileAsync =
         userId != null ? ref.watch(userProfileStreamProvider(userId)) : null;
     final showJdt = profileAsync?.valueOrNull?.showJdtMatches ?? false;
+
+    final tap = NotificationService.tapped.value;
+    if (tap != null && (profileAsync?.hasValue ?? true)) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openFromNotification(tap, showJdt),
+      );
+    }
 
     final screens = <Widget>[
       HomeScreen(onTabChange: (i) => setState(() => _currentIndex = i)),

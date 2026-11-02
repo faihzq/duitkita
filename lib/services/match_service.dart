@@ -51,6 +51,15 @@ enum FootballTeam {
   final String crestUrl;
 
   String get pageUrl => 'https://www.thesportsdb.com/team/$id';
+
+  /// The team with TheSportsDB id [id] — how a match notification says which
+  /// side it is about.
+  static FootballTeam? fromId(String? id) {
+    for (final team in values) {
+      if (team.id == id) return team;
+    }
+    return null;
+  }
 }
 
 class MatchService {
@@ -645,3 +654,9 @@ final recentResultsProvider =
       final matchService = ref.watch(matchServiceProvider);
       return matchService.fetchRecentResults(team: team);
     });
+
+/// The side the JDT tab is showing. A provider rather than screen state so a
+/// tapped match notification can switch it before the tab is shown.
+final selectedFootballTeamProvider = StateProvider<FootballTeam>(
+  (ref) => FootballTeam.jdt,
+);
