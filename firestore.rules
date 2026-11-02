@@ -101,8 +101,9 @@ service cloud.firestore {
                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPaid', 'paymentCount'])));
       }
 
-      // Group makan list — shared places to eat. Any member adds or edits;
-      // only whoever added a spot, a group admin or the creator removes it.
+      // Group makan list — no longer written by the app (spots now live in
+      // the shared top-level list). Kept so old spots can still be read and
+      // cleaned up when a group or account is deleted.
       match /makan_spots/{spotId} {
         allow read: if isGroupMember(groupId);
 
@@ -280,17 +281,19 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Personal makan spots — private to whoever added them.
+    // Makan spots — one list shared by everyone signed in (the app is used by
+    // one family). Anyone adds or edits; only whoever added a spot removes it.
     match /makan_spots/{spotId} {
-      allow read, delete: if isSignedIn() &&
-                             request.auth.uid == resource.data.addedBy;
+      allow read: if isSignedIn();
 
       allow create: if isSignedIn() &&
                        request.auth.uid == request.resource.data.addedBy;
 
       allow update: if isSignedIn() &&
-                       request.auth.uid == resource.data.addedBy &&
                        request.resource.data.addedBy == resource.data.addedBy;
+
+      allow delete: if isSignedIn() &&
+                       request.auth.uid == resource.data.addedBy;
     }
 
     // Debts collection (personal debt tracking)

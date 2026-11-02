@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:duitkita/features/makan/makan_home_card.dart';
 import 'package:duitkita/models/makan_spot.dart';
@@ -27,13 +26,10 @@ void main() {
     await tester.pumpWidget(
       testApp(
         const Scaffold(
-          body: Padding(
-            padding: EdgeInsets.all(20),
-            child: MakanHomeCard(userId: 'uid-1'),
-          ),
+          body: Padding(padding: EdgeInsets.all(20), child: MakanHomeCard()),
         ),
         extraOverrides: [
-          allMakanSpotsProvider('uid-1').overrideWithValue(AsyncData(spots)),
+          makanSpotsProvider.overrideWith((ref) => Stream.value(spots)),
         ],
       ),
     );

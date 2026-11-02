@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
-import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/makan_spot.dart';
-import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/makan_service.dart';
 import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/makan/makan_filter.dart';
 import 'package:duitkita/features/makan/makan_geo.dart';
 import 'package:duitkita/features/makan/makan_hours_editor.dart';
+import 'package:duitkita/features/makan/makan_import_sheet.dart';
 import 'package:duitkita/features/makan/makan_location.dart';
+import 'package:duitkita/features/makan/makan_places.dart';
 import 'package:duitkita/features/makan/makan_style.dart';
 import 'package:duitkita/features/makan/makan_widgets.dart';
 import 'package:duitkita/features/trips/map_link.dart';
@@ -39,15 +39,49 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
   late List<String> _menu;
   late WeeklyHours _hours;
 
-  /// Where a new spot is saved: null for personal, else a group id. Fixed once
-  /// created — moving between lists would mean a different document path.
-  String? _groupId;
   bool _saving = false;
 
   /// A GPS pin taken while standing at the spot. Wins over coordinates read
   /// off the Maps link, since it is where the user actually ate.
   LatLng? _pin;
   bool _locating = false;
+
+  /// Bumped when hours are replaced from outside the editor (Google fill), so
+  /// the editor, which only reads its initial value, is rebuilt.
+  int _hoursVersion = 0;
+
+  /// The Maps link a Google fill put in the location field, and the exact
+  /// coordinates it stands for — saved as-is instead of re-resolving the link.
+  String? _importedLink;
+  String? _importedQuery;
+
+  Future<void> _fillFromGoogle() async {
+    final place = await showMakanImportSheet(context);
+    if (place == null || !mounted) return;
+    setState(() {
+      _name.text = place.name;
+      if (place.area != null) _area.text = place.area!;
+      _categories.addAll(place.categories);
+      if (place.hours.isNotEmpty) {
+        _hours = {
+          for (final e in place.hours.entries) e.key: [...e.value],
+        };
+        _hoursVersion++;
+      }
+      if (place.mapsUri != null && place.query != null) {
+        _map.text = place.mapsUri!;
+        _importedLink = place.mapsUri;
+        _importedQuery = place.query;
+        _pin = null;
+      }
+    });
+    showSnackBar(
+      context,
+      place.hours.isEmpty
+          ? 'Filled in — Google has no hours for it, so add them below'
+          : 'Filled in — check the hours, then add the menu',
+    );
+  }
 
   Future<void> _pinHere() async {
     setState(() => _locating = true);
@@ -85,7 +119,6 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
     _categories = {...?s?.categories};
     _menu = [...?s?.menu];
     _hours = {...?s?.hours};
-    _groupId = s?.groupId;
     // Stored lat/lng is only a pin if it did not come from the link; otherwise
     // changing the link would leave the old coordinates behind.
     if (s != null && s.lat != null && s.lng != null) {
@@ -124,10 +157,28 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
     });
   }
 
+  /// The dish being typed: what follows the last comma.
+  String get _menuFragment =>
+      _menuInput.text.split(',').last.trim().toLowerCase();
+
+  /// Adds a dish picked from other spots, dropping the half-typed fragment it
+  /// stands in for but keeping anything typed before the last comma.
+  void _addSuggested(String item) {
+    setState(() {
+      _menu.add(item);
+      final parts = _menuInput.text.split(',')..removeLast();
+      _menuInput.text = parts.isEmpty ? '' : '${parts.join(',').trim()}, ';
+      _menuInput.selection = TextSelection.collapsed(
+        offset: _menuInput.text.length,
+      );
+    });
+  }
+
   /// Turns whatever was pasted into a directions destination. A Maps link is
   /// resolved to coordinates or a place name; plain text is already a name.
   Future<String?> _resolveMap(String link) async {
     if (link.isEmpty) return null;
+    if (link == _importedLink) return _importedQuery;
     final prev = widget.spot;
     if (prev != null && prev.mapLink == link) return prev.mapQuery;
     if (!looksLikeMapUrl(link)) return link;
@@ -156,55 +207,72 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
       final service = ref.read(makanServiceProvider);
       final prev = widget.spot;
 
+      // Firestore keeps the write on the phone and syncs it later, but its
+      // future only finishes once the server confirms. On a weak signal that
+      // can take forever, so stop waiting after a while: the spot is saved.
+      Future<bool> confirmed(Future<Object?> write) => write
+          .then((_) => true)
+          .timeout(const Duration(seconds: 10), onTimeout: () => false);
+
+      final bool synced;
       if (prev != null) {
-        await service.updateSpot(
-          MakanSpot(
-            id: prev.id,
-            groupId: prev.groupId,
-            name: name,
-            area: area,
-            categories: _categories.toList(),
-            menu: _menu,
-            hours: _hours,
-            mapLink: link.isEmpty ? null : link,
-            mapQuery: query,
-            lat: coords?.lat,
-            lng: coords?.lng,
-            notes: notes.isEmpty ? null : notes,
-            addedBy: prev.addedBy,
-            addedByName: prev.addedByName,
-            createdAt: prev.createdAt,
-            updatedAt: DateTime.now(),
+        synced = await confirmed(
+          service.updateSpot(
+            MakanSpot(
+              id: prev.id,
+              name: name,
+              area: area,
+              categories: _categories.toList(),
+              menu: _menu,
+              hours: _hours,
+              mapLink: link.isEmpty ? null : link,
+              mapQuery: query,
+              lat: coords?.lat,
+              lng: coords?.lng,
+              notes: notes.isEmpty ? null : notes,
+              addedBy: prev.addedBy,
+              addedByName: prev.addedByName,
+              createdAt: prev.createdAt,
+              updatedAt: DateTime.now(),
+            ),
           ),
         );
       } else {
         final profile =
             ref.read(userProfileStreamProvider(user.uid)).valueOrNull;
         final now = DateTime.now();
-        await service.addSpot(
-          MakanSpot(
-            id: '',
-            name: name,
-            area: area,
-            categories: _categories.toList(),
-            menu: _menu,
-            hours: _hours,
-            mapLink: link.isEmpty ? null : link,
-            mapQuery: query,
-            lat: coords?.lat,
-            lng: coords?.lng,
-            notes: notes.isEmpty ? null : notes,
-            addedBy: user.uid,
-            addedByName: profile?.name ?? user.displayName ?? '',
-            createdAt: now,
-            updatedAt: now,
+        synced = await confirmed(
+          service.addSpot(
+            MakanSpot(
+              id: '',
+              name: name,
+              area: area,
+              categories: _categories.toList(),
+              menu: _menu,
+              hours: _hours,
+              mapLink: link.isEmpty ? null : link,
+              mapQuery: query,
+              lat: coords?.lat,
+              lng: coords?.lng,
+              notes: notes.isEmpty ? null : notes,
+              addedBy: user.uid,
+              addedByName: profile?.name ?? user.displayName ?? '',
+              createdAt: now,
+              updatedAt: now,
+            ),
           ),
-          groupId: _groupId,
         );
       }
       if (!mounted) return;
       Navigator.of(context).pop();
-      showSnackBar(context, _editing ? 'Spot updated' : 'Spot added');
+      showSnackBar(
+        context,
+        !synced
+            ? 'Saved on your phone — it will sync when your connection is back'
+            : _editing
+            ? 'Spot updated'
+            : 'Spot added',
+      );
     } catch (e) {
       if (mounted) showSnackBar(context, 'Could not save: $e', isError: true);
     } finally {
@@ -214,18 +282,19 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
-    final groups =
-        userId == null
-            ? const <GroupModel>[]
-            : ref.watch(userGroupsStreamProvider(userId)).valueOrNull ??
-                const <GroupModel>[];
-    final knownAreas =
-        userId == null
-            ? const <String>[]
-            : makanAreas(
-              ref.watch(allMakanSpotsProvider(userId)).valueOrNull ?? const [],
-            );
+    final allSpots = ref.watch(makanSpotsProvider).valueOrNull ?? const [];
+    final knownAreas = makanAreas(allSpots);
+    final fragment = _menuFragment;
+    final chosen = {for (final m in _menu) m.toLowerCase()};
+    final menuHints =
+        makanMenuItems(allSpots)
+            .where(
+              (m) =>
+                  !chosen.contains(m.toLowerCase()) &&
+                  (fragment.isEmpty || m.toLowerCase().contains(fragment)),
+            )
+            .take(12)
+            .toList();
     final typedArea = _area.text.trim().toLowerCase();
     final areaHints =
         knownAreas
@@ -251,6 +320,10 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(DS.xl, 0, DS.xl, 24),
                 children: [
+                  if (placesConfigured && !_editing) ...[
+                    _GoogleFillButton(onTap: _fillFromGoogle),
+                    const SizedBox(height: 16),
+                  ],
                   TripField(
                     label: 'Name',
                     child: TripInput(
@@ -332,6 +405,7 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                                   textCapitalization:
                                       TextCapitalization.sentences,
                                   textInputAction: TextInputAction.done,
+                                  onChanged: (_) => setState(() {}),
                                   onSubmitted: (_) => _addMenu(),
                                   cursorColor: DT.accent,
                                   style: GoogleFonts.manrope(
@@ -390,6 +464,30 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                             ],
                           ),
                         ],
+                        if (menuHints.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Tap to add from other spots',
+                            style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: DT.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final m in menuHints)
+                                MakanChip(
+                                  label: '+ $m',
+                                  selected: false,
+                                  onTap: () => _addSuggested(m),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -400,6 +498,7 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                         'A closing time before the opening time means it '
                         'stays open past midnight.',
                     child: MakanHoursEditor(
+                      key: ValueKey(_hoursVersion),
                       initial: _hours,
                       onChanged: (h) => _hours = h,
                     ),
@@ -468,31 +567,6 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                       ),
                     ),
                   ),
-
-                  if (!_editing && groups.isNotEmpty)
-                    TripField(
-                      label: 'Save to',
-                      hint:
-                          'Spots in a group list can be seen and edited by '
-                          'everyone in that group.',
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          MakanChip(
-                            label: 'My spots',
-                            selected: _groupId == null,
-                            onTap: () => setState(() => _groupId = null),
-                          ),
-                          for (final g in groups)
-                            MakanChip(
-                              label: '${g.iconEmoji ?? '👥'} ${g.name}',
-                              selected: _groupId == g.id,
-                              onTap: () => setState(() => _groupId = g.id),
-                            ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -503,6 +577,55 @@ class _MakanSpotFormScreenState extends ConsumerState<MakanSpotFormScreen> {
                 onTap: _save,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleFillButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _GoogleFillButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: DT.catMakanSoft,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.travel_explore_rounded, color: DT.catMakan),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fill from Google Maps',
+                    style: GoogleFonts.manrope(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: DT.text,
+                    ),
+                  ),
+                  Text(
+                    'Name, area, location and hours in one go',
+                    style: GoogleFonts.manrope(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: DT.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: DT.textTertiary),
           ],
         ),
       ),

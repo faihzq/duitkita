@@ -8,9 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
-import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/makan_spot.dart';
-import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/makan_service.dart';
 import 'package:duitkita/features/makan/makan_filter.dart';
 import 'package:duitkita/features/makan/makan_geo.dart';
@@ -39,7 +37,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
   MealPeriod? _meal;
   bool _anyTime = false;
   String? _area;
-  String? _source;
 
   /// "Near me": sorted by distance from [_here]. The position is read once per
   /// toggle (and on refresh), not tracked — a meal decision, not navigation.
@@ -108,11 +105,9 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
   }
 
   void _open(MakanSpot s) {
-    Navigator.of(context).push(
-      AppTheme.slideRoute(
-        MakanSpotDetailScreen(spotId: s.id, groupId: s.groupId),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(AppTheme.slideRoute(MakanSpotDetailScreen(spotId: s.id)));
   }
 
   void _new() {
@@ -144,20 +139,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
     );
     if (picked == null) return;
     setState(() => _area = picked.isEmpty ? null : picked);
-  }
-
-  Future<void> _pickSource(List<GroupModel> groups) async {
-    final picked = await _showOptions(
-      title: 'List',
-      options: [
-        ('', 'All lists'),
-        (makanSourceMine, 'My spots'),
-        for (final g in groups) (g.id, g.name),
-      ],
-      selected: _source ?? '',
-    );
-    if (picked == null) return;
-    setState(() => _source = picked.isEmpty ? null : picked);
   }
 
   Future<String?> _showOptions({
@@ -203,10 +184,7 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
     );
   }
 
-  Future<void> _pickForMe(
-    List<MakanSpot> pool,
-    Map<String, String> groupNames,
-  ) async {
+  Future<void> _pickForMe(List<MakanSpot> pool) async {
     if (pool.isEmpty) return;
     HapticFeedback.mediumImpact();
     var pick = pool[_random.nextInt(pool.length)];
@@ -226,7 +204,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
                         MakanSpotCard(
                           spot: pick,
                           now: _now,
-                          groupName: groupNames[pick.groupId],
                           onTap: () {
                             Navigator.pop(ctx);
                             _open(pick);
@@ -281,12 +258,8 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
     if (userId == null) return const SizedBox.shrink();
 
-    final spotsAsync = ref.watch(allMakanSpotsProvider(userId));
+    final spotsAsync = ref.watch(makanSpotsProvider);
     final spots = spotsAsync.valueOrNull ?? const <MakanSpot>[];
-    final groups =
-        ref.watch(userGroupsStreamProvider(userId)).valueOrNull ??
-        const <GroupModel>[];
-    final groupNames = {for (final g in groups) g.id: g.name};
 
     final result = filterSpots(
       spots,
@@ -294,7 +267,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
         meal: _meal,
         anyTime: _anyTime,
         area: _area,
-        source: _source,
         text: _search.text,
       ),
       _now,
@@ -319,12 +291,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
     final pickPool = _nearMe && nearby.length > 1 ? nearby : available;
     final areas = makanAreas(spots);
     final current = mealPeriodFor(_now);
-
-    final sourceLabel = switch (_source) {
-      null => 'All lists',
-      makanSourceMine => 'My spots',
-      final id => groupNames[id] ?? 'Group',
-    };
 
     return Scaffold(
       backgroundColor: DT.bg,
@@ -425,7 +391,7 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
               ),
               const SizedBox(height: 8),
 
-              // ── Where / which list ────────────────────────────
+              // ── Where ─────────────────────────────────────────
               SizedBox(
                 height: 38,
                 child: ListView(
@@ -444,15 +410,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
                       trailingIcon: Icons.keyboard_arrow_down_rounded,
                       onTap: () => _pickArea(areas),
                     ),
-                    if (groups.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      MakanChip(
-                        label: sourceLabel,
-                        selected: _source != null,
-                        trailingIcon: Icons.keyboard_arrow_down_rounded,
-                        onTap: () => _pickSource(groups),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -465,7 +422,7 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
                     _SectionHead(_heading(available.length)),
                     if (_nearMe && distances.isEmpty)
                       const _Hint(
-                        'None of your spots has a location yet. Paste a '
+                        'None of the spots has a location yet. Paste a '
                         'Google Maps link or pin it with "I\'m here now" '
                         'when editing a spot.',
                       ),
@@ -478,7 +435,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
                           child: MakanSpotCard(
                             spot: s,
                             now: _now,
-                            groupName: groupNames[s.groupId],
                             highlight: result.menuHits[s.id] ?? const [],
                             distanceKm: distances[s.id],
                             onTap: () => _open(s),
@@ -497,7 +453,6 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
                                 child: MakanSpotCard(
                                   spot: s,
                                   now: _now,
-                                  groupName: groupNames[s.groupId],
                                   highlight: result.menuHits[s.id] ?? const [],
                                   distanceKm: distances[s.id],
                                   onTap: () => _open(s),
@@ -517,7 +472,7 @@ class _MakanListScreenState extends ConsumerState<MakanListScreen> {
       floatingActionButton:
           pickPool.length > 1
               ? FloatingActionButton.extended(
-                onPressed: () => _pickForMe(pickPool, groupNames),
+                onPressed: () => _pickForMe(pickPool),
                 backgroundColor: DT.catMakan,
                 foregroundColor: Colors.white,
                 icon: const Icon(Icons.casino_outlined),

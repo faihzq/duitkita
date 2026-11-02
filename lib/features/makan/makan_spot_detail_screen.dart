@@ -5,11 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:duitkita/config/app_theme.dart';
 import 'package:duitkita/config/design_tokens.dart';
 import 'package:duitkita/controllers/auth_controller.dart';
-import 'package:duitkita/models/group_model.dart';
 import 'package:duitkita/models/makan_spot.dart';
-import 'package:duitkita/services/group_service.dart';
 import 'package:duitkita/services/makan_service.dart';
-import 'package:duitkita/services/profile_service.dart';
 import 'package:duitkita/utils/utils.dart';
 import 'package:duitkita/features/makan/makan_hours.dart';
 import 'package:duitkita/features/makan/makan_spot_form_screen.dart';
@@ -19,9 +16,8 @@ import 'package:duitkita/features/trips/trip_widgets.dart';
 
 class MakanSpotDetailScreen extends ConsumerWidget {
   final String spotId;
-  final String? groupId;
 
-  const MakanSpotDetailScreen({super.key, required this.spotId, this.groupId});
+  const MakanSpotDetailScreen({super.key, required this.spotId});
 
   Future<void> _launch(BuildContext context, Uri url, String app) async {
     final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -52,9 +48,7 @@ class MakanSpotDetailScreen extends ConsumerWidget {
               ),
             ),
             content: Text(
-              spot.isShared
-                  ? '“${spot.name}” will be removed for everyone in the group.'
-                  : '“${spot.name}” will be removed from your list.',
+              '“${spot.name}” will be removed for everyone.',
               style: GoogleFonts.manrope(
                 fontSize: 13.5,
                 color: DT.textSecondary,
@@ -87,168 +81,11 @@ class MakanSpotDetailScreen extends ConsumerWidget {
     }
   }
 
-  /// Copy into another list: a group (to share it) or the user's own spots.
-  Future<void> _copy(
-    BuildContext context,
-    WidgetRef ref,
-    MakanSpot spot,
-    List<({String? groupId, String label})> targets,
-  ) async {
-    final target = await showModalBottomSheet<
-      ({String? groupId, String label})
-    >(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder:
-          (ctx) => Container(
-            decoration: const BoxDecoration(
-              color: DT.bg,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: EdgeInsets.only(
-              top: 18,
-              bottom: 8 + MediaQuery.of(ctx).padding.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(DS.xl, 0, DS.xl, 2),
-                  child: Text(
-                    spot.isShared ? 'Copy to…' : 'Share to a group',
-                    style: GoogleFonts.manrope(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: DT.text,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(DS.xl, 0, DS.xl, 8),
-                  child: Text(
-                    'A copy is made, so later edits stay in their own list.',
-                    style: GoogleFonts.manrope(
-                      fontSize: 12.5,
-                      color: DT.textSecondary,
-                    ),
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final t in targets)
-                        ListTile(
-                          onTap: () => Navigator.pop(ctx, t),
-                          leading: Icon(
-                            t.groupId == null
-                                ? Icons.person_outline_rounded
-                                : Icons.group_outlined,
-                            color: DT.textSecondary,
-                          ),
-                          title: Text(
-                            t.label,
-                            style: GoogleFonts.manrope(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: DT.text,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-    );
-    if (target == null || !context.mounted) return;
-
-    final user = ref.read(authControllerProvider.notifier).currentUser;
-    if (user == null) return;
-    final service = ref.read(makanServiceProvider);
-    try {
-      final dupe = await service.hasSpotNamed(
-        spot.name,
-        groupId: target.groupId,
-        userId: user.uid,
-      );
-      if (dupe && context.mounted) {
-        final go = await showDialog<bool>(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                backgroundColor: DT.surface,
-                title: Text(
-                  'Already there?',
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: DT.text,
-                  ),
-                ),
-                content: Text(
-                  '${target.label} already has a spot called "${spot.name}". '
-                  'Add another copy anyway?',
-                  style: GoogleFonts.manrope(
-                    fontSize: 13.5,
-                    color: DT.textSecondary,
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Add copy'),
-                  ),
-                ],
-              ),
-        );
-        if (go != true) return;
-      }
-      final profile = ref.read(userProfileStreamProvider(user.uid)).valueOrNull;
-      await service.copySpot(
-        spot,
-        toGroupId: target.groupId,
-        byUserId: user.uid,
-        byName: profile?.name ?? user.displayName ?? '',
-      );
-      if (context.mounted) {
-        showSnackBar(context, 'Added to ${target.label}');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showSnackBar(context, 'Could not copy: $e', isError: true);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(authControllerProvider.notifier).currentUser?.uid;
-    final spotAsync = ref.watch(
-      makanSpotProvider((spotId: spotId, groupId: groupId)),
-    );
+    final spotAsync = ref.watch(makanSpotProvider(spotId));
     final spot = spotAsync.valueOrNull;
-
-    final group =
-        groupId == null
-            ? null
-            : ref.watch(groupStreamProvider(groupId!)).valueOrNull;
-    final groups =
-        userId == null
-            ? const <GroupModel>[]
-            : ref.watch(userGroupsStreamProvider(userId)).valueOrNull ??
-                const <GroupModel>[];
-    final admins =
-        userId == null
-            ? const <String>{}
-            : ref.watch(adminGroupIdsStreamProvider(userId)).valueOrNull ??
-                const <String>{};
 
     if (spot == null) {
       return Scaffold(
@@ -280,19 +117,9 @@ class MakanSpotDetailScreen extends ConsumerWidget {
       );
     }
 
-    // Group lists are shared work: anyone in the group edits, but only the
-    // person who added a spot (or a group admin) removes it. Mirrors the rules.
-    final canDelete =
-        !spot.isShared ||
-        spot.addedBy == userId ||
-        admins.contains(spot.groupId) ||
-        group?.createdBy == userId;
-
-    final copyTargets = <({String? groupId, String label})>[
-      if (spot.isShared) (groupId: null, label: 'My spots'),
-      for (final g in groups)
-        if (g.id != spot.groupId) (groupId: g.id, label: g.name),
-    ];
+    // The list is shared work: anyone edits, but only the person who added a
+    // spot removes it. Mirrors the rules.
+    final mine = spot.addedBy == userId;
 
     final now = DateTime.now();
     final status = statusAt(spot.hours, now);
@@ -317,7 +144,7 @@ class MakanSpotDetailScreen extends ConsumerWidget {
                           AppTheme.slideRoute(MakanSpotFormScreen(spot: spot)),
                         ),
                   ),
-                  if (canDelete) ...[
+                  if (mine) ...[
                     const SizedBox(width: 8),
                     TripIconButton(
                       icon: Icons.delete_outline_rounded,
@@ -359,10 +186,9 @@ class MakanSpotDetailScreen extends ConsumerWidget {
                               ],
                               const SizedBox(height: 6),
                               Text(
-                                spot.isShared
-                                    ? 'In ${group?.name ?? 'group'} · added by '
-                                        '${spot.addedByName.isEmpty ? 'a member' : spot.addedByName}'
-                                    : 'In your spots',
+                                mine
+                                    ? 'Added by you'
+                                    : 'Added by ${spot.addedByName.isEmpty ? 'family' : spot.addedByName}',
                                 style: GoogleFonts.manrope(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -409,17 +235,6 @@ class MakanSpotDetailScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  if (copyTargets.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _OutlineAction(
-                      icon:
-                          spot.isShared
-                              ? Icons.copy_rounded
-                              : Icons.group_add_outlined,
-                      label: spot.isShared ? 'Copy to…' : 'Share to a group',
-                      onTap: () => _copy(context, ref, spot, copyTargets),
-                    ),
-                  ],
                   const SizedBox(height: 20),
 
                   // ── Menu ────────────────────────────────────────
@@ -548,47 +363,6 @@ class _HoursRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _OutlineAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _OutlineAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          color: DT.surface,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: DT.borderStrong),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: DT.text),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: DT.text,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -4,9 +4,6 @@ library;
 import 'package:duitkita/models/makan_spot.dart';
 import 'package:duitkita/features/makan/makan_hours.dart';
 
-/// Which list a spot comes from: `mine` for personal, otherwise a group id.
-const makanSourceMine = '__mine__';
-
 class MakanQuery {
   /// A meal to plan for. Null means "open right now", unless [anyTime].
   final MealPeriod? meal;
@@ -14,14 +11,12 @@ class MakanQuery {
   /// Ignore opening hours entirely.
   final bool anyTime;
   final String? area;
-  final String? source;
   final String text;
 
   const MakanQuery({
     this.meal,
     this.anyTime = false,
     this.area,
-    this.source,
     this.text = '',
   });
 
@@ -65,10 +60,6 @@ MakanResult filterSpots(List<MakanSpot> spots, MakanQuery q, DateTime now) {
 
   for (final s in spots) {
     if (area != null && s.area.trim().toLowerCase() != area) continue;
-    if (q.source != null) {
-      final from = s.groupId ?? makanSourceMine;
-      if (from != q.source) continue;
-    }
 
     if (text.isNotEmpty) {
       final menu = s.menu.where((m) => m.toLowerCase().contains(text)).toList();
@@ -106,4 +97,27 @@ List<String> makanAreas(List<MakanSpot> spots) {
   }
   return seen.values.toList()
     ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
+/// Every dish on any spot's menu, case-insensitively distinct, the most
+/// common first — offered as one-tap picks so the same dish is not retyped.
+/// Keeps the first spelling seen.
+List<String> makanMenuItems(List<MakanSpot> spots) {
+  final spelling = <String, String>{};
+  final count = <String, int>{};
+  for (final s in spots) {
+    for (final m in s.menu) {
+      final item = m.trim();
+      if (item.isEmpty) continue;
+      final key = item.toLowerCase();
+      spelling.putIfAbsent(key, () => item);
+      count[key] = (count[key] ?? 0) + 1;
+    }
+  }
+  final keys =
+      spelling.keys.toList()..sort((a, b) {
+        final byCount = count[b]!.compareTo(count[a]!);
+        return byCount != 0 ? byCount : a.compareTo(b);
+      });
+  return [for (final k in keys) spelling[k]!];
 }

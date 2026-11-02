@@ -5,14 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run app (debug)
-flutter run
+# Run app (debug). secrets.json (git-ignored) holds {"PLACES_API_KEY": "..."}
+# for Makan's "Fill from Google Maps"; without the flag that button is hidden.
+flutter run --dart-define-from-file=secrets.json
 
 # Build release AAB — this is what Google Play accepts (not an APK)
-flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info
+flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=secrets.json
 
 # Build release APK (split per ABI, obfuscated) — sideloading / direct install only
-flutter build apk --release --split-per-abi --shrink --obfuscate --split-debug-info=build/debug-info
+flutter build apk --release --split-per-abi --shrink --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=secrets.json
 
 # Lint
 flutter analyze
@@ -45,7 +46,7 @@ Each domain has its own service class + Riverpod providers at the bottom of the 
 - `GroupService` — groups collection, subcollection `members`
 - `PaymentService` — payments subcollection under groups; handles auto-approve logic and `batchVerifyPayments`
 - `DebtService` — peer-to-peer debts (top-level `debts` collection)
-- `MakanService` — places to eat; personal spots in top-level `makan_spots`, group spots in `groups/{gid}/makan_spots` (split by path so rules can check membership). Hours logic is pure, in `lib/features/makan/makan_hours.dart`
+- `MakanService` — places to eat; one top-level `makan_spots` list shared by every signed-in user (the app is used by one family). Anyone adds/edits; only `addedBy` deletes. Hours logic is pure, in `lib/features/makan/makan_hours.dart`
 - `NotificationService` — FCM push + local notifications
 - `UpdateService` — in-app update checks
 

@@ -78,3 +78,6 @@ lib/config/api_config.dart
 
 # Claude Code
 .claude/
+
+# Build-time secrets (--dart-define-from-file)
+secrets.json

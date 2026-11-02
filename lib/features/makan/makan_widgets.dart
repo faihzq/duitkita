@@ -78,9 +78,6 @@ class MakanSpotCard extends StatelessWidget {
   final DateTime now;
   final VoidCallback onTap;
 
-  /// Shown as a small tag when the spot comes from a group's list.
-  final String? groupName;
-
   /// Menu items to call out, e.g. the ones matching a search.
   final List<String> highlight;
 
@@ -92,7 +89,6 @@ class MakanSpotCard extends StatelessWidget {
     required this.spot,
     required this.now,
     required this.onTap,
-    this.groupName,
     this.highlight = const [],
     this.distanceKm,
   });
@@ -135,26 +131,16 @@ class MakanSpotCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          spot.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.manrope(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: DT.text,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ),
-                      if (groupName != null) ...[
-                        const SizedBox(width: 8),
-                        _Tag(groupName!),
-                      ],
-                    ],
+                  Text(
+                    spot.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.manrope(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: DT.text,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -186,35 +172,6 @@ class MakanSpotCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String text;
-  const _Tag(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 110),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: DT.catGroupsSoft,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.manrope(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w800,
-            color: DT.catGroups,
-          ),
         ),
       ),
     );

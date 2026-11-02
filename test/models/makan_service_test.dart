@@ -27,65 +27,38 @@ void main() {
     service = MakanService(firestore: db);
   });
 
-  test('personal and group spots land in separate collections', () async {
+  test('spots land in the shared top-level list', () async {
     await service.addSpot(original);
-    await service.addSpot(original, groupId: 'g1');
-
-    expect((await db.collection('makan_spots').get()).docs, hasLength(1));
-    final group =
-        await db.collection('groups').doc('g1').collection('makan_spots').get();
-    expect(group.docs, hasLength(1));
+    final docs = (await db.collection('makan_spots').get()).docs;
+    expect(docs, hasLength(1));
+    expect(docs.single['addedBy'], 'uid-1');
   });
 
-  test('group stream tags spots with their group id', () async {
-    await service.addSpot(original, groupId: 'g1');
-    final spots = await service.streamGroup('g1').first;
-    expect(spots.single.groupId, 'g1');
-    expect(spots.single.hours[1], const [OpenSlot(7 * 60, 11 * 60)]);
-  });
-
-  test('personal stream only returns the user\'s own spots', () async {
+  test('every spot comes back, whoever added it', () async {
     await service.addSpot(original);
-    await db.collection('makan_spots').add({
-      ...original.toMap(),
-      'addedBy': 'someone-else',
-    });
-    final spots = await service.streamPersonal('uid-1').first;
-    expect(spots, hasLength(1));
-    expect(spots.single.groupId, isNull);
+    await service.addSpot(
+      MakanSpot.fromMap({
+        ...original.toMap(),
+        'name': 'Mamak Abu',
+        'addedBy': 'uid-2',
+      }, ''),
+    );
+    final spots = await service.streamAll().first;
+    expect(spots.map((s) => s.addedBy), unorderedEquals(['uid-1', 'uid-2']));
+    final mine = spots.firstWhere((s) => s.addedBy == 'uid-1');
+    expect(mine.hours[1], const [OpenSlot(7 * 60, 11 * 60)]);
   });
 
-  test('copySpot copies content but takes the copier as owner', () async {
-    await service.copySpot(
-      original,
-      toGroupId: 'g1',
-      byUserId: 'uid-2',
-      byName: 'Abu',
-    );
-    final copy = (await service.streamGroup('g1').first).single;
-    expect(copy.name, original.name);
-    expect(copy.menu, original.menu);
-    expect(copy.hours, original.hours);
-    expect(copy.mapQuery, original.mapQuery);
-    expect(copy.addedBy, 'uid-2');
-    expect(copy.addedByName, 'Abu');
-  });
+  test('update keeps who added it; delete removes it', () async {
+    final id = await service.addSpot(original);
+    final saved = await service.streamSpot(id).first;
+    await service.updateSpot(saved!.copyWith(name: 'Warung Mak Teh 2'));
+    final edited = await service.streamSpot(id).first;
+    expect(edited!.name, 'Warung Mak Teh 2');
+    expect(edited.addedBy, 'uid-1');
 
-  test('hasSpotNamed checks the right list', () async {
-    await service.addSpot(original, groupId: 'g1');
-
-    expect(
-      await service.hasSpotNamed('Warung Mak Teh', groupId: 'g1', userId: 'x'),
-      isTrue,
-    );
-    expect(
-      await service.hasSpotNamed('Warung Mak Teh', groupId: 'g2', userId: 'x'),
-      isFalse,
-    );
-    expect(
-      await service.hasSpotNamed('Warung Mak Teh', userId: 'uid-1'),
-      isFalse,
-    );
+    await service.deleteSpot(edited);
+    expect(await service.streamSpot(id).first, isNull);
   });
 
   test('rejects a spot without a name or area', () async {

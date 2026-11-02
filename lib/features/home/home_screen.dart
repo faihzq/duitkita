@@ -206,7 +206,7 @@ class HomeScreen extends ConsumerWidget {
                   // ── Where to eat ─────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(DS.xl, DS.xxl, DS.xl, 0),
-                    child: MakanHomeCard(userId: user.uid),
+                    child: const MakanHomeCard(),
                   ),
 
                   // ── Breakdown ────────────────────────────────────

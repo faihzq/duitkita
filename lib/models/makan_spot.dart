@@ -42,12 +42,10 @@ typedef WeeklyHours = Map<int, List<OpenSlot>>;
 
 /// A place to eat — a warung, mamak, kopitiam, restaurant.
 ///
-/// Lives either in the top-level `makan_spots` collection (personal, owned by
-/// [addedBy]) or in `groups/{groupId}/makan_spots` (shared with the group, any
-/// member may edit). [groupId] comes from the document path, not the data.
+/// Lives in the top-level `makan_spots` collection, one list shared by every
+/// signed-in user (the app is used by one family).
 class MakanSpot {
   final String id;
-  final String? groupId;
   final String name;
   final String area;
   final List<String> categories;
@@ -73,7 +71,6 @@ class MakanSpot {
 
   const MakanSpot({
     required this.id,
-    this.groupId,
     required this.name,
     required this.area,
     this.categories = const [],
@@ -90,8 +87,6 @@ class MakanSpot {
     required this.updatedAt,
   });
 
-  bool get isShared => groupId != null;
-
   bool get hasHours => hours.values.any((s) => s.isNotEmpty);
 
   /// [lat]/[lng] if stored, else coordinates parsed from [mapQuery] — spots
@@ -101,11 +96,7 @@ class MakanSpot {
     return parseLatLng(mapQuery);
   }
 
-  factory MakanSpot.fromMap(
-    Map<String, dynamic> data,
-    String id, {
-    String? groupId,
-  }) {
+  factory MakanSpot.fromMap(Map<String, dynamic> data, String id) {
     final hours = <int, List<OpenSlot>>{};
     final rawHours = data['hours'];
     if (rawHours is Map) {
@@ -122,7 +113,6 @@ class MakanSpot {
 
     return MakanSpot(
       id: id,
-      groupId: groupId,
       name: data['name'] ?? '',
       area: data['area'] ?? '',
       categories: List<String>.from(data['categories'] ?? const []),
@@ -176,7 +166,6 @@ class MakanSpot {
   }) {
     return MakanSpot(
       id: id,
-      groupId: groupId,
       name: name ?? this.name,
       area: area ?? this.area,
       categories: categories ?? this.categories,

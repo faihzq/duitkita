@@ -126,32 +126,79 @@ Future<ResolvedPlace?> resolveMapLink(String url, {http.Client? client}) async {
   final owned = client == null;
   final http.Client c = client ?? http.Client();
   try {
+    // A request on a weak connection can hang with no error at all, and a
+    // save waiting on this would spin forever.
+    return await _expandShortLink(uri, c).timeout(resolveTimeout);
+  } catch (_) {
+    // Offline, blocked or too slow — the raw link still works for opening.
+    return null;
+  } finally {
+    if (owned) c.close();
+  }
+}
+
+/// How long [resolveMapLink] may spend expanding a short link, all hops in.
+const resolveTimeout = Duration(seconds: 8);
+
+/// The full Maps URL behind [url]: short links are followed to where they
+/// land, anything else comes back as-is. Unlike [resolveMapLink] this keeps
+/// the whole URL, so the caller can read both the name and the coordinates.
+/// Null when a short link cannot be followed.
+Future<String?> expandMapLink(String url, {http.Client? client}) async {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null) return null;
+  if (!_isShortLink(uri)) return url.trim();
+
+  final owned = client == null;
+  final http.Client c = client ?? http.Client();
+  Future<String?> follow() async {
     var target = uri;
-    String? name;
-    // Short links can bounce more than once before landing on the real URL.
+    var moved = false;
     for (var hop = 0; hop < 5; hop++) {
       final request = http.Request('GET', target)..followRedirects = false;
       final response = await c.send(request);
       final location = response.headers['location'];
       if (location == null || location.isEmpty) break;
-
       target = Uri.parse(
         location.startsWith('http')
             ? location
             : target.resolve(location).toString(),
       );
-      final expanded = target.toString();
-
-      // Coordinates win outright; a name is held in case none turn up.
-      final found = latLngFromMapUrl(expanded);
-      if (found != null) return ResolvedPlace(found, isCoordinates: true);
-      name ??= placeNameFromMapUrl(expanded);
+      moved = true;
     }
-    if (name != null) return ResolvedPlace(name, isCoordinates: false);
+    return moved ? target.toString() : null;
+  }
+
+  try {
+    return await follow().timeout(resolveTimeout);
   } catch (_) {
-    // Offline or blocked — the raw link still works for opening.
+    return null;
   } finally {
     if (owned) c.close();
   }
-  return null;
+}
+
+Future<ResolvedPlace?> _expandShortLink(Uri uri, http.Client c) async {
+  var target = uri;
+  String? name;
+  // Short links can bounce more than once before landing on the real URL.
+  for (var hop = 0; hop < 5; hop++) {
+    final request = http.Request('GET', target)..followRedirects = false;
+    final response = await c.send(request);
+    final location = response.headers['location'];
+    if (location == null || location.isEmpty) break;
+
+    target = Uri.parse(
+      location.startsWith('http')
+          ? location
+          : target.resolve(location).toString(),
+    );
+    final expanded = target.toString();
+
+    // Coordinates win outright; a name is held in case none turn up.
+    final found = latLngFromMapUrl(expanded);
+    if (found != null) return ResolvedPlace(found, isCoordinates: true);
+    name ??= placeNameFromMapUrl(expanded);
+  }
+  return name == null ? null : ResolvedPlace(name, isCoordinates: false);
 }

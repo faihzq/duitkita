@@ -20,8 +20,7 @@ import 'package:duitkita/features/makan/makan_widgets.dart';
 /// its own clock; otherwise a card built at breakfast still says "nothing
 /// open" at lunch.
 class MakanHomeCard extends ConsumerStatefulWidget {
-  final String userId;
-  const MakanHomeCard({super.key, required this.userId});
+  const MakanHomeCard({super.key});
 
   @override
   ConsumerState<MakanHomeCard> createState() => _MakanHomeCardState();
@@ -50,8 +49,7 @@ class _MakanHomeCardState extends ConsumerState<MakanHomeCard> {
   @override
   Widget build(BuildContext context) {
     final spots =
-        ref.watch(allMakanSpotsProvider(widget.userId)).valueOrNull ??
-        const <MakanSpot>[];
+        ref.watch(makanSpotsProvider).valueOrNull ?? const <MakanSpot>[];
     final now = DateTime.now();
     final meal = mealPeriodFor(now);
     final open = filterSpots(spots, const MakanQuery(), now).available;
@@ -131,9 +129,7 @@ class _MakanHomeCardState extends ConsumerState<MakanHomeCard> {
                 now: now,
                 onTap:
                     () => Navigator.of(context).push(
-                      AppTheme.slideRoute(
-                        MakanSpotDetailScreen(spotId: s.id, groupId: s.groupId),
-                      ),
+                      AppTheme.slideRoute(MakanSpotDetailScreen(spotId: s.id)),
                     ),
               ),
             ],

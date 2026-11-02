@@ -12,13 +12,11 @@ MakanSpot spot(
   String id,
   String name, {
   String area = 'Bangi',
-  String? groupId,
   List<String> menu = const [],
   List<String> categories = const [],
   List<OpenSlot> slots = const [],
 }) => MakanSpot(
   id: id,
-  groupId: groupId,
   name: name,
   area: area,
   menu: menu,
@@ -52,7 +50,6 @@ void main() {
       'c',
       'Gerai Malam',
       area: 'Kajang',
-      groupId: 'g1',
       slots: const [OpenSlot(18 * 60, 2 * 60)],
     ),
     spot('d', 'No Hours Cafe'),
@@ -88,21 +85,6 @@ void main() {
     expect(r.available.map((s) => s.id), ['c', 'b']);
   });
 
-  test('source separates personal and group lists', () {
-    final mine = filterSpots(
-      spots,
-      const MakanQuery(anyTime: true, source: makanSourceMine),
-      at(1, 8),
-    );
-    expect(mine.available.map((s) => s.id), isNot(contains('c')));
-    final group = filterSpots(
-      spots,
-      const MakanQuery(anyTime: true, source: 'g1'),
-      at(1, 8),
-    );
-    expect(group.available.map((s) => s.id), ['c']);
-  });
-
   test('text search hits menu, name and category, and reports menu hits', () {
     final r = filterSpots(
       spots,
@@ -136,6 +118,15 @@ void main() {
     });
   });
 
+  test('makanMenuItems: distinct dishes, most common first', () {
+    final items = makanMenuItems([
+      spot('x', 'X', menu: const ['Roti Canai', 'Teh Tarik']),
+      spot('y', 'Y', menu: const ['roti canai', ' ', 'Nasi Lemak']),
+      spot('z', 'Z', menu: const ['Nasi Lemak', 'ROTI CANAI']),
+    ]);
+    expect(items, ['Roti Canai', 'Nasi Lemak', 'Teh Tarik']);
+  });
+
   test('makanAreas dedupes case-insensitively and sorts', () {
     expect(makanAreas(spots), ['Bangi', 'kajang']);
   });
@@ -145,9 +136,8 @@ void main() {
       final original = spots[2];
       final map = original.toMap();
       expect((map['hours'] as Map).keys, everyElement(isA<String>()));
-      final back = MakanSpot.fromMap(map, 'c', groupId: 'g1');
+      final back = MakanSpot.fromMap(map, 'c');
       expect(back.hours[3], const [OpenSlot(18 * 60, 2 * 60)]);
-      expect(back.groupId, 'g1');
       expect(back.createdAt, isA<DateTime>());
       expect(map['createdAt'], isA<Timestamp>());
     });
