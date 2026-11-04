@@ -39,6 +39,12 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
     // Pre-fetch payment statuses for all groups (drives filter + badge)
     final statusMap = <String, String>{};
     for (final g in allGroups) {
+      // A settled group reached its goal and closed: nothing is owed, so it
+      // has no status for the month (same as Home's breakdown).
+      if (g.isSettled) {
+        statusMap[g.id] = 'settled';
+        continue;
+      }
       statusMap[g.id] =
           ref
               .watch(
@@ -73,7 +79,8 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             case _Filter.pending:
               return statusMap[g.id] == 'pending';
             case _Filter.settled:
-              return statusMap[g.id] == 'confirmed';
+              final s = statusMap[g.id];
+              return s == 'confirmed' || s == 'settled';
           }
         }).toList();
 
@@ -309,7 +316,8 @@ class _GroupCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isMonthly = (group.monthlyAmount as double) > 0;
+    final settled = status == 'settled';
+    final isMonthly = (group.monthlyAmount as double) > 0 && !settled;
     final tileColor = _tileColors[colorIndex % _tileColors.length];
     final tileSoft = _tileSoftColors[colorIndex % _tileSoftColors.length];
 
@@ -419,7 +427,22 @@ class _GroupCard extends ConsumerWidget {
 
                   const SizedBox(height: 10),
 
-                  if (isMonthly) ...[
+                  if (settled)
+                    Row(
+                      children: [
+                        const _StatusPill(status: 'settled'),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$memberCount members',
+                          style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            color: DT.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (isMonthly) ...[
                     // X/Y paid + amount/mo
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -529,6 +552,7 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final (bg, fg, label) = switch (status) {
       'confirmed' => (DT.successSoft, DT.success, 'Paid'),
+      'settled' => (DT.successSoft, DT.success, 'Goal reached'),
       'pending' => (DT.warningSoft, DT.warning, 'Pending'),
       'rejected' => (DT.dangerSoft, DT.danger, 'Rejected'),
       _ => (DT.surfaceAlt, DT.textTertiary, 'Not paid'),

@@ -27,8 +27,9 @@ class AuthResponse {
   final AuthError? error;
   final String? errorMessage;
 
-  /// True when the user backed out of a provider flow (e.g. dismissed the
-  /// Google account picker). Not a failure — callers should stay silent.
+  /// True when a provider flow ended without signing in (e.g. the Google
+  /// account picker was dismissed). Callers stay silent unless [errorMessage]
+  /// says the user was not the one who stopped it.
   final bool cancelled;
 
   AuthResponse({
@@ -175,14 +176,17 @@ class AuthService {
   static const String _googleServerClientId =
       '375006835997-ki27o4s8d56mue8aiar34s77m8e74hhv.apps.googleusercontent.com';
 
-  bool _googleInitialized = false;
+  static Future<void>? _googleInit;
 
-  Future<void> _ensureGoogleInitialized() async {
-    if (_googleInitialized) return;
-    await GoogleSignIn.instance.initialize(
-      serverClientId: _googleServerClientId,
-    );
-    _googleInitialized = true;
+  /// The plugin must be initialized once per process, with the server client
+  /// ID, whoever gets there first. A failed attempt can be retried.
+  static Future<void> ensureGoogleInitialized() {
+    return _googleInit ??= GoogleSignIn.instance
+        .initialize(serverClientId: _googleServerClientId)
+        .catchError((Object e) {
+          _googleInit = null;
+          throw e;
+        });
   }
 
   /// Signs in with Google and exchanges the ID token for a Firebase session.
@@ -190,7 +194,7 @@ class AuthService {
   /// account; existing profiles are left untouched so local edits survive.
   Future<AuthResponse> signInWithGoogle() async {
     try {
-      await _ensureGoogleInitialized();
+      await ensureGoogleInitialized();
 
       if (!GoogleSignIn.instance.supportsAuthenticate()) {
         return AuthResponse(
@@ -233,7 +237,17 @@ class AuthService {
       return AuthResponse(user: user);
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        return AuthResponse(cancelled: true);
+        // Android reports some real failures as "canceled" too, so anything
+        // other than the user backing out keeps its reason for the screen.
+        final detail = e.description;
+        final backedOut =
+            detail == null ||
+            detail.toLowerCase().contains('cancelled by the user');
+        debugPrint('Google sign-in canceled: $detail');
+        return AuthResponse(
+          cancelled: true,
+          errorMessage: backedOut ? null : 'Google sign-in failed: $detail',
+        );
       }
       return AuthResponse(
         error: AuthError.undefined,
@@ -281,7 +295,7 @@ class AuthService {
     // Also clear the Google session so the account picker reappears next time.
     // Best-effort: fails harmlessly if Google sign-in was never initialized.
     try {
-      await _ensureGoogleInitialized();
+      await ensureGoogleInitialized();
       await GoogleSignIn.instance.signOut();
     } catch (_) {
       /* not signed in with Google, or plugin unavailable */

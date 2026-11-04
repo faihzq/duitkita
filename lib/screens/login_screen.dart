@@ -76,7 +76,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _isGoogleLoading = false);
     // Dismissing the account picker isn't an error — stay quiet.
-    if (!response.isSuccess && !response.cancelled) {
+    if (!response.isSuccess &&
+        (!response.cancelled || response.errorMessage != null)) {
       showSnackBar(
         context,
         response.errorMessage ?? getAuthErrorMessage(response.error),

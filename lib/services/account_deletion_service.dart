@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:duitkita/services/auth_service.dart';
 
 /// Deletes an account and the data belonging to it.
 ///
@@ -49,7 +50,7 @@ class AccountDeletionService {
 
     try {
       if (signInMethod == 'google.com') {
-        await GoogleSignIn.instance.initialize();
+        await AuthService.ensureGoogleInitialized();
         final account = await GoogleSignIn.instance.authenticate();
         final idToken = account.authentication.idToken;
         if (idToken == null) {

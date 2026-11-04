@@ -140,7 +140,11 @@ class NotificationService {
     messaging.onTokenRefresh.listen((token) => _saveFcmToken(token: token));
   }
 
-  /// Save FCM token to Firestore for the current user
+  /// Registers this device on the current user, alongside their other devices.
+  ///
+  /// `fcmTokens` holds one token per device. A single token meant whichever
+  /// device opened the app last took every notification from the others.
+  /// `fcmToken` is still written for Cloud Functions older than this field.
   static Future<void> _saveFcmToken({String? token}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -151,6 +155,7 @@ class NotificationService {
 
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'fcmToken': token,
+        'fcmTokens': FieldValue.arrayUnion([token]),
       }, SetOptions(merge: true));
 
       debugPrint('FCM token saved for user ${user.uid}');
@@ -169,10 +174,25 @@ class NotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    // Bounded: both calls wait on the network, and sign-out waits on this. The
+    // write is queued locally either way and lands once the phone is back.
+    const limit = Duration(seconds: 4);
+    String? token;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'fcmToken': FieldValue.delete(),
-      }, SetOptions(merge: true));
+      token = await FirebaseMessaging.instance.getToken().timeout(limit);
+    } catch (e) {
+      debugPrint('Could not read this device token: $e');
+    }
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+            'fcmToken': FieldValue.delete(),
+            // Only this device: the account's other devices stay signed in.
+            if (token != null) 'fcmTokens': FieldValue.arrayRemove([token]),
+          }, SetOptions(merge: true))
+          .timeout(limit);
     } catch (e) {
       debugPrint('Error clearing FCM token: $e');
     }

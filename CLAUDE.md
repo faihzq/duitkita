@@ -47,7 +47,7 @@ Each domain has its own service class + Riverpod providers at the bottom of the 
 - `PaymentService` — payments subcollection under groups; handles auto-approve logic and `batchVerifyPayments`
 - `DebtService` — peer-to-peer debts (top-level `debts` collection)
 - `MakanService` — places to eat; one top-level `makan_spots` list shared by every signed-in user (the app is used by one family). Anyone adds/edits; only `addedBy` deletes. Hours logic is pure, in `lib/features/makan/makan_hours.dart`
-- `NotificationService` — FCM push + local notifications
+- `NotificationService` — FCM push + local notifications. Devices are registered per user in `users/{uid}.fcmTokens`; the legacy `fcmToken` field is still written and read for older versions
 - `UpdateService` — in-app update checks
 
 ### Firestore Structure

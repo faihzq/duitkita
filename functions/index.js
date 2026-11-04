@@ -3,7 +3,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getStorage } = require("firebase-admin/storage");
 const crypto = require("crypto");
@@ -191,39 +191,81 @@ exports.onExpenseSubmitted = onDocumentCreated(
 );
 
 /**
- * Helper: send FCM to a user, clean up invalid tokens.
+ * Every device registered on a user document. `fcmTokens` holds one token per
+ * device; `fcmToken` is what older app versions still write.
+ */
+function tokensOf(userData) {
+  const tokens = Array.isArray(userData?.fcmTokens) ? userData.fcmTokens : [];
+  return [...new Set([...tokens, userData?.fcmToken])].filter(
+    (t) => typeof t === "string" && t.length > 0
+  );
+}
+
+const DEAD_TOKEN_CODES = new Set([
+  "messaging/invalid-registration-token",
+  "messaging/registration-token-not-registered",
+]);
+
+/**
+ * Helper: send FCM to all of a user's devices, clean up dead tokens.
+ *
+ * Returns how it went. `accepted` means FCM took the message, not that a phone
+ * showed it: FCM reports no delivery here.
  */
 async function sendNotification(userId, message) {
+  const outcome = { accepted: 0, failed: 0, noToken: false };
   const userDoc = await db.collection("users").doc(userId).get();
-  if (!userDoc.exists) return;
+  const userData = userDoc.exists ? userDoc.data() : null;
+  const tokens = tokensOf(userData);
+  if (tokens.length === 0) {
+    outcome.noToken = true;
+    return outcome;
+  }
 
-  const fcmToken = userDoc.data().fcmToken;
-  if (!fcmToken) return;
+  const base = {
+    ...message,
+    android: {
+      priority: "high",
+      // Caller extras (ttl, collapseKey) survive; notification is merged below.
+      ...(message.android || {}),
+      notification: {
+        channelId: "push_notifications",
+        icon: "@mipmap/ic_launcher",
+        ...(message.android?.notification || {}),
+      },
+    },
+  };
 
   try {
-    await getMessaging().send({
-      token: fcmToken,
-      ...message,
-      android: {
-        priority: "high",
-        // Caller extras (ttl, collapseKey) survive; notification is merged below.
-        ...(message.android || {}),
-        notification: {
-          channelId: "push_notifications",
-          icon: "@mipmap/ic_launcher",
-          ...(message.android?.notification || {}),
-        },
-      },
+    const result = await getMessaging().sendEach(
+      tokens.map((token) => ({ ...base, token }))
+    );
+    const dead = [];
+    result.responses.forEach((response, i) => {
+      if (response.success) {
+        outcome.accepted++;
+        return;
+      }
+      outcome.failed++;
+      console.error(`Error sending notification to ${userId}:`, response.error);
+      if (DEAD_TOKEN_CODES.has(response.error?.code)) dead.push(tokens[i]);
     });
-  } catch (error) {
-    console.error(`Error sending notification to ${userId}:`, error);
-    if (
-      error.code === "messaging/invalid-registration-token" ||
-      error.code === "messaging/registration-token-not-registered"
-    ) {
-      await db.collection("users").doc(userId).update({ fcmToken: null });
+    if (dead.length > 0) {
+      await db
+        .collection("users")
+        .doc(userId)
+        .update({
+          fcmTokens: FieldValue.arrayRemove(...dead),
+          ...(dead.includes(userData.fcmToken)
+            ? { fcmToken: FieldValue.delete() }
+            : {}),
+        });
     }
+  } catch (error) {
+    outcome.failed += tokens.length;
+    console.error(`Error sending notification to ${userId}:`, error);
   }
+  return outcome;
 }
 
 /**
@@ -794,21 +836,30 @@ function malaysianTime(date) {
   }).format(date);
 }
 
+// Minutes before kick-off in which the hourly run sends the kick-off reminder.
+// An hour wide, so every fixture lands in it once. Not 60-120: runs start
+// seconds after the hour, so a 6:00 PM fixture is 119.9 minutes away at 4:00
+// and would be reminded two hours early.
+const KICKOFF_WINDOW = { from: 45, to: 105 };
+
 /**
- * Which reminder, if any, this run should send.
- *
- * The job wakes on the hour, so "an hour before kick-off" has to be a window
- * rather than a moment: 60–120 minutes catches every fixture exactly once
- * however its kick-off minutes fall. Kick-off wins over match-day so a 10am
- * fixture does not fire both at once.
+ * Which reminder, if any, this run should send. Match-day only goes out while
+ * kick-off is still beyond the window, so it never follows the kick-off
+ * reminder or fires alongside it.
  */
 function reminderKind(now, kickoff) {
   const minutesAway = (kickoff.getTime() - now.getTime()) / 60000;
-  if (minutesAway >= 60 && minutesAway < 120) return "kickoff";
+  if (minutesAway >= KICKOFF_WINDOW.from && minutesAway < KICKOFF_WINDOW.to) {
+    return "kickoff";
+  }
 
   const here = malaysianParts(now);
   const there = malaysianParts(kickoff);
-  if (here.hour === 9 && here.day === there.day && minutesAway > 0) {
+  if (
+    here.hour === 9 &&
+    here.day === there.day &&
+    minutesAway >= KICKOFF_WINDOW.to
+  ) {
     return "matchday";
   }
   return null;
@@ -834,11 +885,10 @@ function reminderMessage(event, kickoff, kind, team) {
   const details = [event.strLeague, event.strVenue].filter(Boolean).join(" · ");
 
   if (kind === "kickoff") {
+    // The reminder lands 45-105 minutes ahead, so name the time, not a countdown.
     return {
-      title: `⏱️ ${team.label} kick off in 1 hour`,
-      body: [`${fixture} at ${time}`, event.strLeague]
-        .filter(Boolean)
-        .join(" · "),
+      title: `⏱️ ${team.label} kick off soon · ${time}`,
+      body: [fixture, details].filter(Boolean).join(" · "),
     };
   }
   return {
@@ -1026,8 +1076,9 @@ async function remindForTeam(team, recipients) {
   // run is late and kick-off is very close.
   const ttl = Math.max(kickoff.getTime() - Date.now(), 60 * 1000);
 
+  const totals = { accepted: 0, failed: 0, noToken: 0 };
   for (const userDoc of recipients.docs) {
-    await sendNotification(userDoc.id, {
+    const outcome = await sendNotification(userDoc.id, {
       notification: { ...message, ...(image ? { imageUrl: image } : {}) },
       android: {
         ttl,
@@ -1053,13 +1104,17 @@ async function remindForTeam(team, recipients) {
         kind,
       },
     });
+    totals.accepted += outcome.accepted;
+    totals.failed += outcome.failed;
+    if (outcome.noToken) totals.noToken++;
   }
 
   console.log(
-    `Sent ${team.label} ${kind} reminder for event ${event.idEvent} ` +
-      `to ${recipients.size} users`
+    `${team.label} ${kind} reminder for event ${event.idEvent}: ` +
+      `${recipients.size} users, ${totals.accepted} devices accepted by FCM, ` +
+      `${totals.failed} failed, ${totals.noToken} users without a device`
   );
 }
 
 // Exported for local checks of the timing rules, which are the fiddly part.
-exports._jdtInternals = { reminderKind, reminderMessage, drawCrests };
+exports._jdtInternals = { reminderKind, reminderMessage, drawCrests, tokensOf };

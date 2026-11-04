@@ -350,9 +350,9 @@ class _HelpButton extends StatelessWidget {
 
 // ─── Notification bell ────────────────────────────────────────────────────────
 
-/// "Selamat pagi / petang / malam". Home sits in an IndexedStack and is rarely
-/// rebuilt, so the greeting keeps its own clock instead of saying "pagi" all
-/// day.
+/// "Good morning / afternoon / evening". Home sits in an IndexedStack and is rarely
+/// rebuilt, so the greeting keeps its own clock instead of saying "morning"
+/// all day.
 class _Greeting extends StatefulWidget {
   const _Greeting();
 
@@ -378,9 +378,9 @@ class _GreetingState extends State<_Greeting> {
   }
 
   static String greetingAt(int hour) {
-    if (hour >= 5 && hour < 12) return 'Selamat pagi,';
-    if (hour >= 12 && hour < 18) return 'Selamat petang,';
-    return 'Selamat malam,';
+    if (hour >= 5 && hour < 12) return 'Good morning,';
+    if (hour >= 12 && hour < 18) return 'Good afternoon,';
+    return 'Good evening,';
   }
 
   @override

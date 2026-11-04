@@ -82,6 +82,22 @@
           }
         },
         {
+          "client_id": "375006835997-gnuhcril7fice85nta15jh5a3prrsn27.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "my.duitkita.app",
+            "certificate_hash": "1e097d7778886a960b19a94b4042f713dc62628a"
+          }
+        },
+        {
+          "client_id": "375006835997-hmu1a4qqqg0ssi5ivbhfufulf0sih6j4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "my.duitkita.app",
+            "certificate_hash": "ed1006e120c8ab10a76fbec622f596fdcd64ed72"
+          }
+        },
+        {
           "client_id": "375006835997-mm7bvlqjvn72psk2qtbhf0t6o9k2cn7v.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

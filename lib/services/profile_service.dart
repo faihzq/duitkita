@@ -14,7 +14,10 @@ class UsernameTakenException implements Exception {
 }
 
 class ProfileService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  ProfileService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
 
   // Collection reference
   CollectionReference get _users => _firestore.collection('users');
@@ -76,28 +79,37 @@ class ProfileService {
   /// check-then-claim atomic against two people racing for the same handle.
   ///
   /// Throws [UsernameTakenException] when someone else holds it.
-  Future<void> setUsername({
+  ///
+  /// With [onlyIfUnset] an account that already has a handle keeps it, checked
+  /// inside the transaction: automatic assignment decides from a read that can
+  /// be stale (cached, or another device just picked one), and must never
+  /// replace a real handle. Returns the handle the account ends up with.
+  Future<String> setUsername({
     required String uid,
     required String username,
+    bool onlyIfUnset = false,
   }) async {
     final handle = normaliseUsername(username);
     final problem = usernameError(handle);
     if (problem != null) throw ArgumentError(problem);
 
-    await _firestore.runTransaction((tx) async {
+    return _firestore.runTransaction<String>((tx) async {
       final claimRef = _usernames.doc(handle);
 
       // Every read must precede every write inside a transaction.
       final claim = await tx.get(claimRef);
       final profile = await tx.get(_users.doc(uid));
 
+      final current =
+          (profile.data() as Map<String, dynamic>?)?['username'] as String?;
+      if (onlyIfUnset && current != null && current.isNotEmpty) return current;
+
       if (claim.exists) {
         final owner = (claim.data() as Map<String, dynamic>?)?['uid'];
         if (owner != uid) throw const UsernameTakenException();
       }
 
-      final previous =
-          (profile.data() as Map<String, dynamic>?)?['username'] as String?;
+      final previous = current;
 
       // Read the old reservation before deciding to release it. Issuing a
       // delete blind fails the rules when the document is missing: `resource`
@@ -115,6 +127,7 @@ class ProfileService {
         'username': handle,
         'updatedAt': DateTime.now(),
       });
+      return handle;
     });
   }
 
@@ -155,20 +168,24 @@ class ProfileService {
   Future<String?> ensureUsername(String uid) async {
     try {
       final profile = await getUserProfile(uid);
-      final existing = profile?.username;
+      if (profile == null) return null; // Nothing to put a handle on yet.
+      final existing = profile.username;
       if (existing != null && existing.isNotEmpty) return existing;
 
       final base = suggestUsername(
-        name: profile?.name,
-        email: profile?.email,
+        name: profile.name,
+        email: profile.email,
         uid: uid,
       );
 
       for (var attempt = 1; attempt <= 10; attempt++) {
         final candidate = usernameAttempt(base, attempt);
         try {
-          await setUsername(uid: uid, username: candidate);
-          return candidate;
+          return await setUsername(
+            uid: uid,
+            username: candidate,
+            onlyIfUnset: true,
+          );
         } on UsernameTakenException {
           continue; // Someone has it; try the next number.
         }
@@ -196,20 +213,29 @@ class ProfileService {
     }
   }
 
-  // Create a new user profile
+  // Create a new user profile. Merged, with empty fields left out, because it
+  // runs in the background after sign-in and can land after the username and
+  // device tokens were written. A plain set() would erase them.
   Future<void> createUserProfile(UserProfile profile) async {
     try {
-      await _users.doc(profile.uid).set(profile.toMap());
+      await _users
+          .doc(profile.uid)
+          .set(
+            profile.toMap()..removeWhere((_, value) => value == null),
+            SetOptions(merge: true),
+          );
     } catch (e) {
       // Add error handling
       throw Exception('Failed to create profile: $e');
     }
   }
 
-  // Update user profile
+  // Update user profile. Never writes the username: only [setUsername] may,
+  // alongside its reservation. Callers hold a snapshot that can be out of date,
+  // and writing its handle back would revert or blank the real one.
   Future<void> updateUserProfile(UserProfile profile) async {
     try {
-      await _users.doc(profile.uid).update(profile.toMap());
+      await _users.doc(profile.uid).update(profile.toMap()..remove('username'));
     } catch (e) {
       throw Exception('Failed to update profile: $e');
     }

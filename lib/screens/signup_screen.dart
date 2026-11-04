@@ -112,7 +112,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _isGoogleLoading = false);
     if (response.isSuccess) {
       nav.pop(); // AuthWrapper routes to home
-    } else if (!response.cancelled) {
+    } else if (!response.cancelled || response.errorMessage != null) {
       // Dismissing the account picker isn't an error — stay quiet.
       showSnackBar(
         context,

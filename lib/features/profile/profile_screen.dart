@@ -374,19 +374,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                               username: wanted,
                                             );
                                       }
-                                      // Carry the new handle through: copyWith
-                                      // would otherwise keep the old one, and
-                                      // toMap() writes username — reverting
-                                      // the claim we just made and leaving the
-                                      // profile disagreeing with the
-                                      // reservation.
                                       final updated = profile.copyWith(
                                         name: nameCtrl.text.trim(),
                                         phoneNumber: phoneCtrl.text.trim(),
-                                        username:
-                                            wanted.isEmpty
-                                                ? profile.username
-                                                : wanted,
                                       );
                                       await ref
                                           .read(profileServiceProvider)
